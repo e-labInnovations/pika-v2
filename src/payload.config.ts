@@ -4,9 +4,8 @@ import path from 'path'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
-
-import { Users } from './collections/Users'
-import { Media } from './collections/Media'
+import { collections, Users } from './collections'
+import { onInit } from './seed/init'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -14,11 +13,12 @@ const dirname = path.dirname(filename)
 export default buildConfig({
   admin: {
     user: Users.slug,
+    autoRefresh: true,
     importMap: {
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media],
+  collections: collections,
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
@@ -30,5 +30,6 @@ export default buildConfig({
     },
   }),
   sharp,
+  // onInit: onInit,
   plugins: [],
 })

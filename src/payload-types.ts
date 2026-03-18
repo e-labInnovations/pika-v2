@@ -69,6 +69,13 @@ export interface Config {
   collections: {
     users: User;
     media: Media;
+    accounts: Account;
+    people: Person;
+    categories: Category;
+    tags: Tag;
+    transactions: Transaction;
+    reminders: Reminder;
+    'user-settings': UserSetting;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -78,18 +85,28 @@ export interface Config {
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    accounts: AccountsSelect<false> | AccountsSelect<true>;
+    people: PeopleSelect<false> | PeopleSelect<true>;
+    categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    tags: TagsSelect<false> | TagsSelect<true>;
+    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
+    reminders: RemindersSelect<false> | RemindersSelect<true>;
+    'user-settings': UserSettingsSelect<false> | UserSettingsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
   };
   db: {
-    defaultIDType: string;
+    defaultIDType: number;
   };
   fallbackLocale: null;
   globals: {};
   globalsSelect: {};
   locale: null;
+  widgets: {
+    collections: CollectionsWidget;
+  };
   user: User;
   jobs: {
     tasks: unknown;
@@ -119,7 +136,9 @@ export interface UserAuthOperations {
  * via the `definition` "users".
  */
 export interface User {
-  id: string;
+  id: number;
+  name?: string | null;
+  avatar?: (number | null) | Media;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -144,8 +163,11 @@ export interface User {
  * via the `definition` "media".
  */
 export interface Media {
-  id: string;
-  alt: string;
+  id: number;
+  alt?: string | null;
+  type?: ('avatar' | 'attachment' | 'other') | null;
+  entityType?: ('person' | 'account' | 'transaction' | 'other') | null;
+  user: number | User;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -160,10 +182,158 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "accounts".
+ */
+export interface Account {
+  id: number;
+  user: number | User;
+  name: string;
+  icon?: string | null;
+  bgColor?: string | null;
+  color?: string | null;
+  avatar?: (number | null) | Media;
+  description?: string | null;
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "people".
+ */
+export interface Person {
+  id: number;
+  user: number | User;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  avatar?: (number | null) | Media;
+  description?: string | null;
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories".
+ */
+export interface Category {
+  id: number;
+  user: number | User;
+  name: string;
+  type: 'income' | 'expense' | 'transfer';
+  parent?: (number | null) | Category;
+  icon?: string | null;
+  color?: string | null;
+  bgColor?: string | null;
+  description?: string | null;
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tags".
+ */
+export interface Tag {
+  id: number;
+  user: number | User;
+  name: string;
+  icon?: string | null;
+  color?: string | null;
+  bgColor?: string | null;
+  description?: string | null;
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions".
+ */
+export interface Transaction {
+  id: number;
+  user: number | User;
+  title: string;
+  amount: string;
+  date: string;
+  type: 'income' | 'expense' | 'transfer';
+  category?: (number | null) | Category;
+  account: number | Account;
+  /**
+   * Destination account for transfers
+   */
+  toAccount?: (number | null) | Account;
+  person?: (number | null) | Person;
+  tags?: (number | Tag)[] | null;
+  attachments?: (number | Media)[] | null;
+  note?: string | null;
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "reminders".
+ */
+export interface Reminder {
+  id: number;
+  user: number | User;
+  title: string;
+  amount?: string | null;
+  type?: ('income' | 'expense' | 'transfer') | null;
+  category?: (number | null) | Category;
+  account?: (number | null) | Account;
+  member?: (number | null) | Person;
+  date?: string | null;
+  isRecurring?: boolean | null;
+  /**
+   * How many units between recurrences
+   */
+  recurrencePeriod?: number | null;
+  recurrenceType?: ('daily' | 'weekly' | 'monthly' | 'yearly') | null;
+  lastTriggeredAt?: string | null;
+  nextDueDate?: string | null;
+  tags?: (number | Tag)[] | null;
+  completedDates?:
+    | {
+        date: string;
+        id?: string | null;
+      }[]
+    | null;
+  archived?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "user-settings".
+ */
+export interface UserSetting {
+  id: number;
+  user: number | User;
+  currency?: string | null;
+  locale?: string | null;
+  theme?: ('light' | 'dark' | 'system') | null;
+  defaultAccount?: (number | null) | Account;
+  settings?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
-  id: string;
+  id: number;
   key: string;
   data:
     | {
@@ -180,20 +350,48 @@ export interface PayloadKv {
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
-  id: string;
+  id: number;
   document?:
     | ({
         relationTo: 'users';
-        value: string | User;
+        value: number | User;
       } | null)
     | ({
         relationTo: 'media';
-        value: string | Media;
+        value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'accounts';
+        value: number | Account;
+      } | null)
+    | ({
+        relationTo: 'people';
+        value: number | Person;
+      } | null)
+    | ({
+        relationTo: 'categories';
+        value: number | Category;
+      } | null)
+    | ({
+        relationTo: 'tags';
+        value: number | Tag;
+      } | null)
+    | ({
+        relationTo: 'transactions';
+        value: number | Transaction;
+      } | null)
+    | ({
+        relationTo: 'reminders';
+        value: number | Reminder;
+      } | null)
+    | ({
+        relationTo: 'user-settings';
+        value: number | UserSetting;
       } | null);
   globalSlug?: string | null;
   user: {
     relationTo: 'users';
-    value: string | User;
+    value: number | User;
   };
   updatedAt: string;
   createdAt: string;
@@ -203,10 +401,10 @@ export interface PayloadLockedDocument {
  * via the `definition` "payload-preferences".
  */
 export interface PayloadPreference {
-  id: string;
+  id: number;
   user: {
     relationTo: 'users';
-    value: string | User;
+    value: number | User;
   };
   key?: string | null;
   value?:
@@ -226,7 +424,7 @@ export interface PayloadPreference {
  * via the `definition` "payload-migrations".
  */
 export interface PayloadMigration {
-  id: string;
+  id: number;
   name?: string | null;
   batch?: number | null;
   updatedAt: string;
@@ -237,6 +435,8 @@ export interface PayloadMigration {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  name?: T;
+  avatar?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -260,6 +460,9 @@ export interface UsersSelect<T extends boolean = true> {
  */
 export interface MediaSelect<T extends boolean = true> {
   alt?: T;
+  type?: T;
+  entityType?: T;
+  user?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -271,6 +474,133 @@ export interface MediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "accounts_select".
+ */
+export interface AccountsSelect<T extends boolean = true> {
+  user?: T;
+  name?: T;
+  icon?: T;
+  bgColor?: T;
+  color?: T;
+  avatar?: T;
+  description?: T;
+  isActive?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "people_select".
+ */
+export interface PeopleSelect<T extends boolean = true> {
+  user?: T;
+  name?: T;
+  email?: T;
+  phone?: T;
+  avatar?: T;
+  description?: T;
+  isActive?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories_select".
+ */
+export interface CategoriesSelect<T extends boolean = true> {
+  user?: T;
+  name?: T;
+  type?: T;
+  parent?: T;
+  icon?: T;
+  color?: T;
+  bgColor?: T;
+  description?: T;
+  isActive?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tags_select".
+ */
+export interface TagsSelect<T extends boolean = true> {
+  user?: T;
+  name?: T;
+  icon?: T;
+  color?: T;
+  bgColor?: T;
+  description?: T;
+  isActive?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions_select".
+ */
+export interface TransactionsSelect<T extends boolean = true> {
+  user?: T;
+  title?: T;
+  amount?: T;
+  date?: T;
+  type?: T;
+  category?: T;
+  account?: T;
+  toAccount?: T;
+  person?: T;
+  tags?: T;
+  attachments?: T;
+  note?: T;
+  isActive?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "reminders_select".
+ */
+export interface RemindersSelect<T extends boolean = true> {
+  user?: T;
+  title?: T;
+  amount?: T;
+  type?: T;
+  category?: T;
+  account?: T;
+  member?: T;
+  date?: T;
+  isRecurring?: T;
+  recurrencePeriod?: T;
+  recurrenceType?: T;
+  lastTriggeredAt?: T;
+  nextDueDate?: T;
+  tags?: T;
+  completedDates?:
+    | T
+    | {
+        date?: T;
+        id?: T;
+      };
+  archived?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "user-settings_select".
+ */
+export interface UserSettingsSelect<T extends boolean = true> {
+  user?: T;
+  currency?: T;
+  locale?: T;
+  theme?: T;
+  defaultAccount?: T;
+  settings?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -311,6 +641,16 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "collections_widget".
+ */
+export interface CollectionsWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'full';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
