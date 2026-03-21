@@ -3,12 +3,13 @@ import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { ownOrSystemRecords } from '../access/ownOrSystemRecords'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
+import { userField } from '../fields/userField'
 
 export const Categories: CollectionConfig = {
   slug: 'categories',
   admin: {
     useAsTitle: 'name',
-    defaultColumns: ['name', 'type', 'parent', 'isActive', 'user'],
+    defaultColumns: ['name', 'icon', 'type', 'parent', 'isActive', 'user'],
   },
   access: {
     create: isNotSystem,
@@ -20,16 +21,7 @@ export const Categories: CollectionConfig = {
     beforeChange: [setUserOnCreate],
   },
   fields: [
-    {
-      name: 'user',
-      type: 'relationship',
-      relationTo: 'users',
-      required: true,
-      admin: { readOnly: true },
-      defaultValue: ({ req }) => {
-        return req.user?.id
-      },
-    },
+    userField,
     {
       name: 'name',
       type: 'text',
@@ -67,6 +59,7 @@ export const Categories: CollectionConfig = {
       admin: {
         components: {
           Field: '@/components/admin/IconPickerField#IconPickerField',
+          Cell: '@/components/admin/IconColorCell#IconColorCell',
         },
       },
     },

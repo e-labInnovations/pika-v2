@@ -2,6 +2,8 @@ import type { CollectionConfig } from 'payload'
 import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
+import { userField } from '../fields/userField'
+import { calculatePersonBalance } from '../utilities/calculatePersonBalance'
 
 export const People: CollectionConfig = {
   slug: 'people',
@@ -17,15 +19,16 @@ export const People: CollectionConfig = {
   },
   hooks: {
     beforeChange: [setUserOnCreate],
+    afterRead: [
+      async ({ doc, req }) => {
+        if (!req?.payload || !doc?.id) return doc
+        const balanceData = await calculatePersonBalance(req.payload, doc.id)
+        return { ...doc, ...balanceData }
+      },
+    ],
   },
   fields: [
-    {
-      name: 'user',
-      type: 'relationship',
-      relationTo: 'users',
-      required: true,
-      admin: { readOnly: true },
-    },
+    userField,
     {
       name: 'name',
       type: 'text',
@@ -52,6 +55,31 @@ export const People: CollectionConfig = {
       name: 'isActive',
       type: 'checkbox',
       defaultValue: true,
+    },
+    // Virtual fields — computed in afterRead, never stored in the database
+    {
+      name: 'balance',
+      type: 'number',
+      virtual: true,
+      admin: { readOnly: true },
+    },
+    {
+      name: 'totalTransactions',
+      type: 'number',
+      virtual: true,
+      admin: { readOnly: true },
+    },
+    {
+      name: 'lastTransactionAt',
+      type: 'date',
+      virtual: true,
+      admin: { readOnly: true },
+    },
+    {
+      name: 'totalSummary',
+      type: 'json',
+      virtual: true,
+      admin: { readOnly: true },
     },
   ],
 }

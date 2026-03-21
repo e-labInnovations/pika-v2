@@ -1,5 +1,6 @@
 import { IconPickerField as IconPickerField_3b23affeacfd37494d6d7d4ee53ad142 } from '@/components/admin/IconPickerField'
 import { ColorPickerField as ColorPickerField_d572ded1c017fe858839e8cdc754e090 } from '@/components/admin/ColorPickerField'
+import { IconColorCell as IconColorCell_e9e483bf61f5198c3eaaa5588f93dde6 } from '@/components/admin/IconColorCell'
 import { CategoryPickerField as CategoryPickerField_debc7e9255845fe2de0617e566a10cc9 } from '@/components/admin/CategoryPickerField'
 import { TagPickerField as TagPickerField_538af7a9fcdf5e0a862b53977bec48d2 } from '@/components/admin/TagPickerField'
 import { default as default_675ec30f5e131ac4d8992cfb21f67a8d } from '@/components/admin/LucideSpriteProvider'
@@ -9,6 +10,7 @@ import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } f
 export const importMap = {
   "@/components/admin/IconPickerField#IconPickerField": IconPickerField_3b23affeacfd37494d6d7d4ee53ad142,
   "@/components/admin/ColorPickerField#ColorPickerField": ColorPickerField_d572ded1c017fe858839e8cdc754e090,
+  "@/components/admin/IconColorCell#IconColorCell": IconColorCell_e9e483bf61f5198c3eaaa5588f93dde6,
   "@/components/admin/CategoryPickerField#CategoryPickerField": CategoryPickerField_debc7e9255845fe2de0617e566a10cc9,
   "@/components/admin/TagPickerField#TagPickerField": TagPickerField_538af7a9fcdf5e0a862b53977bec48d2,
   "@/components/admin/LucideSpriteProvider#default": default_675ec30f5e131ac4d8992cfb21f67a8d,

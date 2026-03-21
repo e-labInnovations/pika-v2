@@ -3,12 +3,13 @@ import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { ownOrSystemRecords } from '../access/ownOrSystemRecords'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
+import { userField } from '../fields/userField'
 
 export const Tags: CollectionConfig = {
   slug: 'tags',
   admin: {
     useAsTitle: 'name',
-    defaultColumns: ['name', 'isActive', 'user'],
+    defaultColumns: ['name', 'icon', 'isActive', 'user'],
   },
   access: {
     create: isNotSystem,
@@ -20,13 +21,7 @@ export const Tags: CollectionConfig = {
     beforeChange: [setUserOnCreate],
   },
   fields: [
-    {
-      name: 'user',
-      type: 'relationship',
-      relationTo: 'users',
-      required: true,
-      admin: { readOnly: true },
-    },
+    userField,
     {
       name: 'name',
       type: 'text',
@@ -37,8 +32,9 @@ export const Tags: CollectionConfig = {
       type: 'text',
       admin: {
         components: {
-          Field: '@/components/admin/IconPickerField#IconPickerField'
-        }
+          Field: '@/components/admin/IconPickerField#IconPickerField',
+          Cell: '@/components/admin/IconColorCell#IconColorCell',
+        },
       },
     },
     {

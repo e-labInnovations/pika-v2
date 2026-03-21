@@ -64,6 +64,7 @@ export type SupportedTimezones =
 export interface Config {
   auth: {
     users: UserAuthOperations;
+    'payload-mcp-api-keys': PayloadMcpApiKeyAuthOperations;
   };
   blocks: {};
   collections: {
@@ -76,6 +77,7 @@ export interface Config {
     transactions: Transaction;
     reminders: Reminder;
     'user-settings': UserSetting;
+    'payload-mcp-api-keys': PayloadMcpApiKey;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -92,6 +94,7 @@ export interface Config {
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     reminders: RemindersSelect<false> | RemindersSelect<true>;
     'user-settings': UserSettingsSelect<false> | UserSettingsSelect<true>;
+    'payload-mcp-api-keys': PayloadMcpApiKeysSelect<false> | PayloadMcpApiKeysSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -107,13 +110,31 @@ export interface Config {
   widgets: {
     collections: CollectionsWidget;
   };
-  user: User;
+  user: User | PayloadMcpApiKey;
   jobs: {
     tasks: unknown;
     workflows: unknown;
   };
 }
 export interface UserAuthOperations {
+  forgotPassword: {
+    email: string;
+    password: string;
+  };
+  login: {
+    email: string;
+    password: string;
+  };
+  registerFirstUser: {
+    email: string;
+    password: string;
+  };
+  unlock: {
+    email: string;
+    password: string;
+  };
+}
+export interface PayloadMcpApiKeyAuthOperations {
   forgotPassword: {
     email: string;
     password: string;
@@ -195,6 +216,9 @@ export interface Account {
   avatar?: (string | null) | Media;
   description?: string | null;
   isActive?: boolean | null;
+  balance?: number | null;
+  totalTransactions?: number | null;
+  lastTransactionAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -211,6 +235,18 @@ export interface Person {
   avatar?: (string | null) | Media;
   description?: string | null;
   isActive?: boolean | null;
+  balance?: number | null;
+  totalTransactions?: number | null;
+  lastTransactionAt?: string | null;
+  totalSummary?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -330,6 +366,173 @@ export interface UserSetting {
   createdAt: string;
 }
 /**
+ * API keys control which collections, resources, tools, and prompts MCP clients can access
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-mcp-api-keys".
+ */
+export interface PayloadMcpApiKey {
+  id: string;
+  /**
+   * The user that the API key is associated with.
+   */
+  user: string | User;
+  /**
+   * A useful label for the API key.
+   */
+  label?: string | null;
+  /**
+   * The purpose of the API key.
+   */
+  description?: string | null;
+  users?: {
+    /**
+     * Allow clients to find users.
+     */
+    find?: boolean | null;
+  };
+  media?: {
+    /**
+     * Allow clients to find media.
+     */
+    find?: boolean | null;
+  };
+  accounts?: {
+    /**
+     * Allow clients to find accounts.
+     */
+    find?: boolean | null;
+    /**
+     * Allow clients to create accounts.
+     */
+    create?: boolean | null;
+    /**
+     * Allow clients to update accounts.
+     */
+    update?: boolean | null;
+    /**
+     * Allow clients to delete accounts.
+     */
+    delete?: boolean | null;
+  };
+  people?: {
+    /**
+     * Allow clients to find people.
+     */
+    find?: boolean | null;
+    /**
+     * Allow clients to create people.
+     */
+    create?: boolean | null;
+    /**
+     * Allow clients to update people.
+     */
+    update?: boolean | null;
+    /**
+     * Allow clients to delete people.
+     */
+    delete?: boolean | null;
+  };
+  categories?: {
+    /**
+     * Allow clients to find categories.
+     */
+    find?: boolean | null;
+    /**
+     * Allow clients to create categories.
+     */
+    create?: boolean | null;
+    /**
+     * Allow clients to update categories.
+     */
+    update?: boolean | null;
+    /**
+     * Allow clients to delete categories.
+     */
+    delete?: boolean | null;
+  };
+  tags?: {
+    /**
+     * Allow clients to find tags.
+     */
+    find?: boolean | null;
+    /**
+     * Allow clients to create tags.
+     */
+    create?: boolean | null;
+    /**
+     * Allow clients to update tags.
+     */
+    update?: boolean | null;
+    /**
+     * Allow clients to delete tags.
+     */
+    delete?: boolean | null;
+  };
+  transactions?: {
+    /**
+     * Allow clients to find transactions.
+     */
+    find?: boolean | null;
+    /**
+     * Allow clients to create transactions.
+     */
+    create?: boolean | null;
+    /**
+     * Allow clients to update transactions.
+     */
+    update?: boolean | null;
+    /**
+     * Allow clients to delete transactions.
+     */
+    delete?: boolean | null;
+  };
+  reminders?: {
+    /**
+     * Allow clients to find reminders.
+     */
+    find?: boolean | null;
+    /**
+     * Allow clients to create reminders.
+     */
+    create?: boolean | null;
+    /**
+     * Allow clients to update reminders.
+     */
+    update?: boolean | null;
+    /**
+     * Allow clients to delete reminders.
+     */
+    delete?: boolean | null;
+  };
+  userSettings?: {
+    /**
+     * Allow clients to find user-settings.
+     */
+    find?: boolean | null;
+    /**
+     * Allow clients to update user-settings.
+     */
+    update?: boolean | null;
+  };
+  'payload-mcp-resource'?: {
+    /**
+     * Complete list of supported currencies with their ISO code, symbol, native symbol, plural name, decimal digits, and rounding. Use this to look up currency metadata or present options for user preference selection.
+     */
+    currencies?: boolean | null;
+    /**
+     * Returns metadata for a single currency by its ISO 4217 code (e.g. USD, EUR, GBP). Includes symbol, native symbol, plural name, decimal digits, and rounding precision.
+     */
+    currency?: boolean | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+  enableAPIKey?: boolean | null;
+  apiKey?: string | null;
+  apiKeyIndex?: string | null;
+  collection: 'payload-mcp-api-keys';
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -388,12 +591,21 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'user-settings';
         value: string | UserSetting;
+      } | null)
+    | ({
+        relationTo: 'payload-mcp-api-keys';
+        value: string | PayloadMcpApiKey;
       } | null);
   globalSlug?: string | null;
-  user: {
-    relationTo: 'users';
-    value: string | User;
-  };
+  user:
+    | {
+        relationTo: 'users';
+        value: string | User;
+      }
+    | {
+        relationTo: 'payload-mcp-api-keys';
+        value: string | PayloadMcpApiKey;
+      };
   updatedAt: string;
   createdAt: string;
 }
@@ -403,10 +615,15 @@ export interface PayloadLockedDocument {
  */
 export interface PayloadPreference {
   id: string;
-  user: {
-    relationTo: 'users';
-    value: string | User;
-  };
+  user:
+    | {
+        relationTo: 'users';
+        value: string | User;
+      }
+    | {
+        relationTo: 'payload-mcp-api-keys';
+        value: string | PayloadMcpApiKey;
+      };
   key?: string | null;
   value?:
     | {
@@ -490,6 +707,9 @@ export interface AccountsSelect<T extends boolean = true> {
   avatar?: T;
   description?: T;
   isActive?: T;
+  balance?: T;
+  totalTransactions?: T;
+  lastTransactionAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -505,6 +725,10 @@ export interface PeopleSelect<T extends boolean = true> {
   avatar?: T;
   description?: T;
   isActive?: T;
+  balance?: T;
+  totalTransactions?: T;
+  lastTransactionAt?: T;
+  totalSummary?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -603,6 +827,90 @@ export interface UserSettingsSelect<T extends boolean = true> {
   settings?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-mcp-api-keys_select".
+ */
+export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
+  user?: T;
+  label?: T;
+  description?: T;
+  users?:
+    | T
+    | {
+        find?: T;
+      };
+  media?:
+    | T
+    | {
+        find?: T;
+      };
+  accounts?:
+    | T
+    | {
+        find?: T;
+        create?: T;
+        update?: T;
+        delete?: T;
+      };
+  people?:
+    | T
+    | {
+        find?: T;
+        create?: T;
+        update?: T;
+        delete?: T;
+      };
+  categories?:
+    | T
+    | {
+        find?: T;
+        create?: T;
+        update?: T;
+        delete?: T;
+      };
+  tags?:
+    | T
+    | {
+        find?: T;
+        create?: T;
+        update?: T;
+        delete?: T;
+      };
+  transactions?:
+    | T
+    | {
+        find?: T;
+        create?: T;
+        update?: T;
+        delete?: T;
+      };
+  reminders?:
+    | T
+    | {
+        find?: T;
+        create?: T;
+        update?: T;
+        delete?: T;
+      };
+  userSettings?:
+    | T
+    | {
+        find?: T;
+        update?: T;
+      };
+  'payload-mcp-resource'?:
+    | T
+    | {
+        currencies?: T;
+        currency?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  enableAPIKey?: T;
+  apiKey?: T;
+  apiKeyIndex?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

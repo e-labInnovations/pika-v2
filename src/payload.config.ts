@@ -5,7 +5,10 @@ import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 import { collections, Users } from './collections'
+import { plugins } from './plugins'
 import { onInit } from './seed/init'
+import { endpoints } from './endpoints'
+import { graphQLQueries } from './graphql'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -42,5 +45,9 @@ export default buildConfig({
   }),
   sharp,
   onInit: onInit,
-  plugins: [],
+  endpoints,
+  graphQL: {
+    queries: graphQLQueries,
+  },
+  plugins,
 })

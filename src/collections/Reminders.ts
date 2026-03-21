@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload'
 import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
+import { userField } from '../fields/userField'
 
 export const Reminders: CollectionConfig = {
   slug: 'reminders',
@@ -19,13 +20,7 @@ export const Reminders: CollectionConfig = {
     beforeChange: [setUserOnCreate],
   },
   fields: [
-    {
-      name: 'user',
-      type: 'relationship',
-      relationTo: 'users',
-      required: true,
-      admin: { readOnly: true },
-    },
+    userField,
     {
       name: 'title',
       type: 'text',

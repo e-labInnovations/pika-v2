@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload'
 import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
+import { userField } from '../fields/userField'
 
 export const Media: CollectionConfig = {
   slug: 'media',
@@ -31,13 +32,7 @@ export const Media: CollectionConfig = {
       options: ['person', 'account', 'transaction', 'other'],
       defaultValue: 'other',
     },
-    {
-      name: 'user',
-      type: 'relationship',
-      relationTo: 'users',
-      required: true,
-      admin: { readOnly: true },
-    },
+    userField,
   ],
   upload: true,
 }

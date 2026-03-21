@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload'
 import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
+import { userField } from '../fields/userField'
 
 export const UserSettings: CollectionConfig = {
   slug: 'user-settings',
@@ -19,14 +20,7 @@ export const UserSettings: CollectionConfig = {
     beforeChange: [setUserOnCreate],
   },
   fields: [
-    {
-      name: 'user',
-      type: 'relationship',
-      relationTo: 'users',
-      required: true,
-      unique: true,
-      admin: { readOnly: true },
-    },
+    { ...userField, unique: true },
     {
       name: 'currency',
       type: 'text',
