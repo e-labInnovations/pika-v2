@@ -2,7 +2,7 @@ import type { CollectionConfig } from 'payload'
 import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
-import { userField } from '../fields/userField'
+import { userField, isActiveField, descriptionField } from '../fields'
 import { calculatePersonBalance } from '../utilities/calculatePersonBalance'
 
 export const People: CollectionConfig = {
@@ -47,15 +47,8 @@ export const People: CollectionConfig = {
       type: 'upload',
       relationTo: 'media',
     },
-    {
-      name: 'description',
-      type: 'textarea',
-    },
-    {
-      name: 'isActive',
-      type: 'checkbox',
-      defaultValue: true,
-    },
+    descriptionField,
+    isActiveField,
     // Virtual fields — computed in afterRead, never stored in the database
     {
       name: 'balance',

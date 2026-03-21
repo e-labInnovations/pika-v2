@@ -1,6 +1,7 @@
 import { mcpPlugin } from '@payloadcms/plugin-mcp'
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { currencies } from '../data/currencies'
+import { timezones } from '../data/timezones'
 
 export const mcp = mcpPlugin({
   collections: {
@@ -86,7 +87,7 @@ export const mcp = mcpPlugin({
     },
     'user-settings': {
       description:
-        "Per-user preferences: currency code (default USD), locale (default en), UI theme (light / dark / system), default account for new transactions, and a flexible JSON settings bag for any additional app-level config. One record per user.",
+        "Per-user preferences: currency code (default USD), timezone (default UTC), locale (default en), UI theme (light / dark / system), default account for new transactions, Gemini API key for AI features, and a flexible JSON settings bag for any additional app-level config. One record per user.",
       enabled: {
         find: true,
         create: false,
@@ -133,6 +134,38 @@ export const mcp = mcpPlugin({
                 text: currency
                   ? JSON.stringify(currency, null, 2)
                   : JSON.stringify({ error: `Currency '${code}' not found` }),
+              },
+            ],
+          }
+        },
+      },
+      {
+        name: 'timezones',
+        title: 'All Timezones',
+        description:
+          'Complete list of supported IANA timezones grouped by region with UTC offset and display label. Use this to look up timezone metadata or present options for user preference selection.',
+        uri: 'timezones://all',
+        mimeType: 'application/json',
+        handler: (uri: URL) => ({
+          contents: [{ uri: uri.href, text: JSON.stringify(timezones, null, 2) }],
+        }),
+      },
+      {
+        name: 'timezone',
+        title: 'Timezone by ID',
+        description:
+          'Returns metadata for a single IANA timezone by its ID (e.g. America/New_York, Europe/London). Includes region, city, UTC offset, and display label.',
+        uri: new ResourceTemplate('timezones://id/{id}', { list: undefined }),
+        mimeType: 'application/json',
+        handler: (uri: URL, { id }: { id: string }) => {
+          const tz = timezones.find((t) => t.id === decodeURIComponent(id))
+          return {
+            contents: [
+              {
+                uri: uri.href,
+                text: tz
+                  ? JSON.stringify(tz, null, 2)
+                  : JSON.stringify({ error: `Timezone '${id}' not found` }),
               },
             ],
           }

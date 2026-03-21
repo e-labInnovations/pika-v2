@@ -3,7 +3,7 @@ import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { ownOrSystemRecords } from '../access/ownOrSystemRecords'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
-import { userField } from '../fields/userField'
+import { userField, iconField, colorField, bgColorField, isActiveField, descriptionField } from '../fields'
 
 export const Tags: CollectionConfig = {
   slug: 'tags',
@@ -27,43 +27,10 @@ export const Tags: CollectionConfig = {
       type: 'text',
       required: true,
     },
-    {
-      name: 'icon',
-      type: 'text',
-      admin: {
-        components: {
-          Field: '@/components/admin/IconPickerField#IconPickerField',
-          Cell: '@/components/admin/IconColorCell#IconColorCell',
-        },
-      },
-    },
-    {
-      name: 'color',
-      type: 'text',
-      admin: {
-        components: {
-          Field: '@/components/admin/ColorPickerField#ColorPickerField'
-        }
-      },
-    },
-    {
-      name: 'bgColor',
-      type: 'text',
-      label: 'Background Color',
-      admin: {
-        components: {
-          Field: '@/components/admin/ColorPickerField#ColorPickerField'
-        }
-      },
-    },
-    {
-      name: 'description',
-      type: 'textarea',
-    },
-    {
-      name: 'isActive',
-      type: 'checkbox',
-      defaultValue: true,
-    },
+    iconField('tag', true),
+    colorField,
+    bgColorField,
+    descriptionField,
+    isActiveField,
   ],
 }

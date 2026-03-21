@@ -1,9 +1,10 @@
 import type { CollectionConfig } from 'payload'
+import type { User } from '../payload-types'
 import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { ownOrSystemRecords } from '../access/ownOrSystemRecords'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
-import { userField } from '../fields/userField'
+import { userField, iconField, colorField, bgColorField, isActiveField, descriptionField } from '../fields'
 
 export const Categories: CollectionConfig = {
   slug: 'categories',
@@ -44,7 +45,7 @@ export const Categories: CollectionConfig = {
       maxDepth: 1,
       filterOptions: async ({ user, req }) => {
         if (!user) return true
-        if (user.role === 'admin') return true
+        if ((user as User).role === 'admin') return true
         const found = await req.payload.find({ collection: 'users', where: { role: { equals: 'system' } }, limit: 100, depth: 0 })
         const sysIds = found.docs.map((u) => u.id)
         return { or: [{ user: { equals: user.id } }, ...(sysIds.length ? [{ user: { in: sysIds } }] : [])] }
@@ -53,43 +54,10 @@ export const Categories: CollectionConfig = {
         allowEdit: false,
       },
     },
-    {
-      name: 'icon',
-      type: 'text',
-      admin: {
-        components: {
-          Field: '@/components/admin/IconPickerField#IconPickerField',
-          Cell: '@/components/admin/IconColorCell#IconColorCell',
-        },
-      },
-    },
-    {
-      name: 'color',
-      type: 'text',
-      admin: {
-        components: {
-          Field: '@/components/admin/ColorPickerField#ColorPickerField',
-        },
-      },
-    },
-    {
-      name: 'bgColor',
-      type: 'text',
-      label: 'Background Color',
-      admin: {
-        components: {
-          Field: '@/components/admin/ColorPickerField#ColorPickerField',
-        },
-      },
-    },
-    {
-      name: 'description',
-      type: 'textarea',
-    },
-    {
-      name: 'isActive',
-      type: 'checkbox',
-      defaultValue: true,
-    },
+    iconField('folder', true),
+    colorField,
+    bgColorField,
+    descriptionField,
+    isActiveField,
   ],
 }

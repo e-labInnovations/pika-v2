@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import type { User } from '../payload-types'
 import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
@@ -55,7 +56,7 @@ export const Reminders: CollectionConfig = {
       },
       filterOptions: async ({ user, req }) => {
         if (!user) return true
-        if (user.role === 'admin') return true
+        if ((user as User).role === 'admin') return true
         const found = await req.payload.find({ collection: 'users', where: { role: { equals: 'system' } }, limit: 100, depth: 0 })
         const sysIds = found.docs.map((u) => u.id)
         return { or: [{ user: { equals: user.id } }, ...(sysIds.length ? [{ user: { in: sysIds } }] : [])] }
@@ -125,7 +126,7 @@ export const Reminders: CollectionConfig = {
       hasMany: true,
       filterOptions: async ({ user, req }) => {
         if (!user) return true
-        if (user.role === 'admin') return true
+        if ((user as User).role === 'admin') return true
         const found = await req.payload.find({ collection: 'users', where: { role: { equals: 'system' } }, limit: 100, depth: 0 })
         const sysIds = found.docs.map((u) => u.id)
         return { or: [{ user: { equals: user.id } }, ...(sysIds.length ? [{ user: { in: sysIds } }] : [])] }

@@ -210,7 +210,7 @@ export interface Account {
   id: string;
   user: string | User;
   name: string;
-  icon?: string | null;
+  icon: string;
   bgColor?: string | null;
   color?: string | null;
   avatar?: (string | null) | Media;
@@ -260,7 +260,7 @@ export interface Category {
   name: string;
   type: 'income' | 'expense' | 'transfer';
   parent?: (string | null) | Category;
-  icon?: string | null;
+  icon: string;
   color?: string | null;
   bgColor?: string | null;
   description?: string | null;
@@ -276,7 +276,7 @@ export interface Tag {
   id: string;
   user: string | User;
   name: string;
-  icon?: string | null;
+  icon: string;
   color?: string | null;
   bgColor?: string | null;
   description?: string | null;
@@ -350,9 +350,14 @@ export interface UserSetting {
   id: string;
   user: string | User;
   currency?: string | null;
+  timezone?: string | null;
   locale?: string | null;
   theme?: ('light' | 'dark' | 'system') | null;
   defaultAccount?: (string | null) | Account;
+  /**
+   * Used for AI features. Stored securely — only the masked value is returned via the API.
+   */
+  geminiApiKey?: string | null;
   settings?:
     | {
         [k: string]: unknown;
@@ -524,6 +529,14 @@ export interface PayloadMcpApiKey {
      * Returns metadata for a single currency by its ISO 4217 code (e.g. USD, EUR, GBP). Includes symbol, native symbol, plural name, decimal digits, and rounding precision.
      */
     currency?: boolean | null;
+    /**
+     * Complete list of supported IANA timezones grouped by region with UTC offset and display label. Use this to look up timezone metadata or present options for user preference selection.
+     */
+    timezones?: boolean | null;
+    /**
+     * Returns metadata for a single IANA timezone by its ID (e.g. America/New_York, Europe/London). Includes region, city, UTC offset, and display label.
+     */
+    timezone?: boolean | null;
   };
   updatedAt: string;
   createdAt: string;
@@ -821,9 +834,11 @@ export interface RemindersSelect<T extends boolean = true> {
 export interface UserSettingsSelect<T extends boolean = true> {
   user?: T;
   currency?: T;
+  timezone?: T;
   locale?: T;
   theme?: T;
   defaultAccount?: T;
+  geminiApiKey?: T;
   settings?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -905,6 +920,8 @@ export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
     | {
         currencies?: T;
         currency?: T;
+        timezones?: T;
+        timezone?: T;
       };
   updatedAt?: T;
   createdAt?: T;

@@ -1,8 +1,9 @@
 import type { CollectionConfig, Where } from 'payload'
+import type { User } from '../payload-types'
 import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
-import { userField } from '../fields/userField'
+import { userField, isActiveField } from '../fields'
 
 export const Transactions: CollectionConfig = {
   slug: 'transactions',
@@ -64,7 +65,8 @@ export const Transactions: CollectionConfig = {
       },
       filterOptions: async ({ user, req, data }) => {
         if (!user) return true
-        if (user.role === 'admin') return data?.type ? { type: { equals: data.type } } : true
+        const u = user as User
+        if (u.role === 'admin') return data?.type ? { type: { equals: data.type } } : true
         const found = await req.payload.find({
           collection: 'users',
           where: { role: { equals: 'system' } },
@@ -87,6 +89,11 @@ export const Transactions: CollectionConfig = {
         if (data?.toAccount) return { and: [{ user: { equals: user.id } }, { id: { not_equals: data.toAccount } }] } as Where
         return { user: { equals: user.id } } as Where
       },
+      admin: {
+        components: {
+          Field: '@/components/admin/AccountPickerField#AccountPickerField',
+        },
+      },
     },
     {
       name: 'toAccount',
@@ -100,6 +107,9 @@ export const Transactions: CollectionConfig = {
       admin: {
         condition: (data) => data?.type === 'transfer',
         description: 'Destination account for transfers',
+        components: {
+          Field: '@/components/admin/AccountPickerField#AccountPickerField',
+        },
       },
     },
     {
@@ -126,7 +136,8 @@ export const Transactions: CollectionConfig = {
       },
       filterOptions: async ({ user, req }) => {
         if (!user) return true
-        if (user.role === 'admin') return true
+        const u = user as User
+        if (u.role === 'admin') return true
         const found = await req.payload.find({
           collection: 'users',
           where: { role: { equals: 'system' } },
