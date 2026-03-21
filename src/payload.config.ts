@@ -17,6 +17,14 @@ const dirname = path.dirname(filename)
 export default buildConfig({
   admin: {
     user: Users.slug,
+    meta: {
+      titleSuffix: '— Pika',
+      icons: [
+        { rel: 'icon', type: 'image/svg+xml', url: '/icons/favicon.svg' },
+        { rel: 'icon', type: 'image/x-icon', url: '/icons/favicon.ico' },
+        { rel: 'apple-touch-icon', url: '/icons/apple-touch-icon.png' },
+      ],
+    },
     autoLogin:
       process.env.NODE_ENV === 'development'
         ? { email: 'ashad@elabins.com', password: 'password', prefillOnly: true }
@@ -26,6 +34,10 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
     components: {
+      graphics: {
+        Logo: '@/components/admin/Logo#default',
+        Icon: '@/components/admin/Icon#default',
+      },
       providers: [
         '@/components/admin/LucideSpriteProvider#default',
         '@/components/admin/TooltipProvider#default',

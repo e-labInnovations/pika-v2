@@ -4,8 +4,15 @@ import { readFile } from 'fs/promises'
 import { join } from 'path'
 
 export const metadata = {
-  description: 'A blank template using Payload in a Next.js app.',
-  title: 'Payload Blank Template',
+  title: { default: 'Pika', template: '%s — Pika' },
+  description: 'Personal finance tracker',
+  icons: {
+    icon: [
+      { url: '/icons/favicon.svg', type: 'image/svg+xml' },
+      { url: '/icons/favicon.ico', type: 'image/x-icon' },
+    ],
+    apple: '/icons/apple-touch-icon.png',
+  },
 }
 
 async function getLucideSvg() {
