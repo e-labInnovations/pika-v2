@@ -1,5 +1,6 @@
 import { currenciesHandler, currencyByCodeHandler } from './currencies'
 import { timezonesHandler, timezoneByIdHandler } from './timezones'
+import { weeklyExpensesHandler, monthlyCalendarHandler } from './analytics'
 
 export const endpoints = [
   {
@@ -21,5 +22,15 @@ export const endpoints = [
     path: '/timezones/:id',
     method: 'get' as const,
     handler: timezoneByIdHandler,
+  },
+  {
+    path: '/analytics/weekly-expenses',
+    method: 'get' as const,
+    handler: weeklyExpensesHandler,
+  },
+  {
+    path: '/analytics/monthly-calendar',
+    method: 'get' as const,
+    handler: monthlyCalendarHandler,
   },
 ]
