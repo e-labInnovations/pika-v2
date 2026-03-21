@@ -1,4 +1,5 @@
 import type { PayloadHandler } from 'payload'
+import { calculateDashboard } from '../utilities/calculateDashboard'
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -199,4 +200,17 @@ export const monthlyCalendarHandler: PayloadHandler = async (req) => {
       balance: Math.round((totalIncome - totalExpenses) * 100) / 100,
     },
   })
+}
+
+/**
+ * GET /api/analytics/dashboard
+ * Home screen summary: total balance, % change vs last month, and current month pulse.
+ */
+export const dashboardHandler: PayloadHandler = async (req) => {
+  if (!req.user) {
+    return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
+  }
+  const timezone = await getUserTimezone(req)
+  const data = await calculateDashboard(req.payload, req.user.id, timezone)
+  return Response.json(data)
 }

@@ -520,6 +520,12 @@ export interface PayloadMcpApiKey {
      */
     update?: boolean | null;
   };
+  'payload-mcp-tool'?: {
+    /**
+     * Returns the authenticated user's financial dashboard: total balance across all active accounts, percentage change vs last month's surplus, and current month income/expenses/surplus. Use this to answer questions like 'how am I doing this month?' or 'what is my total balance?'
+     */
+    getDashboardSummary?: boolean | null;
+  };
   'payload-mcp-resource'?: {
     /**
      * Complete list of supported currencies with their ISO code, symbol, native symbol, plural name, decimal digits, and rounding. Use this to look up currency metadata or present options for user preference selection.
@@ -914,6 +920,11 @@ export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
     | {
         find?: T;
         update?: T;
+      };
+  'payload-mcp-tool'?:
+    | T
+    | {
+        getDashboardSummary?: T;
       };
   'payload-mcp-resource'?:
     | T

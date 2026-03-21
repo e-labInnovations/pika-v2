@@ -6,6 +6,30 @@ import {
   GraphQLObjectType,
   GraphQLString,
 } from 'graphql'
+import { calculateDashboard } from '../utilities/calculateDashboard'
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+
+const MonthlyPulseType = new GraphQLObjectType({
+  name: 'MonthlyPulse',
+  fields: {
+    income: { type: new GraphQLNonNull(GraphQLFloat) },
+    expenses: { type: new GraphQLNonNull(GraphQLFloat) },
+    surplus: { type: new GraphQLNonNull(GraphQLFloat) },
+    month: { type: new GraphQLNonNull(GraphQLInt) },
+    year: { type: new GraphQLNonNull(GraphQLInt) },
+    monthName: { type: new GraphQLNonNull(GraphQLString) },
+  },
+})
+
+const DashboardResultType = new GraphQLObjectType({
+  name: 'DashboardResult',
+  fields: {
+    totalBalance: { type: new GraphQLNonNull(GraphQLFloat) },
+    balanceChangePercent: { type: GraphQLFloat }, // nullable — null when no last-month data
+    monthlyPulse: { type: new GraphQLNonNull(MonthlyPulseType) },
+  },
+})
 
 // ─── Shared helper ────────────────────────────────────────────────────────────
 
@@ -270,6 +294,19 @@ export const analyticsQueries = () => ({
           balance: Math.round((totalIncome - totalExpenses) * 100) / 100,
         },
       }
+    },
+  },
+
+  /**
+   * query { dashboardSummary { totalBalance balanceChangePercent monthlyPulse { income expenses surplus monthName } } }
+   */
+  dashboardSummary: {
+    type: DashboardResultType,
+    resolve: async (_: unknown, __: unknown, context: { req: any }) => {
+      const { req } = context
+      if (!req.user) throw new Error('Unauthorized')
+      const timezone = await getUserTimezone(context)
+      return calculateDashboard(req.payload, req.user.id, timezone)
     },
   },
 })

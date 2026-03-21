@@ -2,6 +2,7 @@ import { mcpPlugin } from '@payloadcms/plugin-mcp'
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { currencies } from '../data/currencies'
 import { timezones } from '../data/timezones'
+import { calculateDashboard } from '../utilities/calculateDashboard'
 
 export const mcp = mcpPlugin({
   collections: {
@@ -97,6 +98,33 @@ export const mcp = mcpPlugin({
     },
   },
   mcp: {
+    tools: [
+      {
+        name: 'get_dashboard_summary',
+        description:
+          "Returns the authenticated user's financial dashboard: total balance across all active accounts, percentage change vs last month's surplus, and current month income/expenses/surplus. Use this to answer questions like 'how am I doing this month?' or 'what is my total balance?'",
+        parameters: {},
+        handler: async (_args: Record<string, unknown>, req: any) => {
+          if (!req.user) {
+            return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }] }
+          }
+          let timezone = 'UTC'
+          try {
+            const settings = await req.payload.find({
+              collection: 'user-settings',
+              where: { user: { equals: req.user.id } },
+              limit: 1,
+              depth: 0,
+              context: { internal: true },
+            })
+            timezone = (settings.docs[0]?.timezone as string) || 'UTC'
+          } catch { /* fall back to UTC */ }
+
+          const data = await calculateDashboard(req.payload, req.user.id, timezone)
+          return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
+        },
+      },
+    ],
     resources: [
       {
         name: 'currencies',

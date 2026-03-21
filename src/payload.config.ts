@@ -29,6 +29,7 @@ export default buildConfig({
         '@/components/admin/LucideSpriteProvider#default',
         '@/components/admin/TooltipProvider#default',
       ],
+      beforeDashboard: ['@/components/admin/DashboardWidget#default'],
     },
   },
   collections: collections,
