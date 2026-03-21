@@ -111,6 +111,9 @@ export interface Config {
     'dashboard-summary': DashboardSummaryWidget;
     'weekly-expenses': WeeklyExpensesWidget;
     'monthly-calendar': MonthlyCalendarWidget;
+    'monthly-categories': MonthlyCategoriesWidget;
+    'monthly-tags': MonthlyTagsWidget;
+    'monthly-people': MonthlyPeopleWidget;
     collections: CollectionsWidget;
   };
   user: User | PayloadMcpApiKey;
@@ -528,6 +531,18 @@ export interface PayloadMcpApiKey {
      * Returns the authenticated user's financial dashboard: total balance across all active accounts, percentage change vs last month's surplus, and current month income/expenses/surplus. Use this to answer questions like 'how am I doing this month?' or 'what is my total balance?'
      */
     getDashboardSummary?: boolean | null;
+    /**
+     * Returns expense spending grouped by category for a given month, including per-category totals, transaction counts, averages, and parent rollup. Use this to answer questions like 'what did I spend on food this month?' or 'show my top spending categories'.
+     */
+    getMonthlyCategories?: boolean | null;
+    /**
+     * Returns transaction activity grouped by tag for a given month, split by expense/income/transfer. Use this to answer questions like 'how much did I spend on subscriptions?' or 'show activity by tag this month'.
+     */
+    getMonthlyTags?: boolean | null;
+    /**
+     * Returns monthly transaction activity per person plus their all-time balance. Use this to answer questions like 'how much did I lend to John this month?' or 'who do I owe money to?'.
+     */
+    getMonthlyPeople?: boolean | null;
   };
   'payload-mcp-resource'?: {
     /**
@@ -928,6 +943,9 @@ export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
     | T
     | {
         getDashboardSummary?: T;
+        getMonthlyCategories?: T;
+        getMonthlyTags?: T;
+        getMonthlyPeople?: T;
       };
   'payload-mcp-resource'?:
     | T
@@ -1012,6 +1030,36 @@ export interface MonthlyCalendarWidget {
     [k: string]: unknown;
   };
   width: 'medium' | 'large' | 'x-large';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "monthly-categories_widget".
+ */
+export interface MonthlyCategoriesWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'medium' | 'large';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "monthly-tags_widget".
+ */
+export interface MonthlyTagsWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'medium' | 'large';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "monthly-people_widget".
+ */
+export interface MonthlyPeopleWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'medium' | 'large' | 'x-large' | 'full';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

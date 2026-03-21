@@ -1,5 +1,8 @@
 import type { PayloadHandler } from 'payload'
 import { calculateDashboard } from '../utilities/calculateDashboard'
+import { calculateMonthlyCategories } from '../utilities/calculateMonthlyCategories'
+import { calculateMonthlyTags } from '../utilities/calculateMonthlyTags'
+import { calculateMonthlyPeople } from '../utilities/calculateMonthlyPeople'
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -212,5 +215,74 @@ export const dashboardHandler: PayloadHandler = async (req) => {
   }
   const timezone = await getUserTimezone(req)
   const data = await calculateDashboard(req.payload, req.user.id, timezone)
+  return Response.json(data)
+}
+
+/**
+ * GET /api/analytics/monthly-categories?month=3&year=2026
+ * Returns expense spending grouped by category, with parent rollup.
+ */
+export const monthlyCategoriesHandler: PayloadHandler = async (req) => {
+  if (!req.user) {
+    return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
+  }
+
+  const url = new URL(req.url)
+  const now = new Date()
+  const month = parseInt(url.searchParams.get('month') ?? String(now.getMonth() + 1))
+  const year = parseInt(url.searchParams.get('year') ?? String(now.getFullYear()))
+
+  if (isNaN(month) || month < 1 || month > 12 || isNaN(year) || year < 2000) {
+    return Response.json({ errors: [{ message: 'Invalid month or year' }] }, { status: 400 })
+  }
+
+  const timezone = await getUserTimezone(req)
+  const data = await calculateMonthlyCategories(req.payload, req.user.id, month, year, timezone)
+  return Response.json(data)
+}
+
+/**
+ * GET /api/analytics/monthly-tags?month=3&year=2026
+ * Returns transaction activity grouped by tag, split by type (expense/income/transfer).
+ */
+export const monthlyTagsHandler: PayloadHandler = async (req) => {
+  if (!req.user) {
+    return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
+  }
+
+  const url = new URL(req.url)
+  const now = new Date()
+  const month = parseInt(url.searchParams.get('month') ?? String(now.getMonth() + 1))
+  const year = parseInt(url.searchParams.get('year') ?? String(now.getFullYear()))
+
+  if (isNaN(month) || month < 1 || month > 12 || isNaN(year) || year < 2000) {
+    return Response.json({ errors: [{ message: 'Invalid month or year' }] }, { status: 400 })
+  }
+
+  const timezone = await getUserTimezone(req)
+  const data = await calculateMonthlyTags(req.payload, req.user.id, month, year, timezone)
+  return Response.json(data)
+}
+
+/**
+ * GET /api/analytics/monthly-people?month=3&year=2026
+ * Returns monthly transaction activity per person plus all-time balance.
+ */
+export const monthlyPeopleHandler: PayloadHandler = async (req) => {
+  if (!req.user) {
+    return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
+  }
+
+  const url = new URL(req.url)
+  const now = new Date()
+  const month = parseInt(url.searchParams.get('month') ?? String(now.getMonth() + 1))
+  const year = parseInt(url.searchParams.get('year') ?? String(now.getFullYear()))
+
+  if (isNaN(month) || month < 1 || month > 12 || isNaN(year) || year < 2000) {
+    return Response.json({ errors: [{ message: 'Invalid month or year' }] }, { status: 400 })
+  }
+
+  const timezone = await getUserTimezone(req)
+  const data = await calculateMonthlyPeople(req.payload, req.user.id, month, year, timezone)
   return Response.json(data)
 }

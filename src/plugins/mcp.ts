@@ -1,8 +1,26 @@
 import { mcpPlugin } from '@payloadcms/plugin-mcp'
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { z } from 'zod'
 import { currencies } from '../data/currencies'
 import { timezones } from '../data/timezones'
 import { calculateDashboard } from '../utilities/calculateDashboard'
+import { calculateMonthlyCategories } from '../utilities/calculateMonthlyCategories'
+import { calculateMonthlyTags } from '../utilities/calculateMonthlyTags'
+import { calculateMonthlyPeople } from '../utilities/calculateMonthlyPeople'
+
+async function getMcpTimezone(req: any): Promise<string> {
+  if (!req.user) return 'UTC'
+  try {
+    const settings = await req.payload.find({
+      collection: 'user-settings',
+      where: { user: { equals: req.user.id } },
+      limit: 1,
+      depth: 0,
+      context: { internal: true },
+    })
+    return (settings.docs[0]?.timezone as string) || 'UTC'
+  } catch { return 'UTC' }
+}
 
 export const mcp = mcpPlugin({
   collections: {
@@ -108,19 +126,68 @@ export const mcp = mcpPlugin({
           if (!req.user) {
             return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }] }
           }
-          let timezone = 'UTC'
-          try {
-            const settings = await req.payload.find({
-              collection: 'user-settings',
-              where: { user: { equals: req.user.id } },
-              limit: 1,
-              depth: 0,
-              context: { internal: true },
-            })
-            timezone = (settings.docs[0]?.timezone as string) || 'UTC'
-          } catch { /* fall back to UTC */ }
-
+          const timezone = await getMcpTimezone(req)
           const data = await calculateDashboard(req.payload, req.user.id, timezone)
+          return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
+        },
+      },
+      {
+        name: 'get_monthly_categories',
+        description:
+          "Returns expense spending grouped by category for a given month, including per-category totals, transaction counts, averages, and parent rollup. Use this to answer questions like 'what did I spend on food this month?' or 'show my top spending categories'.",
+        parameters: {
+          month: z.number().int().min(1).max(12).optional().describe('Month number 1–12 (defaults to current month)'),
+          year: z.number().int().min(2000).optional().describe('Full year e.g. 2026 (defaults to current year)'),
+        },
+        handler: async (args: Record<string, unknown>, req: any) => {
+          if (!req.user) {
+            return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }] }
+          }
+          const now = new Date()
+          const month = (args.month as number) ?? now.getMonth() + 1
+          const year = (args.year as number) ?? now.getFullYear()
+          const timezone = await getMcpTimezone(req)
+          const data = await calculateMonthlyCategories(req.payload, req.user.id, month, year, timezone)
+          return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
+        },
+      },
+      {
+        name: 'get_monthly_tags',
+        description:
+          "Returns transaction activity grouped by tag for a given month, split by expense/income/transfer. Use this to answer questions like 'how much did I spend on subscriptions?' or 'show activity by tag this month'.",
+        parameters: {
+          month: z.number().int().min(1).max(12).optional().describe('Month number 1–12 (defaults to current month)'),
+          year: z.number().int().min(2000).optional().describe('Full year e.g. 2026 (defaults to current year)'),
+        },
+        handler: async (args: Record<string, unknown>, req: any) => {
+          if (!req.user) {
+            return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }] }
+          }
+          const now = new Date()
+          const month = (args.month as number) ?? now.getMonth() + 1
+          const year = (args.year as number) ?? now.getFullYear()
+          const timezone = await getMcpTimezone(req)
+          const data = await calculateMonthlyTags(req.payload, req.user.id, month, year, timezone)
+          return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
+        },
+      },
+      {
+        name: 'get_monthly_people',
+        description:
+          "Returns monthly transaction activity per person plus their all-time balance. Use this to answer questions like 'how much did I lend to John this month?' or 'who do I owe money to?'.",
+        parameters: {
+          month: z.number().int().min(1).max(12).optional().describe('Month number 1–12 (defaults to current month)'),
+          year: z.number().int().min(2000).optional().describe('Full year e.g. 2026 (defaults to current year)'),
+        },
+        handler: async (args: Record<string, unknown>, req: any) => {
+          if (!req.user) {
+            return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }] }
+          }
+          const now = new Date()
+          const month = (args.month as number) ?? now.getMonth() + 1
+          const year = (args.year as number) ?? now.getFullYear()
+          const timezone = await getMcpTimezone(req)
+          const data = await calculateMonthlyPeople(req.payload, req.user.id, month, year, timezone)
           return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
         },
       },

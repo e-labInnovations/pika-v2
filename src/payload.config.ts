@@ -31,12 +31,15 @@ export default buildConfig({
       ],
     },
     dashboard: {
-      defaultLayout: () => [
+      defaultLayout: ((_args: unknown) => [
         { widgetSlug: 'dashboard-summary', width: 'full' },
         { widgetSlug: 'weekly-expenses', width: 'large' },
         { widgetSlug: 'monthly-calendar', width: 'large' },
+        { widgetSlug: 'monthly-categories', width: 'large' },
+        { widgetSlug: 'monthly-tags', width: 'large' },
+        { widgetSlug: 'monthly-people', width: 'full' },
         { widgetSlug: 'collections', width: 'full' },
-      ],
+      ]) as any,
       widgets: [
         {
           slug: 'dashboard-summary',
@@ -55,6 +58,24 @@ export default buildConfig({
           Component: '@/components/admin/MonthlyCalendarWidget#default',
           minWidth: 'medium',
           maxWidth: 'x-large',
+        },
+        {
+          slug: 'monthly-categories',
+          Component: '@/components/admin/MonthlyCategoryWidget#default',
+          minWidth: 'medium',
+          maxWidth: 'large',
+        },
+        {
+          slug: 'monthly-tags',
+          Component: '@/components/admin/MonthlyTagWidget#default',
+          minWidth: 'medium',
+          maxWidth: 'large',
+        },
+        {
+          slug: 'monthly-people',
+          Component: '@/components/admin/MonthlyPeopleWidget#default',
+          minWidth: 'medium',
+          maxWidth: 'full',
         },
       ],
     },

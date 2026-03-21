@@ -1,4 +1,5 @@
 import {
+  GraphQLBoolean,
   GraphQLFloat,
   GraphQLInt,
   GraphQLList,
@@ -7,6 +8,9 @@ import {
   GraphQLString,
 } from 'graphql'
 import { calculateDashboard } from '../utilities/calculateDashboard'
+import { calculateMonthlyCategories } from '../utilities/calculateMonthlyCategories'
+import { calculateMonthlyTags } from '../utilities/calculateMonthlyTags'
+import { calculateMonthlyPeople } from '../utilities/calculateMonthlyPeople'
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
@@ -119,6 +123,135 @@ const MonthlyCalendarResultType = new GraphQLObjectType({
   fields: {
     data: { type: new GraphQLList(CalendarDayType) },
     meta: { type: new GraphQLNonNull(MonthlyCalendarMetaType) },
+  },
+})
+
+// ─── Monthly Categories ───────────────────────────────────────────────────────
+
+const CategoryActivityType = new GraphQLObjectType({
+  name: 'CategoryActivity',
+  fields: {
+    id: { type: new GraphQLNonNull(GraphQLString) },
+    name: { type: new GraphQLNonNull(GraphQLString) },
+    icon: { type: GraphQLString },
+    color: { type: GraphQLString },
+    bgColor: { type: GraphQLString },
+    description: { type: GraphQLString },
+    isSystem: { type: new GraphQLNonNull(GraphQLBoolean) },
+    isParent: { type: new GraphQLNonNull(GraphQLBoolean) },
+    parentId: { type: GraphQLString },
+    amount: { type: new GraphQLNonNull(GraphQLFloat) },
+    transactionCount: { type: new GraphQLNonNull(GraphQLInt) },
+    averagePerTransaction: { type: new GraphQLNonNull(GraphQLFloat) },
+    highestTransaction: { type: new GraphQLNonNull(GraphQLFloat) },
+    lowestTransaction: { type: new GraphQLNonNull(GraphQLFloat) },
+  },
+})
+
+const MonthlyCategoriesMetaType = new GraphQLObjectType({
+  name: 'MonthlyCategoriesMeta',
+  fields: {
+    month: { type: new GraphQLNonNull(GraphQLInt) },
+    year: { type: new GraphQLNonNull(GraphQLInt) },
+    monthName: { type: new GraphQLNonNull(GraphQLString) },
+    totalExpenses: { type: new GraphQLNonNull(GraphQLFloat) },
+  },
+})
+
+const MonthlyCategoriesResultType = new GraphQLObjectType({
+  name: 'MonthlyCategoriesResult',
+  fields: {
+    data: { type: new GraphQLList(CategoryActivityType) },
+    meta: { type: new GraphQLNonNull(MonthlyCategoriesMetaType) },
+  },
+})
+
+// ─── Monthly Tags ─────────────────────────────────────────────────────────────
+
+const TagActivityType = new GraphQLObjectType({
+  name: 'TagActivity',
+  fields: {
+    id: { type: new GraphQLNonNull(GraphQLString) },
+    name: { type: new GraphQLNonNull(GraphQLString) },
+    icon: { type: GraphQLString },
+    color: { type: GraphQLString },
+    bgColor: { type: GraphQLString },
+    description: { type: GraphQLString },
+    isSystem: { type: new GraphQLNonNull(GraphQLBoolean) },
+    totalAmount: { type: new GraphQLNonNull(GraphQLFloat) },
+    totalTransactionCount: { type: new GraphQLNonNull(GraphQLInt) },
+    expenseAmount: { type: new GraphQLNonNull(GraphQLFloat) },
+    expenseTransactionCount: { type: new GraphQLNonNull(GraphQLInt) },
+    incomeAmount: { type: new GraphQLNonNull(GraphQLFloat) },
+    incomeTransactionCount: { type: new GraphQLNonNull(GraphQLInt) },
+    transferAmount: { type: new GraphQLNonNull(GraphQLFloat) },
+    transferTransactionCount: { type: new GraphQLNonNull(GraphQLInt) },
+    averagePerTransaction: { type: new GraphQLNonNull(GraphQLFloat) },
+    highestTransaction: { type: new GraphQLNonNull(GraphQLFloat) },
+    lowestTransaction: { type: new GraphQLNonNull(GraphQLFloat) },
+  },
+})
+
+const MonthlyTagsMetaType = new GraphQLObjectType({
+  name: 'MonthlyTagsMeta',
+  fields: {
+    month: { type: new GraphQLNonNull(GraphQLInt) },
+    year: { type: new GraphQLNonNull(GraphQLInt) },
+    monthName: { type: new GraphQLNonNull(GraphQLString) },
+    totalExpenses: { type: new GraphQLNonNull(GraphQLFloat) },
+    totalIncome: { type: new GraphQLNonNull(GraphQLFloat) },
+    totalTransfers: { type: new GraphQLNonNull(GraphQLFloat) },
+  },
+})
+
+const MonthlyTagsResultType = new GraphQLObjectType({
+  name: 'MonthlyTagsResult',
+  fields: {
+    data: { type: new GraphQLList(TagActivityType) },
+    meta: { type: new GraphQLNonNull(MonthlyTagsMetaType) },
+  },
+})
+
+// ─── Monthly People ───────────────────────────────────────────────────────────
+
+const PersonActivityType = new GraphQLObjectType({
+  name: 'PersonActivity',
+  fields: {
+    id: { type: new GraphQLNonNull(GraphQLString) },
+    name: { type: new GraphQLNonNull(GraphQLString) },
+    email: { type: GraphQLString },
+    phone: { type: GraphQLString },
+    description: { type: GraphQLString },
+    balance: { type: new GraphQLNonNull(GraphQLFloat) },
+    totalAmount: { type: new GraphQLNonNull(GraphQLFloat) },
+    totalTransactionCount: { type: new GraphQLNonNull(GraphQLInt) },
+    expenseAmount: { type: new GraphQLNonNull(GraphQLFloat) },
+    expenseTransactionCount: { type: new GraphQLNonNull(GraphQLInt) },
+    incomeAmount: { type: new GraphQLNonNull(GraphQLFloat) },
+    incomeTransactionCount: { type: new GraphQLNonNull(GraphQLInt) },
+    averagePerTransaction: { type: new GraphQLNonNull(GraphQLFloat) },
+    highestTransaction: { type: new GraphQLNonNull(GraphQLFloat) },
+    lowestTransaction: { type: new GraphQLNonNull(GraphQLFloat) },
+    lastTransactionAt: { type: GraphQLString },
+  },
+})
+
+const MonthlyPeopleMetaType = new GraphQLObjectType({
+  name: 'MonthlyPeopleMeta',
+  fields: {
+    month: { type: new GraphQLNonNull(GraphQLInt) },
+    year: { type: new GraphQLNonNull(GraphQLInt) },
+    monthName: { type: new GraphQLNonNull(GraphQLString) },
+    totalExpenses: { type: new GraphQLNonNull(GraphQLFloat) },
+    totalIncome: { type: new GraphQLNonNull(GraphQLFloat) },
+  },
+})
+
+const MonthlyPeopleResultType = new GraphQLObjectType({
+  name: 'MonthlyPeopleResult',
+  fields: {
+    data: { type: new GraphQLList(PersonActivityType) },
+    meta: { type: new GraphQLNonNull(MonthlyPeopleMetaType) },
   },
 })
 
@@ -307,6 +440,69 @@ export const analyticsQueries = () => ({
       if (!req.user) throw new Error('Unauthorized')
       const timezone = await getUserTimezone(context)
       return calculateDashboard(req.payload, req.user.id, timezone)
+    },
+  },
+
+  /**
+   * query { monthlyCategories(month: 3, year: 2026) { data { name amount transactionCount } meta { totalExpenses } } }
+   */
+  monthlyCategories: {
+    type: MonthlyCategoriesResultType,
+    args: {
+      month: { type: GraphQLInt },
+      year: { type: GraphQLInt },
+    },
+    resolve: async (_: unknown, args: { month?: number; year?: number }, context: { req: any }) => {
+      const { req } = context
+      if (!req.user) throw new Error('Unauthorized')
+      const now = new Date()
+      const month = args.month ?? now.getMonth() + 1
+      const year = args.year ?? now.getFullYear()
+      if (month < 1 || month > 12) throw new Error('Invalid month')
+      const timezone = await getUserTimezone(context)
+      return calculateMonthlyCategories(req.payload, req.user.id, month, year, timezone)
+    },
+  },
+
+  /**
+   * query { monthlyTags(month: 3, year: 2026) { data { name expenseAmount incomeAmount } meta { totalExpenses } } }
+   */
+  monthlyTags: {
+    type: MonthlyTagsResultType,
+    args: {
+      month: { type: GraphQLInt },
+      year: { type: GraphQLInt },
+    },
+    resolve: async (_: unknown, args: { month?: number; year?: number }, context: { req: any }) => {
+      const { req } = context
+      if (!req.user) throw new Error('Unauthorized')
+      const now = new Date()
+      const month = args.month ?? now.getMonth() + 1
+      const year = args.year ?? now.getFullYear()
+      if (month < 1 || month > 12) throw new Error('Invalid month')
+      const timezone = await getUserTimezone(context)
+      return calculateMonthlyTags(req.payload, req.user.id, month, year, timezone)
+    },
+  },
+
+  /**
+   * query { monthlyPeople(month: 3, year: 2026) { data { name balance expenseAmount } meta { totalExpenses } } }
+   */
+  monthlyPeople: {
+    type: MonthlyPeopleResultType,
+    args: {
+      month: { type: GraphQLInt },
+      year: { type: GraphQLInt },
+    },
+    resolve: async (_: unknown, args: { month?: number; year?: number }, context: { req: any }) => {
+      const { req } = context
+      if (!req.user) throw new Error('Unauthorized')
+      const now = new Date()
+      const month = args.month ?? now.getMonth() + 1
+      const year = args.year ?? now.getFullYear()
+      if (month < 1 || month > 12) throw new Error('Invalid month')
+      const timezone = await getUserTimezone(context)
+      return calculateMonthlyPeople(req.payload, req.user.id, month, year, timezone)
     },
   },
 })
