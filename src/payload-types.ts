@@ -77,6 +77,7 @@ export interface Config {
     transactions: Transaction;
     reminders: Reminder;
     'user-settings': UserSetting;
+    'ai-usages': AiUsage;
     'payload-mcp-api-keys': PayloadMcpApiKey;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
@@ -94,6 +95,7 @@ export interface Config {
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     reminders: RemindersSelect<false> | RemindersSelect<true>;
     'user-settings': UserSettingsSelect<false> | UserSettingsSelect<true>;
+    'ai-usages': AiUsagesSelect<false> | AiUsagesSelect<true>;
     'payload-mcp-api-keys': PayloadMcpApiKeysSelect<false> | PayloadMcpApiKeysSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -104,8 +106,12 @@ export interface Config {
     defaultIDType: string;
   };
   fallbackLocale: null;
-  globals: {};
-  globalsSelect: {};
+  globals: {
+    'app-settings': AppSetting;
+  };
+  globalsSelect: {
+    'app-settings': AppSettingsSelect<false> | AppSettingsSelect<true>;
+  };
   locale: null;
   widgets: {
     'dashboard-summary': DashboardSummaryWidget;
@@ -377,6 +383,25 @@ export interface UserSetting {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-usages".
+ */
+export interface AiUsage {
+  id: string;
+  user: string | User;
+  promptType: 'text' | 'image';
+  model?: string | null;
+  promptTokens?: number | null;
+  candidateTokens?: number | null;
+  totalTokens?: number | null;
+  latencyMs?: number | null;
+  status: 'success' | 'error';
+  apiKeyType?: ('user' | 'app') | null;
+  error?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * API keys control which collections, resources, tools, and prompts MCP clients can access
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -630,6 +655,10 @@ export interface PayloadLockedDocument {
         value: string | UserSetting;
       } | null)
     | ({
+        relationTo: 'ai-usages';
+        value: string | AiUsage;
+      } | null)
+    | ({
         relationTo: 'payload-mcp-api-keys';
         value: string | PayloadMcpApiKey;
       } | null);
@@ -869,6 +898,24 @@ export interface UserSettingsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-usages_select".
+ */
+export interface AiUsagesSelect<T extends boolean = true> {
+  user?: T;
+  promptType?: T;
+  model?: T;
+  promptTokens?: T;
+  candidateTokens?: T;
+  totalTokens?: T;
+  latencyMs?: T;
+  status?: T;
+  apiKeyType?: T;
+  error?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-mcp-api-keys_select".
  */
 export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
@@ -1000,6 +1047,75 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "app-settings".
+ */
+export interface AppSetting {
+  id: string;
+  ai?: {
+    /**
+     * Master switch for all AI features across the app.
+     */
+    enabled?: boolean | null;
+    /**
+     * App-level Gemini API key. Used as fallback when a user has no personal key configured.
+     */
+    geminiApiKey?: string | null;
+    /**
+     * When enabled, users with their own Gemini API key will use it instead of the app key.
+     */
+    allowUserApiKey?: boolean | null;
+    /**
+     * Model used when no model is specified in the request.
+     */
+    defaultModel?: string | null;
+    /**
+     * List of model IDs clients can choose from. Leave empty to allow any model.
+     */
+    models?:
+      | {
+          name: string;
+          id?: string | null;
+        }[]
+      | null;
+    /**
+     * Maximum AI requests per user per day. Set to 0 for unlimited.
+     */
+    perUserDailyLimit?: number | null;
+    /**
+     * Maximum AI requests per user per month. Set to 0 for unlimited.
+     */
+    perUserMonthlyLimit?: number | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "app-settings_select".
+ */
+export interface AppSettingsSelect<T extends boolean = true> {
+  ai?:
+    | T
+    | {
+        enabled?: T;
+        geminiApiKey?: T;
+        allowUserApiKey?: T;
+        defaultModel?: T;
+        models?:
+          | T
+          | {
+              name?: T;
+              id?: T;
+            };
+        perUserDailyLimit?: T;
+        perUserMonthlyLimit?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

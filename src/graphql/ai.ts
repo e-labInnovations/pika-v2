@@ -1,0 +1,100 @@
+import {
+  GraphQLInt,
+  GraphQLNonNull,
+  GraphQLObjectType,
+  GraphQLScalarType,
+  GraphQLString,
+  GraphQLFloat,
+  Kind,
+} from 'graphql'
+
+const GraphQLJSON = new GraphQLScalarType({
+  name: 'AITransactionData',
+  description: 'Arbitrary JSON value',
+  serialize: (v) => v,
+  parseValue: (v) => v,
+  parseLiteral: (ast) => {
+    if (ast.kind === Kind.STRING) { try { return JSON.parse(ast.value) } catch { return ast.value } }
+    if (ast.kind === Kind.INT || ast.kind === Kind.FLOAT) return Number(ast.value)
+    if (ast.kind === Kind.BOOLEAN) return ast.value
+    if (ast.kind === Kind.NULL) return null
+    return null
+  },
+})
+import { processTextToTransaction, processImageToTransaction } from '../utilities/ai/service'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+const AIUsageMetaType = new GraphQLObjectType({
+  name: 'AIUsageMeta',
+  fields: {
+    promptTokenCount:     { type: new GraphQLNonNull(GraphQLInt) },
+    candidatesTokenCount: { type: new GraphQLNonNull(GraphQLInt) },
+    totalTokenCount:      { type: new GraphQLNonNull(GraphQLInt) },
+  },
+})
+
+const AITransactionResultType = new GraphQLObjectType({
+  name: 'AITransactionResult',
+  fields: {
+    data:       { type: GraphQLJSON, description: 'Predicted transaction fields' },
+    model:      { type: new GraphQLNonNull(GraphQLString) },
+    latencyMs:  { type: new GraphQLNonNull(GraphQLFloat) },
+    usage:      { type: new GraphQLNonNull(AIUsageMetaType) },
+  },
+})
+
+// ─── Mutations ────────────────────────────────────────────────────────────────
+
+export const aiMutations = () => ({
+  /**
+   * mutation { textToTransaction(text: "Rs 500 debited via UPI") { data model latencyMs usage { totalTokenCount } } }
+   */
+  textToTransaction: {
+    type: AITransactionResultType,
+    args: {
+      text:  { type: new GraphQLNonNull(GraphQLString) },
+      model: { type: GraphQLString },
+    },
+    resolve: async (
+      _: unknown,
+      args: { text: string; model?: string },
+      context: { req: any },
+    ) => {
+      const { req } = context
+      if (!req.user) throw new Error('Unauthorized')
+      return processTextToTransaction(req.payload, String(req.user.id), args.text, args.model)
+    },
+  },
+
+  /**
+   * mutation { imageToTransaction(image: "<base64>", mimeType: "image/jpeg") { data model latencyMs } }
+   */
+  imageToTransaction: {
+    type: AITransactionResultType,
+    args: {
+      image:    { type: new GraphQLNonNull(GraphQLString), description: 'Base64-encoded image or data URL' },
+      mimeType: { type: GraphQLString, description: 'MIME type (default: image/jpeg)' },
+      model:    { type: GraphQLString },
+    },
+    resolve: async (
+      _: unknown,
+      args: { image: string; mimeType?: string; model?: string },
+      context: { req: any },
+    ) => {
+      const { req } = context
+      if (!req.user) throw new Error('Unauthorized')
+
+      let imageBase64 = args.image
+      let mimeType = args.mimeType ?? 'image/jpeg'
+
+      const dataUrlMatch = imageBase64.match(/^data:([^;]+);base64,(.+)$/)
+      if (dataUrlMatch) { mimeType = dataUrlMatch[1]; imageBase64 = dataUrlMatch[2] }
+
+      const allowed = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
+      if (!allowed.includes(mimeType)) throw new Error(`Unsupported image type "${mimeType}". Allowed: ${allowed.join(', ')}`)
+
+      return processImageToTransaction(req.payload, String(req.user.id), imageBase64, mimeType, args.model)
+    },
+  },
+})

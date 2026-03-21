@@ -10,6 +10,7 @@ import { Tags } from './Tags'
 import { Transactions } from './Transactions'
 import { Reminders } from './Reminders'
 import { UserSettings } from './UserSettings'
+import { AIUsages } from './AIUsages'
 
 export const collections = [
   Users,
@@ -21,4 +22,5 @@ export const collections = [
   Transactions,
   Reminders,
   UserSettings,
+  AIUsages,
 ]

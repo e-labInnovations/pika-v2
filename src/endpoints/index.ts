@@ -1,6 +1,7 @@
 import { currenciesHandler, currencyByCodeHandler } from './currencies'
 import { timezonesHandler, timezoneByIdHandler } from './timezones'
 import { weeklyExpensesHandler, monthlyCalendarHandler, dashboardHandler, monthlyCategoriesHandler, monthlyTagsHandler, monthlyPeopleHandler } from './analytics'
+import { textToTransactionHandler, imageToTransactionHandler } from './ai'
 
 export const endpoints = [
   {
@@ -52,5 +53,15 @@ export const endpoints = [
     path: '/analytics/monthly-people',
     method: 'get' as const,
     handler: monthlyPeopleHandler,
+  },
+  {
+    path: '/ai/text-to-transaction',
+    method: 'post' as const,
+    handler: textToTransactionHandler,
+  },
+  {
+    path: '/ai/image-to-transaction',
+    method: 'post' as const,
+    handler: imageToTransactionHandler,
   },
 ]

@@ -19,6 +19,7 @@
     "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.config.mts"
   },
   "dependencies": {
+    "@google/genai": "^1.46.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@payloadcms/db-postgres": "3.79.0",
     "@payloadcms/next": "3.79.0",
