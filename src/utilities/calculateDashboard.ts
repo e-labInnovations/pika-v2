@@ -59,7 +59,7 @@ export async function calculateDashboard(
   ])
 
   const totalBalance = accounts.docs.reduce(
-    (sum, acc) => sum + (Number((acc as Record<string, unknown>).balance) || 0),
+    (sum, acc) => sum + (Number((acc as unknown as Record<string, unknown>).balance) || 0),
     0,
   )
 

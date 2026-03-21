@@ -15,7 +15,7 @@ export default async function HomePage() {
   return (
     <div>
        {!user && <h1>Welcome to your new project.</h1>}
-       {user && <h1>Welcome back, {user.email}</h1>}
+       {user && <h1>Welcome back, {(user as any).email}</h1>}
 
        <TestColorPicker />
     </div>

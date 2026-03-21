@@ -3,6 +3,7 @@ import type { CollectionBeforeChangeHook, CollectionAfterChangeHook } from 'payl
 import { blockSystemLogin } from '../hooks/blockSystemLogin'
 import { isAdminOrOwn } from '@/access/isAdminOrOwn'
 import { isAdmin } from '@/access/isAdmin'
+import { isUser } from '@/access/isUser'
 import { onInit } from '@/seed/init'
 
 const promoteFirstUser: CollectionBeforeChangeHook = async ({ data, operation, req }) => {
@@ -40,7 +41,7 @@ export const Users: CollectionConfig = {
     read: isAdminOrOwn,
     update: isAdminOrOwn,
     delete: isAdmin,
-    admin: ({ req: { user } }) => user?.role === 'admin',
+    admin: ({ req: { user } }) => isUser(user) && user.role === 'admin',
   },
   hooks: {
     beforeOperation: [blockSystemLogin],
@@ -69,7 +70,7 @@ export const Users: CollectionConfig = {
       required: true,
       saveToJWT: true,
       access: {
-        update: ({ req: { user } }) => user?.role === 'admin',
+        update: ({ req: { user } }) => isUser(user) && user.role === 'admin',
       },
       admin: {
         position: 'sidebar',

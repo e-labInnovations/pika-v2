@@ -1,4 +1,5 @@
 import type { RelationshipField } from 'payload'
+import { isAdminField } from '@/access/isAdmin'
 
 export const userField: RelationshipField = {
   name: 'user',
@@ -7,6 +8,6 @@ export const userField: RelationshipField = {
   required: true,
   defaultValue: ({ req }) => req.user?.id,
   access: {
-    update: ({ req: { user } }) => user?.role === 'admin',
+    update: isAdminField,
   },
 }

@@ -1,8 +1,9 @@
-import type { Access } from 'payload'
+import type { Access, Where } from 'payload'
+import { resolveUser } from './isUser'
 
 export const ownOrSystemRecords: Access = async ({ req: { user, payload } }) => {
   if (!user) return false
-  if (user.role === 'admin') return true
+  if (resolveUser(user)?.role === 'admin') return true
 
   const found = await payload.find({
     collection: 'users',
@@ -13,7 +14,7 @@ export const ownOrSystemRecords: Access = async ({ req: { user, payload } }) => 
 
   const sysIds = found.docs.map((u) => u.id)
 
-  if (!sysIds.length) return { user: { equals: user.id } }
+  if (!sysIds.length) return { user: { equals: user.id } } as Where
 
-  return { or: [{ user: { equals: user.id } }, { user: { in: sysIds } }] }
+  return { or: [{ user: { equals: user.id } }, { user: { in: sysIds } }] } as Where
 }

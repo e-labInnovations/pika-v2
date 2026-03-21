@@ -105,7 +105,7 @@ export const monthlyCalendarHandler: PayloadHandler = async (req) => {
     return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
   }
 
-  const url = new URL(req.url)
+  const url = new URL(req.url ?? '/')
   const now = new Date()
   const month = parseInt(url.searchParams.get('month') ?? String(now.getMonth() + 1))
   const year = parseInt(url.searchParams.get('year') ?? String(now.getFullYear()))
@@ -227,7 +227,7 @@ export const monthlyCategoriesHandler: PayloadHandler = async (req) => {
     return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
   }
 
-  const url = new URL(req.url)
+  const url = new URL(req.url ?? '/')
   const now = new Date()
   const month = parseInt(url.searchParams.get('month') ?? String(now.getMonth() + 1))
   const year = parseInt(url.searchParams.get('year') ?? String(now.getFullYear()))
@@ -250,7 +250,7 @@ export const monthlyTagsHandler: PayloadHandler = async (req) => {
     return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
   }
 
-  const url = new URL(req.url)
+  const url = new URL(req.url ?? '/')
   const now = new Date()
   const month = parseInt(url.searchParams.get('month') ?? String(now.getMonth() + 1))
   const year = parseInt(url.searchParams.get('year') ?? String(now.getFullYear()))
@@ -273,7 +273,7 @@ export const monthlyPeopleHandler: PayloadHandler = async (req) => {
     return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
   }
 
-  const url = new URL(req.url)
+  const url = new URL(req.url ?? '/')
   const now = new Date()
   const month = parseInt(url.searchParams.get('month') ?? String(now.getMonth() + 1))
   const year = parseInt(url.searchParams.get('year') ?? String(now.getFullYear()))

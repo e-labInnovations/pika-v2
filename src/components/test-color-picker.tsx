@@ -53,10 +53,9 @@ export default function TestColorPicker() {
       {/* Color Picker */}
       <div className="space-y-2">
         <h3 className="text-lg font-semibold">Color Picker Test:</h3>
-        <ColorPicker 
-          color={color} 
-          setColor={setColor} 
-          label="Test Color" 
+        <ColorPicker
+          color={color}
+          setColor={setColor}
         />
         <p className="text-sm">Selected color: <span className="font-mono">{color}</span></p>
       </div>
