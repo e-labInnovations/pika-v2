@@ -1,0 +1,183 @@
+@import '~@payloadcms/ui/scss';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@layer theme {
+  @import 'tailwindcss/theme.css';
+}
+
+@layer base {
+  .twp {
+    @import 'tailwindcss/preflight.css';
+  }
+
+  .twp.no-twp {
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+      all: revert-layer;
+    }
+  }
+}
+
+@layer components;
+
+@layer utilities {
+  @import 'tailwindcss/utilities.css';
+
+  .w-level-1 {
+    @apply ml-4;
+    width: calc(100% - 1rem);
+  }
+  .w-level-2 {
+    @apply ml-4;
+    width: calc(100% - 2rem);
+  }
+}
+
+// Theme
+
+:root {
+  --theme-bg: var(--color-gray-50);
+  --theme-border-color: var(--color-gray-200);
+
+  --style-radius-s: 6px;
+  --style-radius-m: 8px;
+  --style-radius-l: 12px;
+
+  --nav-width: 256px;
+  @include small-break {
+    --nav-width: auto;
+  }
+
+  --theme-elevation-0: var(--color-gray-50);
+  --theme-elevation-50: var(--color-gray-100);
+  --theme-elevation-100: var(--color-gray-100);
+  --theme-elevation-150: var(--color-gray-200);
+  --theme-elevation-200: var(--color-gray-200);
+  --theme-elevation-250: var(--color-gray-300);
+  --theme-elevation-300: var(--color-gray-300);
+  --theme-elevation-350: var(--color-gray-400);
+  --theme-elevation-400: var(--color-gray-400);
+  --theme-elevation-450: var(--color-gray-500);
+  --theme-elevation-500: var(--color-gray-500);
+  --theme-elevation-550: var(--color-gray-600);
+  --theme-elevation-600: var(--color-gray-600);
+  --theme-elevation-650: var(--color-gray-700);
+  --theme-elevation-700: var(--color-gray-700);
+  --theme-elevation-750: var(--color-gray-800);
+  --theme-elevation-800: var(--color-gray-800);
+  --theme-elevation-850: var(--color-gray-900);
+  --theme-elevation-900: var(--color-gray-900);
+  --theme-elevation-950: var(--color-gray-950);
+  --theme-elevation-1000: var(--color-gray-950);
+}
+
+[data-theme='dark'] {
+  --theme-bg: var(--color-gray-950);
+  --theme-border-color: var(--color-gray-800);
+
+  --theme-elevation-0: var(--color-gray-950);
+  --theme-elevation-50: var(--color-gray-900);
+  --theme-elevation-100: var(--color-gray-800);
+  --theme-elevation-150: var(--color-gray-700);
+  --theme-elevation-200: var(--color-gray-700);
+  --theme-elevation-250: var(--color-gray-600);
+  --theme-elevation-300: var(--color-gray-600);
+  --theme-elevation-350: var(--color-gray-500);
+  --theme-elevation-400: var(--color-gray-500);
+  --theme-elevation-450: var(--color-gray-400);
+  --theme-elevation-500: var(--color-gray-400);
+  --theme-elevation-550: var(--color-gray-300);
+  --theme-elevation-600: var(--color-gray-300);
+  --theme-elevation-650: var(--color-gray-200);
+  --theme-elevation-700: var(--color-gray-200);
+  --theme-elevation-750: var(--color-gray-100);
+  --theme-elevation-800: var(--color-gray-100);
+  --theme-elevation-850: var(--color-gray-50);
+  --theme-elevation-900: var(--color-gray-50);
+  --theme-elevation-950: var(--color-gray-50);
+  --theme-elevation-1000: var(--color-gray-50);
+}
+
+.btn--style-pill,
+.btn--style-tab {
+  --bg-color: var(--color-gray-50);
+  --color: var(--color-gray-600);
+  --border-color: var(--color-gray-200);
+  --hover-bg: var(--color-gray-100);
+  --hover-color: var(--color-gray-900);
+}
+
+[data-theme='dark'] .btn--style-pill,
+[data-theme='dark'] .btn--style-tab {
+  --bg-color: var(--color-gray-900);
+  --color: var(--color-gray-100);
+  --border-color: var(--color-gray-800);
+  --hover-bg: var(--color-gray-800);
+  --hover-color: var(--color-gray-100);
+}
+
+.btn--style-primary {
+  --bg-color: var(--color-blue-500);
+  --color: var(--color-white);
+  --border-color: var(--color-blue-500);
+  --hover-bg: var(--color-blue-600);
+  --hover-color: var(--color-white);
+}
+
+[data-theme='dark'] .btn--style-primary {
+  --bg-color: var(--color-blue-600);
+  --color: var(--color-white);
+  --border-color: var(--color-blue-600);
+  --hover-bg: var(--color-blue-700);
+  --hover-color: var(--color-white);
+}
+
+.btn--disabled {
+  --bg-color: var(--color-gray-200);
+}
+
+[data-theme='dark'] .btn--disabled {
+  --bg-color: var(--color-gray-800);
+}
+
+.radio-input__styled-radio:before {
+  background-color: var(--color-blue-500);
+}
+
+[data-theme='dark'] .radio-input__styled-radio:before {
+  background-color: var(--color-blue-600);
+}
+
+.checkbox-input__input {
+  color: var(--color-blue-500);
+}
+
+[data-theme='dark'] .checkbox-input__input {
+  color: var(--color-blue-600);
+}
+
+@layer payload-default {
+  .template-default {
+    grid-template-columns: 64px auto; // when nav closed
+    @include small-break {
+      grid-template-columns: 0 auto;
+    }
+
+    &--nav-open {
+      grid-template-columns: var(--nav-width) auto; // when nav open
+    }
+  }
+
+  .nav-toggler {
+    display: none;
+  }
+  @include small-break {
+    .nav-toggler {
+      display: block;
+    }
+  }
+}

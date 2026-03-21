@@ -2,52 +2,56 @@ import { systemUser, categories, defaultTags, CategoryData } from '../constants/
 import { Payload } from "payload";
 
 export const onInit = async (payload: Payload) => {
-    let systemUserId: number
+    // Wait for at least one real user to exist before seeding.
+    // This preserves Payload's built-in "create first user" onboarding flow.
+    const realUsers = await payload.find({
+        collection: 'users',
+        where: { role: { not_equals: 'system' } },
+        limit: 1,
+        depth: 0,
+    })
+
+    if (realUsers.totalDocs === 0) {
+        console.log('⏳ No users found — skipping seed. Restart the server after creating your admin account.')
+        return
+    }
 
     const existingUser = await payload.find({
         collection: 'users',
-        where: {
-            email: {
-                equals: systemUser.email
-            }
-        }
+        where: { email: { equals: systemUser.email } },
     })
 
-    // Create system user if it doesn't exist
     if (existingUser.docs.length === 0) {
         const createdUser = await payload.create({
             collection: 'users',
             data: {
                 email: systemUser.email,
                 name: systemUser.name,
-                password: systemUser.password
-            }
+                password: systemUser.password,
+                role: 'system',
+            },
         })
-        systemUserId = createdUser.id as number
-        console.log(`✅ Created system user: ${systemUser.email}`)
+        const systemUserId = createdUser.id as string
+        console.log(`✅ Created system user: ${systemUser.email} (id: ${systemUserId})`)
 
-        // Seed default categories
         await seedCategories(payload, systemUserId)
-        
-        // Seed default tags
         await seedTags(payload, systemUserId)
     } else {
-        systemUserId = existingUser.docs[0].id as number
         console.log(`✅ System user already exists: ${systemUser.email}`)
     }
 }
 
-const seedCategories = async (payload: Payload, userId: number) => {
+const seedCategories = async (payload: Payload, userId: string) => {
     for (const category of categories) {
         await createCategoryWithChildren(payload, userId, category, null)
     }
 }
 
 const createCategoryWithChildren = async (
-    payload: Payload, 
-    userId: number, 
-    category: CategoryData, 
-    parentId: number | null
+    payload: Payload,
+    userId: string,
+    category: CategoryData,
+    parentId: string | null
 ) => {
     // Create the category
     const created = await payload.create({
@@ -64,7 +68,7 @@ const createCategoryWithChildren = async (
             isActive: true
         }
     })
-    const categoryId = created.id as number
+    const categoryId = created.id as string
     console.log(`✅ Created category: ${category.name} (${category.type})`)
 
     // Create children if they exist
@@ -75,7 +79,7 @@ const createCategoryWithChildren = async (
     }
 }
 
-const seedTags = async (payload: Payload, userId: number) => {
+const seedTags = async (payload: Payload, userId: string) => {
     for (const tag of defaultTags) {
         await payload.create({
             collection: 'tags',

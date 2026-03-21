@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
-import { isAuthenticated } from '../access/isAuthenticated'
-import { ownRecordsOnly } from '../access/ownRecordsOnly'
+import { isNotSystem } from '../access/isNotSystem'
+import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
 
 export const Reminders: CollectionConfig = {
@@ -10,10 +10,10 @@ export const Reminders: CollectionConfig = {
     defaultColumns: ['title', 'amount', 'type', 'nextDueDate', 'archived', 'user'],
   },
   access: {
-    create: isAuthenticated,
-    read: ownRecordsOnly,
-    update: ownRecordsOnly,
-    delete: ownRecordsOnly,
+    create: isNotSystem,
+    read: isAdminOrOwn,
+    update: isAdminOrOwn,
+    delete: isAdminOrOwn,
   },
   hooks: {
     beforeChange: [setUserOnCreate],
@@ -53,9 +53,17 @@ export const Reminders: CollectionConfig = {
       name: 'category',
       type: 'relationship',
       relationTo: 'categories',
-      filterOptions: ({ user }) => {
-        if (!user) return false
-        return { user: { equals: user.id } }
+      admin: {
+        components: {
+          Field: '@/components/admin/CategoryPickerField#CategoryPickerField',
+        },
+      },
+      filterOptions: async ({ user, req }) => {
+        if (!user) return true
+        if (user.role === 'admin') return true
+        const found = await req.payload.find({ collection: 'users', where: { role: { equals: 'system' } }, limit: 100, depth: 0 })
+        const sysIds = found.docs.map((u) => u.id)
+        return { or: [{ user: { equals: user.id } }, ...(sysIds.length ? [{ user: { in: sysIds } }] : [])] }
       },
     },
     {
@@ -120,9 +128,12 @@ export const Reminders: CollectionConfig = {
       type: 'relationship',
       relationTo: 'tags',
       hasMany: true,
-      filterOptions: ({ user }) => {
-        if (!user) return false
-        return { user: { equals: user.id } }
+      filterOptions: async ({ user, req }) => {
+        if (!user) return true
+        if (user.role === 'admin') return true
+        const found = await req.payload.find({ collection: 'users', where: { role: { equals: 'system' } }, limit: 100, depth: 0 })
+        const sysIds = found.docs.map((u) => u.id)
+        return { or: [{ user: { equals: user.id } }, ...(sysIds.length ? [{ user: { in: sysIds } }] : [])] }
       },
     },
     {

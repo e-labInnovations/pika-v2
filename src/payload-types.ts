@@ -98,7 +98,7 @@ export interface Config {
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
   };
   db: {
-    defaultIDType: number;
+    defaultIDType: string;
   };
   fallbackLocale: null;
   globals: {};
@@ -136,9 +136,10 @@ export interface UserAuthOperations {
  * via the `definition` "users".
  */
 export interface User {
-  id: number;
+  id: string;
   name?: string | null;
-  avatar?: (number | null) | Media;
+  avatar?: (string | null) | Media;
+  role?: ('user' | 'admin' | 'system') | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -163,11 +164,11 @@ export interface User {
  * via the `definition` "media".
  */
 export interface Media {
-  id: number;
+  id: string;
   alt?: string | null;
   type?: ('avatar' | 'attachment' | 'other') | null;
   entityType?: ('person' | 'account' | 'transaction' | 'other') | null;
-  user: number | User;
+  user: string | User;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -185,13 +186,13 @@ export interface Media {
  * via the `definition` "accounts".
  */
 export interface Account {
-  id: number;
-  user: number | User;
+  id: string;
+  user: string | User;
   name: string;
   icon?: string | null;
   bgColor?: string | null;
   color?: string | null;
-  avatar?: (number | null) | Media;
+  avatar?: (string | null) | Media;
   description?: string | null;
   isActive?: boolean | null;
   updatedAt: string;
@@ -202,12 +203,12 @@ export interface Account {
  * via the `definition` "people".
  */
 export interface Person {
-  id: number;
-  user: number | User;
+  id: string;
+  user: string | User;
   name: string;
   email?: string | null;
   phone?: string | null;
-  avatar?: (number | null) | Media;
+  avatar?: (string | null) | Media;
   description?: string | null;
   isActive?: boolean | null;
   updatedAt: string;
@@ -218,11 +219,11 @@ export interface Person {
  * via the `definition` "categories".
  */
 export interface Category {
-  id: number;
-  user: number | User;
+  id: string;
+  user: string | User;
   name: string;
   type: 'income' | 'expense' | 'transfer';
-  parent?: (number | null) | Category;
+  parent?: (string | null) | Category;
   icon?: string | null;
   color?: string | null;
   bgColor?: string | null;
@@ -236,8 +237,8 @@ export interface Category {
  * via the `definition` "tags".
  */
 export interface Tag {
-  id: number;
-  user: number | User;
+  id: string;
+  user: string | User;
   name: string;
   icon?: string | null;
   color?: string | null;
@@ -252,21 +253,21 @@ export interface Tag {
  * via the `definition` "transactions".
  */
 export interface Transaction {
-  id: number;
-  user: number | User;
+  id: string;
+  user: string | User;
   title: string;
   amount: string;
   date: string;
   type: 'income' | 'expense' | 'transfer';
-  category?: (number | null) | Category;
-  account: number | Account;
+  category?: (string | null) | Category;
+  account: string | Account;
   /**
    * Destination account for transfers
    */
-  toAccount?: (number | null) | Account;
-  person?: (number | null) | Person;
-  tags?: (number | Tag)[] | null;
-  attachments?: (number | Media)[] | null;
+  toAccount?: (string | null) | Account;
+  person?: (string | null) | Person;
+  tags?: (string | Tag)[] | null;
+  attachments?: (string | Media)[] | null;
   note?: string | null;
   isActive?: boolean | null;
   updatedAt: string;
@@ -277,14 +278,14 @@ export interface Transaction {
  * via the `definition` "reminders".
  */
 export interface Reminder {
-  id: number;
-  user: number | User;
+  id: string;
+  user: string | User;
   title: string;
   amount?: string | null;
   type?: ('income' | 'expense' | 'transfer') | null;
-  category?: (number | null) | Category;
-  account?: (number | null) | Account;
-  member?: (number | null) | Person;
+  category?: (string | null) | Category;
+  account?: (string | null) | Account;
+  member?: (string | null) | Person;
   date?: string | null;
   isRecurring?: boolean | null;
   /**
@@ -294,7 +295,7 @@ export interface Reminder {
   recurrenceType?: ('daily' | 'weekly' | 'monthly' | 'yearly') | null;
   lastTriggeredAt?: string | null;
   nextDueDate?: string | null;
-  tags?: (number | Tag)[] | null;
+  tags?: (string | Tag)[] | null;
   completedDates?:
     | {
         date: string;
@@ -310,12 +311,12 @@ export interface Reminder {
  * via the `definition` "user-settings".
  */
 export interface UserSetting {
-  id: number;
-  user: number | User;
+  id: string;
+  user: string | User;
   currency?: string | null;
   locale?: string | null;
   theme?: ('light' | 'dark' | 'system') | null;
-  defaultAccount?: (number | null) | Account;
+  defaultAccount?: (string | null) | Account;
   settings?:
     | {
         [k: string]: unknown;
@@ -333,7 +334,7 @@ export interface UserSetting {
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
-  id: number;
+  id: string;
   key: string;
   data:
     | {
@@ -350,48 +351,48 @@ export interface PayloadKv {
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
-  id: number;
+  id: string;
   document?:
     | ({
         relationTo: 'users';
-        value: number | User;
+        value: string | User;
       } | null)
     | ({
         relationTo: 'media';
-        value: number | Media;
+        value: string | Media;
       } | null)
     | ({
         relationTo: 'accounts';
-        value: number | Account;
+        value: string | Account;
       } | null)
     | ({
         relationTo: 'people';
-        value: number | Person;
+        value: string | Person;
       } | null)
     | ({
         relationTo: 'categories';
-        value: number | Category;
+        value: string | Category;
       } | null)
     | ({
         relationTo: 'tags';
-        value: number | Tag;
+        value: string | Tag;
       } | null)
     | ({
         relationTo: 'transactions';
-        value: number | Transaction;
+        value: string | Transaction;
       } | null)
     | ({
         relationTo: 'reminders';
-        value: number | Reminder;
+        value: string | Reminder;
       } | null)
     | ({
         relationTo: 'user-settings';
-        value: number | UserSetting;
+        value: string | UserSetting;
       } | null);
   globalSlug?: string | null;
   user: {
     relationTo: 'users';
-    value: number | User;
+    value: string | User;
   };
   updatedAt: string;
   createdAt: string;
@@ -401,10 +402,10 @@ export interface PayloadLockedDocument {
  * via the `definition` "payload-preferences".
  */
 export interface PayloadPreference {
-  id: number;
+  id: string;
   user: {
     relationTo: 'users';
-    value: number | User;
+    value: string | User;
   };
   key?: string | null;
   value?:
@@ -424,7 +425,7 @@ export interface PayloadPreference {
  * via the `definition` "payload-migrations".
  */
 export interface PayloadMigration {
-  id: number;
+  id: string;
   name?: string | null;
   batch?: number | null;
   updatedAt: string;
@@ -437,6 +438,7 @@ export interface PayloadMigration {
 export interface UsersSelect<T extends boolean = true> {
   name?: T;
   avatar?: T;
+  role?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;

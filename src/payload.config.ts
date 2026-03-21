@@ -13,9 +13,19 @@ const dirname = path.dirname(filename)
 export default buildConfig({
   admin: {
     user: Users.slug,
+    autoLogin:
+      process.env.NODE_ENV === 'development'
+        ? { email: 'ashad@elabins.com', password: 'password', prefillOnly: true }
+        : false,
     autoRefresh: true,
     importMap: {
       baseDir: path.resolve(dirname),
+    },
+    components: {
+      providers: [
+        '@/components/admin/LucideSpriteProvider#default',
+        '@/components/admin/TooltipProvider#default',
+      ],
     },
   },
   collections: collections,
@@ -28,8 +38,9 @@ export default buildConfig({
     pool: {
       connectionString: process.env.DATABASE_URL || '',
     },
+    idType: 'uuid',
   }),
   sharp,
-  // onInit: onInit,
+  onInit: onInit,
   plugins: [],
 })

@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
-import { isAuthenticated } from '../access/isAuthenticated'
-import { ownRecordsOnly } from '../access/ownRecordsOnly'
+import { isNotSystem } from '../access/isNotSystem'
+import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
 
 export const UserSettings: CollectionConfig = {
@@ -10,10 +10,10 @@ export const UserSettings: CollectionConfig = {
     defaultColumns: ['user', 'currency', 'theme'],
   },
   access: {
-    create: isAuthenticated,
-    read: ownRecordsOnly,
-    update: ownRecordsOnly,
-    delete: ownRecordsOnly,
+    create: isNotSystem,
+    read: isAdminOrOwn,
+    update: isAdminOrOwn,
+    delete: isAdminOrOwn,
   },
   hooks: {
     beforeChange: [setUserOnCreate],

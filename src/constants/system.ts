@@ -1,3 +1,4 @@
+export const SYSTEM_USER_ID = 'cafecafe-cafe-4afe-8afe-cafecafecafe'
 
 export const systemUser = {
     email: 'system@elabins.com',

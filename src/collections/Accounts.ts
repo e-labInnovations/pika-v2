@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
-import { isAuthenticated } from '../access/isAuthenticated'
-import { ownRecordsOnly } from '../access/ownRecordsOnly'
+import { isNotSystem } from '../access/isNotSystem'
+import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
 
 export const Accounts: CollectionConfig = {
@@ -10,10 +10,10 @@ export const Accounts: CollectionConfig = {
     defaultColumns: ['name', 'isActive', 'user'],
   },
   access: {
-    create: isAuthenticated,
-    read: ownRecordsOnly,
-    update: ownRecordsOnly,
-    delete: ownRecordsOnly,
+    create: isNotSystem,
+    read: isAdminOrOwn,
+    update: isAdminOrOwn,
+    delete: isAdminOrOwn,
   },
   hooks: {
     beforeChange: [setUserOnCreate],
@@ -34,14 +34,30 @@ export const Accounts: CollectionConfig = {
     {
       name: 'icon',
       type: 'text',
+      admin: {
+        components: {
+          Field: '@/components/admin/IconPickerField#IconPickerField'
+        }
+      },
     },
     {
       name: 'bgColor',
       type: 'text',
+      label: 'Background Color',
+      admin: {
+        components: {
+          Field: '@/components/admin/ColorPickerField#ColorPickerField'
+        }
+      },
     },
     {
       name: 'color',
       type: 'text',
+      admin: {
+        components: {
+          Field: '@/components/admin/ColorPickerField#ColorPickerField'
+        }
+      },
     },
     {
       name: 'avatar',

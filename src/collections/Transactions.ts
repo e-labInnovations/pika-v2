@@ -1,6 +1,6 @@
-import type { CollectionConfig } from 'payload'
-import { isAuthenticated } from '../access/isAuthenticated'
-import { ownRecordsOnly } from '../access/ownRecordsOnly'
+import type { CollectionConfig, Where } from 'payload'
+import { isNotSystem } from '../access/isNotSystem'
+import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
 
 export const Transactions: CollectionConfig = {
@@ -10,10 +10,10 @@ export const Transactions: CollectionConfig = {
     defaultColumns: ['title', 'amount', 'type', 'date', 'account', 'user'],
   },
   access: {
-    create: isAuthenticated,
-    read: ownRecordsOnly,
-    update: ownRecordsOnly,
-    delete: ownRecordsOnly,
+    create: isNotSystem,
+    read: isAdminOrOwn,
+    update: isAdminOrOwn,
+    delete: isAdminOrOwn,
   },
   hooks: {
     beforeChange: [setUserOnCreate],
@@ -38,7 +38,8 @@ export const Transactions: CollectionConfig = {
       required: true,
       validate: (value: string | null | undefined) => {
         if (!value) return 'Amount is required'
-        if (!/^\d+(\.\d{1,4})?$/.test(value)) return 'Amount must be a positive number with up to 4 decimal places'
+        if (!/^\d+(\.\d{1,4})?$/.test(value))
+          return 'Amount must be a positive number with up to 4 decimal places'
         return true
       },
     },
@@ -61,9 +62,24 @@ export const Transactions: CollectionConfig = {
       name: 'category',
       type: 'relationship',
       relationTo: 'categories',
-      filterOptions: ({ user }) => {
-        if (!user) return false
-        return { user: { equals: user.id } }
+      admin: {
+        components: {
+          Field: '@/components/admin/CategoryPickerField#CategoryPickerField',
+        },
+      },
+      filterOptions: async ({ user, req, data }) => {
+        if (!user) return true
+        if (user.role === 'admin') return data?.type ? { type: { equals: data.type } } : true
+        const found = await req.payload.find({
+          collection: 'users',
+          where: { role: { equals: 'system' } },
+          limit: 100,
+          depth: 0,
+        })
+        const sysIds = found.docs.map((u) => u.id)
+        const ownerFilter = { or: [{ user: { equals: user.id } }, ...(sysIds.length ? [{ user: { in: sysIds } }] : [])] }
+        if (!data?.type) return ownerFilter
+        return { and: [ownerFilter, { type: { equals: data.type } }] } as Where
       },
     },
     {
@@ -71,18 +87,20 @@ export const Transactions: CollectionConfig = {
       type: 'relationship',
       relationTo: 'accounts',
       required: true,
-      filterOptions: ({ user }) => {
+      filterOptions: ({ user, data }) => {
         if (!user) return false
-        return { user: { equals: user.id } }
+        if (data?.toAccount) return { and: [{ user: { equals: user.id } }, { id: { not_equals: data.toAccount } }] } as Where
+        return { user: { equals: user.id } } as Where
       },
     },
     {
       name: 'toAccount',
       type: 'relationship',
       relationTo: 'accounts',
-      filterOptions: ({ user }) => {
+      filterOptions: ({ user, data }) => {
         if (!user) return false
-        return { user: { equals: user.id } }
+        if (data?.account) return { and: [{ user: { equals: user.id } }, { id: { not_equals: data.account } }] } as Where
+        return { user: { equals: user.id } } as Where
       },
       admin: {
         condition: (data) => data?.type === 'transfer',
@@ -97,15 +115,33 @@ export const Transactions: CollectionConfig = {
         if (!user) return false
         return { user: { equals: user.id } }
       },
+      admin: {
+        condition: (data) => data?.type !== 'transfer',
+      },
     },
     {
       name: 'tags',
       type: 'relationship',
       relationTo: 'tags',
       hasMany: true,
-      filterOptions: ({ user }) => {
-        if (!user) return false
-        return { user: { equals: user.id } }
+      admin: {
+        components: {
+          Field: '@/components/admin/TagPickerField#TagPickerField',
+        },
+      },
+      filterOptions: async ({ user, req }) => {
+        if (!user) return true
+        if (user.role === 'admin') return true
+        const found = await req.payload.find({
+          collection: 'users',
+          where: { role: { equals: 'system' } },
+          limit: 100,
+          depth: 0,
+        })
+        const sysIds = found.docs.map((u) => u.id)
+        return {
+          or: [{ user: { equals: user.id } }, ...(sysIds.length ? [{ user: { in: sysIds } }] : [])],
+        }
       },
     },
     {
