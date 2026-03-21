@@ -108,6 +108,9 @@ export interface Config {
   globalsSelect: {};
   locale: null;
   widgets: {
+    'dashboard-summary': DashboardSummaryWidget;
+    'weekly-expenses': WeeklyExpensesWidget;
+    'monthly-calendar': MonthlyCalendarWidget;
     collections: CollectionsWidget;
   };
   user: User | PayloadMcpApiKey;
@@ -979,6 +982,36 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "dashboard-summary_widget".
+ */
+export interface DashboardSummaryWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'large' | 'x-large' | 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "weekly-expenses_widget".
+ */
+export interface WeeklyExpensesWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'medium' | 'large' | 'x-large';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "monthly-calendar_widget".
+ */
+export interface MonthlyCalendarWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'medium' | 'large' | 'x-large';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

@@ -29,7 +29,34 @@ export default buildConfig({
         '@/components/admin/LucideSpriteProvider#default',
         '@/components/admin/TooltipProvider#default',
       ],
-      beforeDashboard: ['@/components/admin/DashboardWidget#default'],
+    },
+    dashboard: {
+      defaultLayout: () => [
+        { widgetSlug: 'dashboard-summary', width: 'full' },
+        { widgetSlug: 'weekly-expenses', width: 'large' },
+        { widgetSlug: 'monthly-calendar', width: 'large' },
+        { widgetSlug: 'collections', width: 'full' },
+      ],
+      widgets: [
+        {
+          slug: 'dashboard-summary',
+          Component: '@/components/admin/DashboardWidget#default',
+          minWidth: 'large',
+          maxWidth: 'full',
+        },
+        {
+          slug: 'weekly-expenses',
+          Component: '@/components/admin/WeeklyExpensesWidget#default',
+          minWidth: 'medium',
+          maxWidth: 'x-large',
+        },
+        {
+          slug: 'monthly-calendar',
+          Component: '@/components/admin/MonthlyCalendarWidget#default',
+          minWidth: 'medium',
+          maxWidth: 'x-large',
+        },
+      ],
     },
   },
   collections: collections,

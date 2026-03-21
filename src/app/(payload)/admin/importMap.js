@@ -7,9 +7,11 @@ import { TagPickerField as TagPickerField_538af7a9fcdf5e0a862b53977bec48d2 } fro
 import { CurrencyPickerField as CurrencyPickerField_0197c80b04e1f70e7ad1aa63a5049eee } from '@/components/admin/CurrencyPickerField'
 import { TimezonePickerField as TimezonePickerField_4a20e86b2e8e9db3486ec8b0b1659281 } from '@/components/admin/TimezonePickerField'
 import { ApiKeyField as ApiKeyField_2eaee1a2580d542d57c8ca674e3a4bbb } from '@/components/admin/ApiKeyField'
-import { default as default_c5192f80c64fc937341a06e8b5136d0d } from '@/components/admin/DashboardWidget'
 import { default as default_675ec30f5e131ac4d8992cfb21f67a8d } from '@/components/admin/LucideSpriteProvider'
 import { default as default_2ecc6543db5db141dd3de3a303f0412b } from '@/components/admin/TooltipProvider'
+import { default as default_c5192f80c64fc937341a06e8b5136d0d } from '@/components/admin/DashboardWidget'
+import { default as default_e2d7356fe10e0f399082615d99eae3c6 } from '@/components/admin/WeeklyExpensesWidget'
+import { default as default_a8c4f64dcd59e1609032d41fbe863af0 } from '@/components/admin/MonthlyCalendarWidget'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
 export const importMap = {
@@ -22,8 +24,10 @@ export const importMap = {
   "@/components/admin/CurrencyPickerField#CurrencyPickerField": CurrencyPickerField_0197c80b04e1f70e7ad1aa63a5049eee,
   "@/components/admin/TimezonePickerField#TimezonePickerField": TimezonePickerField_4a20e86b2e8e9db3486ec8b0b1659281,
   "@/components/admin/ApiKeyField#ApiKeyField": ApiKeyField_2eaee1a2580d542d57c8ca674e3a4bbb,
-  "@/components/admin/DashboardWidget#default": default_c5192f80c64fc937341a06e8b5136d0d,
   "@/components/admin/LucideSpriteProvider#default": default_675ec30f5e131ac4d8992cfb21f67a8d,
   "@/components/admin/TooltipProvider#default": default_2ecc6543db5db141dd3de3a303f0412b,
+  "@/components/admin/DashboardWidget#default": default_c5192f80c64fc937341a06e8b5136d0d,
+  "@/components/admin/WeeklyExpensesWidget#default": default_e2d7356fe10e0f399082615d99eae3c6,
+  "@/components/admin/MonthlyCalendarWidget#default": default_a8c4f64dcd59e1609032d41fbe863af0,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }
