@@ -15,6 +15,7 @@ const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
 export default buildConfig({
+  serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3333',
   admin: {
     user: Users.slug,
     meta: {
@@ -38,6 +39,7 @@ export default buildConfig({
         Logo: '@/components/admin/Logo#default',
         Icon: '@/components/admin/Icon#default',
       },
+      afterLogin: ['@/components/admin/GoogleSignInButton#default'],
       providers: [
         '@/components/admin/LucideSpriteProvider#default',
         '@/components/admin/TooltipProvider#default',

@@ -10,6 +10,7 @@ import { TimezonePickerField as TimezonePickerField_4a20e86b2e8e9db3486ec8b0b165
 import { ApiKeyField as ApiKeyField_2eaee1a2580d542d57c8ca674e3a4bbb } from '@/components/admin/ApiKeyField'
 import { default as default_534076e2c753ea5d539a54b05f456b1b } from '@/components/admin/Icon'
 import { default as default_a44df17d0fc3dcd873dae43dc3bf66bd } from '@/components/admin/Logo'
+import { default as default_59fb4b1dac690503b3fdaa0fb454d5b6 } from '@/components/admin/GoogleSignInButton'
 import { default as default_675ec30f5e131ac4d8992cfb21f67a8d } from '@/components/admin/LucideSpriteProvider'
 import { default as default_2ecc6543db5db141dd3de3a303f0412b } from '@/components/admin/TooltipProvider'
 import { default as default_c5192f80c64fc937341a06e8b5136d0d } from '@/components/admin/DashboardWidget'
@@ -33,6 +34,7 @@ export const importMap = {
   "@/components/admin/ApiKeyField#ApiKeyField": ApiKeyField_2eaee1a2580d542d57c8ca674e3a4bbb,
   "@/components/admin/Icon#default": default_534076e2c753ea5d539a54b05f456b1b,
   "@/components/admin/Logo#default": default_a44df17d0fc3dcd873dae43dc3bf66bd,
+  "@/components/admin/GoogleSignInButton#default": default_59fb4b1dac690503b3fdaa0fb454d5b6,
   "@/components/admin/LucideSpriteProvider#default": default_675ec30f5e131ac4d8992cfb21f67a8d,
   "@/components/admin/TooltipProvider#default": default_2ecc6543db5db141dd3de3a303f0412b,
   "@/components/admin/DashboardWidget#default": default_c5192f80c64fc937341a06e8b5136d0d,

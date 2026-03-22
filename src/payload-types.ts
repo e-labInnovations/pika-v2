@@ -78,6 +78,7 @@ export interface Config {
     reminders: Reminder;
     'user-settings': UserSetting;
     'ai-usages': AiUsage;
+    'oauth-accounts': OauthAccount;
     'payload-mcp-api-keys': PayloadMcpApiKey;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
@@ -96,6 +97,7 @@ export interface Config {
     reminders: RemindersSelect<false> | RemindersSelect<true>;
     'user-settings': UserSettingsSelect<false> | UserSettingsSelect<true>;
     'ai-usages': AiUsagesSelect<false> | AiUsagesSelect<true>;
+    'oauth-accounts': OauthAccountsSelect<false> | OauthAccountsSelect<true>;
     'payload-mcp-api-keys': PayloadMcpApiKeysSelect<false> | PayloadMcpApiKeysSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -402,6 +404,22 @@ export interface AiUsage {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "oauth-accounts".
+ */
+export interface OauthAccount {
+  id: string;
+  name?: string | null;
+  picture?: string | null;
+  user: string | User;
+  issuerName: string;
+  scope?: string | null;
+  sub: string;
+  access_token?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * API keys control which collections, resources, tools, and prompts MCP clients can access
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -659,6 +677,10 @@ export interface PayloadLockedDocument {
         value: string | AiUsage;
       } | null)
     | ({
+        relationTo: 'oauth-accounts';
+        value: string | OauthAccount;
+      } | null)
+    | ({
         relationTo: 'payload-mcp-api-keys';
         value: string | PayloadMcpApiKey;
       } | null);
@@ -911,6 +933,21 @@ export interface AiUsagesSelect<T extends boolean = true> {
   status?: T;
   apiKeyType?: T;
   error?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "oauth-accounts_select".
+ */
+export interface OauthAccountsSelect<T extends boolean = true> {
+  name?: T;
+  picture?: T;
+  user?: T;
+  issuerName?: T;
+  scope?: T;
+  sub?: T;
+  access_token?: T;
   updatedAt?: T;
   createdAt?: T;
 }
