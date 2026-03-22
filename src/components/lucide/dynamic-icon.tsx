@@ -1,32 +1,32 @@
 'use client'
-import React, { forwardRef } from 'react';
-import { type IconName, resolveIconName } from './lucide';
+import React, { forwardRef } from 'react'
+import { type IconName, resolveIconName } from './lucide'
 
 interface DynamicIconProps extends React.SVGProps<SVGSVGElement> {
   /**
    * The name of the Lucide icon to render
    */
-  name: IconName;
+  name: IconName
   /**
    * The size of the icon (width and height)
    * @default 24
    */
-  size?: string | number;
+  size?: string | number
   /**
    * The color of the icon
    * @default 'currentColor'
    */
-  color?: string;
+  color?: string
   /**
    * The stroke width of the icon
    * @default 2
    */
-  strokeWidth?: string | number;
+  strokeWidth?: string | number
   /**
    * Whether to use absolute stroke width
    * @default false
    */
-  absoluteStrokeWidth?: boolean;
+  absoluteStrokeWidth?: boolean
 }
 
 /**
@@ -44,7 +44,7 @@ const DynamicIcon = forwardRef<SVGSVGElement, DynamicIconProps>(
       name,
       size = 24,
       color = 'currentColor',
-      strokeWidth = 2,
+      strokeWidth = 1.5,
       absoluteStrokeWidth = false,
       className,
       style,
@@ -52,8 +52,8 @@ const DynamicIcon = forwardRef<SVGSVGElement, DynamicIconProps>(
     },
     ref,
   ) => {
-    const normalized = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase() as IconName;
-    const resolvedName = resolveIconName(normalized);
+    const normalized = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase() as IconName
+    const resolvedName = resolveIconName(normalized)
     return (
       <svg
         ref={ref}
@@ -62,7 +62,9 @@ const DynamicIcon = forwardRef<SVGSVGElement, DynamicIconProps>(
         viewBox="0 0 24 24"
         fill="none"
         stroke={color}
-        strokeWidth={absoluteStrokeWidth ? Number(strokeWidth) : `${(24 / Number(size)) * Number(strokeWidth)}`}
+        strokeWidth={
+          absoluteStrokeWidth ? Number(strokeWidth) : `${(24 / Number(size)) * Number(strokeWidth)}`
+        }
         strokeLinecap="round"
         strokeLinejoin="round"
         className={className}
@@ -71,11 +73,11 @@ const DynamicIcon = forwardRef<SVGSVGElement, DynamicIconProps>(
       >
         <use href={`#${resolvedName}`} />
       </svg>
-    );
+    )
   },
-);
+)
 
-DynamicIcon.displayName = 'DynamicIcon';
+DynamicIcon.displayName = 'DynamicIcon'
 
-export default DynamicIcon;
-export type { DynamicIconProps };
+export default DynamicIcon
+export type { DynamicIconProps }
