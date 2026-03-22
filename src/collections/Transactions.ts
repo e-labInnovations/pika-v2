@@ -3,7 +3,7 @@ import type { User } from '../payload-types'
 import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
-import { userField, isActiveField } from '../fields'
+import { userField } from '../fields'
 
 export const Transactions: CollectionConfig = {
   slug: 'transactions',
@@ -22,6 +22,15 @@ export const Transactions: CollectionConfig = {
   },
   fields: [
     userField,
+    {
+      name: 'aiAssistant',
+      type: 'ui',
+      admin: {
+        components: {
+          Field: '@/components/admin/AITransactionPanel#AITransactionPanel',
+        },
+      },
+    },
     {
       name: 'title',
       type: 'text',
@@ -43,6 +52,14 @@ export const Transactions: CollectionConfig = {
       name: 'date',
       type: 'date',
       required: true,
+      admin: {
+        date: {
+          pickerAppearance: 'dayAndTime',
+          timeFormat: 'HH:mm',
+          timeIntervals: 15,
+          displayFormat: 'MMM d, yyyy HH:mm',
+        },
+      },
     },
     {
       name: 'type',

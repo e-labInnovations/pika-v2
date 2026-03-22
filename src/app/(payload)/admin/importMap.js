@@ -1,6 +1,7 @@
 import { IconPickerField as IconPickerField_3b23affeacfd37494d6d7d4ee53ad142 } from '@/components/admin/IconPickerField'
 import { ColorPickerField as ColorPickerField_d572ded1c017fe858839e8cdc754e090 } from '@/components/admin/ColorPickerField'
 import { IconColorCell as IconColorCell_e9e483bf61f5198c3eaaa5588f93dde6 } from '@/components/admin/IconColorCell'
+import { AITransactionPanel as AITransactionPanel_27a2d50361ad8ddcb13eb4da2157fdfd } from '@/components/admin/AITransactionPanel'
 import { CategoryPickerField as CategoryPickerField_debc7e9255845fe2de0617e566a10cc9 } from '@/components/admin/CategoryPickerField'
 import { AccountPickerField as AccountPickerField_422807def1a39008d5fb0a56f0a7b884 } from '@/components/admin/AccountPickerField'
 import { TagPickerField as TagPickerField_538af7a9fcdf5e0a862b53977bec48d2 } from '@/components/admin/TagPickerField'
@@ -23,6 +24,7 @@ export const importMap = {
   "@/components/admin/IconPickerField#IconPickerField": IconPickerField_3b23affeacfd37494d6d7d4ee53ad142,
   "@/components/admin/ColorPickerField#ColorPickerField": ColorPickerField_d572ded1c017fe858839e8cdc754e090,
   "@/components/admin/IconColorCell#IconColorCell": IconColorCell_e9e483bf61f5198c3eaaa5588f93dde6,
+  "@/components/admin/AITransactionPanel#AITransactionPanel": AITransactionPanel_27a2d50361ad8ddcb13eb4da2157fdfd,
   "@/components/admin/CategoryPickerField#CategoryPickerField": CategoryPickerField_debc7e9255845fe2de0617e566a10cc9,
   "@/components/admin/AccountPickerField#AccountPickerField": AccountPickerField_422807def1a39008d5fb0a56f0a7b884,
   "@/components/admin/TagPickerField#TagPickerField": TagPickerField_538af7a9fcdf5e0a862b53977bec48d2,

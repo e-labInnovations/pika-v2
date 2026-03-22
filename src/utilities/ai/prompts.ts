@@ -78,7 +78,7 @@ ANALYSIS RULES:
 **AMOUNT EXTRACTION:**
 - Look for "Rs. X.XX", "Rs XXXX.XX", "INR X.XX"
 - Remove currency symbols and commas
-- Convert to numeric value
+- Return as a numeric string e.g. "500.00" (not a number)
 - Ignore balance amounts (Avl bal Rs.XXXXX.XX)
 
 **CATEGORY MAPPING:**
@@ -123,11 +123,11 @@ CRITICAL RULES:
 - Return valid JSON only
 - Use empty string "" for unknown fields (except tags which uses [])
 - Use IDs from the provided lists for category, tags, account, toAccount, person
-- Amount must be a positive number; ignore balance amounts
+- Amount must be a positive numeric string like "500.00"; ignore balance amounts; no currency symbols
 - Date format: YYYY-MM-DD HH:MM:SS in user timezone
 - type must be exactly: "income", "expense", or "transfer"
 - For EXPENSE: toAccount = ""
-- For INCOME: account = ""
+- For INCOME: toAccount = "" (account = destination account where money arrives)
 - For TRANSFER: both account and toAccount must be filled
 - Default type: "expense"
 `.trim()
@@ -218,7 +218,7 @@ CRITICAL RULES:
 - Return valid JSON only
 - Use empty string "" for unknown fields (except tags which uses [])
 - Use IDs from the provided lists
-- Amount must be a positive number
+- Amount must be a positive numeric string like "500.00"; no currency symbols or commas
 - Date format: YYYY-MM-DD HH:MM:SS in user timezone
 - type must be exactly: "income", "expense", or "transfer"
 - For EXPENSE or INCOME: toAccount = ""

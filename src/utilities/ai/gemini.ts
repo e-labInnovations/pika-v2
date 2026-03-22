@@ -13,19 +13,21 @@ export type GeminiResult = {
 }
 
 // Shared response schema (Gemini SDK format uses Type enum)
+// amount is STRING to match Transactions collection which stores decimals as text
 export const TRANSACTION_RESPONSE_SCHEMA = {
   type: Type.OBJECT,
+  required: ['title', 'amount', 'type', 'date', 'account', 'toAccount', 'category', 'tags', 'person', 'note'],
   properties: {
-    title:     { type: Type.STRING },
-    amount:    { type: Type.NUMBER },
-    category:  { type: Type.STRING },
-    tags:      { type: Type.ARRAY, items: { type: Type.STRING } },
-    date:      { type: Type.STRING },
+    title:     { type: Type.STRING, description: 'Short descriptive title for the transaction' },
+    amount:    { type: Type.STRING, description: 'Positive numeric string, e.g. "500.00". No currency symbols.' },
+    category:  { type: Type.STRING, description: 'Category ID from the provided list, or empty string' },
+    tags:      { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Array of tag IDs from the provided list' },
+    date:      { type: Type.STRING, description: 'YYYY-MM-DD HH:MM:SS in user timezone. Use current datetime if unknown.' },
     type:      { type: Type.STRING, enum: ['income', 'expense', 'transfer'] },
-    person:    { type: Type.STRING, nullable: true },
-    account:   { type: Type.STRING },
-    toAccount: { type: Type.STRING, nullable: true },
-    note:      { type: Type.STRING },
+    person:    { type: Type.STRING, description: 'Person ID from the provided list, or empty string' },
+    account:   { type: Type.STRING, description: 'Account ID. For expense/income: the primary account. For transfer: the source account.' },
+    toAccount: { type: Type.STRING, description: 'Account ID for transfer destination. Empty string for income/expense.' },
+    note:      { type: Type.STRING, description: 'Optional extra context or note' },
   },
 }
 
