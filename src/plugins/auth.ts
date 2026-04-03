@@ -7,7 +7,7 @@ export const auth = authPlugin({
   allowOAuthAutoSignUp: true,
   usersCollectionSlug: 'users',
   accountsCollectionSlug: 'oauth-accounts',
-  successRedirectPath: '/admin',
+  successRedirectPath: '/auth/callback',
   errorRedirectPath: '/admin/login',
   providers: [
     GoogleAuthProvider({
