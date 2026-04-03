@@ -10,6 +10,7 @@ export const People: CollectionConfig = {
   admin: {
     useAsTitle: 'name',
     defaultColumns: ['name', 'email', 'isActive', 'user'],
+    group: 'Pika',
   },
   access: {
     create: isNotSystem,

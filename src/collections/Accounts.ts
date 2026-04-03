@@ -2,7 +2,14 @@ import type { CollectionConfig } from 'payload'
 import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
-import { userField, iconField, colorField, bgColorField, isActiveField, descriptionField } from '../fields'
+import {
+  userField,
+  iconField,
+  colorField,
+  bgColorField,
+  isActiveField,
+  descriptionField,
+} from '../fields'
 import { calculateAccountBalance } from '../utilities/calculateAccountBalance'
 
 export const Accounts: CollectionConfig = {
@@ -10,6 +17,7 @@ export const Accounts: CollectionConfig = {
   admin: {
     useAsTitle: 'name',
     defaultColumns: ['name', 'isActive', 'user'],
+    group: 'Pika',
   },
   access: {
     create: isNotSystem,

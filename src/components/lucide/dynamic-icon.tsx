@@ -71,7 +71,7 @@ const DynamicIcon = forwardRef<SVGSVGElement, DynamicIconProps>(
         style={style}
         {...props}
       >
-        <use href={`#${resolvedName}`} />
+        <use href={`/lucide.svg#${resolvedName}`} />
       </svg>
     )
   },

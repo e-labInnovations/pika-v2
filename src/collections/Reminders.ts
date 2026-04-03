@@ -10,6 +10,7 @@ export const Reminders: CollectionConfig = {
   admin: {
     useAsTitle: 'title',
     defaultColumns: ['title', 'amount', 'type', 'nextDueDate', 'archived', 'user'],
+    group: 'Pika',
   },
   access: {
     create: isNotSystem,
@@ -32,7 +33,8 @@ export const Reminders: CollectionConfig = {
       type: 'text',
       validate: (value: string | null | undefined) => {
         if (!value) return true // optional
-        if (!/^\d+(\.\d{1,4})?$/.test(value)) return 'Amount must be a positive number with up to 4 decimal places'
+        if (!/^\d+(\.\d{1,4})?$/.test(value))
+          return 'Amount must be a positive number with up to 4 decimal places'
         return true
       },
     },
@@ -57,9 +59,16 @@ export const Reminders: CollectionConfig = {
       filterOptions: async ({ user, req }) => {
         if (!user) return true
         if ((user as User).role === 'admin') return true
-        const found = await req.payload.find({ collection: 'users', where: { role: { equals: 'system' } }, limit: 100, depth: 0 })
+        const found = await req.payload.find({
+          collection: 'users',
+          where: { role: { equals: 'system' } },
+          limit: 100,
+          depth: 0,
+        })
         const sysIds = found.docs.map((u) => u.id)
-        return { or: [{ user: { equals: user.id } }, ...(sysIds.length ? [{ user: { in: sysIds } }] : [])] }
+        return {
+          or: [{ user: { equals: user.id } }, ...(sysIds.length ? [{ user: { in: sysIds } }] : [])],
+        }
       },
     },
     {
@@ -127,9 +136,16 @@ export const Reminders: CollectionConfig = {
       filterOptions: async ({ user, req }) => {
         if (!user) return true
         if ((user as User).role === 'admin') return true
-        const found = await req.payload.find({ collection: 'users', where: { role: { equals: 'system' } }, limit: 100, depth: 0 })
+        const found = await req.payload.find({
+          collection: 'users',
+          where: { role: { equals: 'system' } },
+          limit: 100,
+          depth: 0,
+        })
         const sysIds = found.docs.map((u) => u.id)
-        return { or: [{ user: { equals: user.id } }, ...(sysIds.length ? [{ user: { in: sysIds } }] : [])] }
+        return {
+          or: [{ user: { equals: user.id } }, ...(sysIds.length ? [{ user: { in: sysIds } }] : [])],
+        }
       },
     },
     {

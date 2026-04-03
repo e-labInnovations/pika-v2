@@ -10,6 +10,7 @@ export const Transactions: CollectionConfig = {
   admin: {
     useAsTitle: 'title',
     defaultColumns: ['title', 'amount', 'type', 'date', 'account', 'user'],
+    group: 'Pika',
   },
   access: {
     create: isNotSystem,
@@ -91,7 +92,9 @@ export const Transactions: CollectionConfig = {
           depth: 0,
         })
         const sysIds = found.docs.map((u) => u.id)
-        const ownerFilter = { or: [{ user: { equals: user.id } }, ...(sysIds.length ? [{ user: { in: sysIds } }] : [])] }
+        const ownerFilter = {
+          or: [{ user: { equals: user.id } }, ...(sysIds.length ? [{ user: { in: sysIds } }] : [])],
+        }
         if (!data?.type) return ownerFilter
         return { and: [ownerFilter, { type: { equals: data.type } }] } as Where
       },
@@ -103,7 +106,10 @@ export const Transactions: CollectionConfig = {
       required: true,
       filterOptions: ({ user, data }) => {
         if (!user) return false
-        if (data?.toAccount) return { and: [{ user: { equals: user.id } }, { id: { not_equals: data.toAccount } }] } as Where
+        if (data?.toAccount)
+          return {
+            and: [{ user: { equals: user.id } }, { id: { not_equals: data.toAccount } }],
+          } as Where
         return { user: { equals: user.id } } as Where
       },
       admin: {
@@ -118,7 +124,10 @@ export const Transactions: CollectionConfig = {
       relationTo: 'accounts',
       filterOptions: ({ user, data }) => {
         if (!user) return false
-        if (data?.account) return { and: [{ user: { equals: user.id } }, { id: { not_equals: data.account } }] } as Where
+        if (data?.account)
+          return {
+            and: [{ user: { equals: user.id } }, { id: { not_equals: data.account } }],
+          } as Where
         return { user: { equals: user.id } } as Where
       },
       admin: {

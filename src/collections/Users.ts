@@ -23,6 +23,29 @@ const promoteFirstUser: CollectionBeforeChangeHook = async ({ data, operation, r
   return data
 }
 
+const protectLastAdmin: CollectionBeforeChangeHook = async ({
+  data,
+  operation,
+  req,
+  originalDoc,
+}) => {
+  if (operation !== 'update') return data
+  if (originalDoc?.role !== 'admin') return data
+  if (data.role === 'admin') return data
+
+  const existing = await req.payload.find({
+    collection: 'users',
+    where: { role: { equals: 'admin' } },
+    limit: 2,
+  })
+
+  if (existing.totalDocs === 1) {
+    throw new Error('Cannot remove the last admin user.')
+  }
+
+  return data
+}
+
 const seedOnFirstUser: CollectionAfterChangeHook = async ({ doc, operation, req }) => {
   if (operation !== 'create') return doc
   if (doc.role !== 'admin') return doc
@@ -45,7 +68,7 @@ export const Users: CollectionConfig = {
   },
   hooks: {
     beforeOperation: [blockSystemLogin],
-    beforeChange: [promoteFirstUser],
+    beforeChange: [promoteFirstUser, protectLastAdmin],
     afterChange: [seedOnFirstUser],
   },
   fields: [

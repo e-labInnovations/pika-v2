@@ -4,13 +4,21 @@ import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { ownOrSystemRecords } from '../access/ownOrSystemRecords'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
-import { userField, iconField, colorField, bgColorField, isActiveField, descriptionField } from '../fields'
+import {
+  userField,
+  iconField,
+  colorField,
+  bgColorField,
+  isActiveField,
+  descriptionField,
+} from '../fields'
 
 export const Categories: CollectionConfig = {
   slug: 'categories',
   admin: {
     useAsTitle: 'name',
     defaultColumns: ['name', 'icon', 'type', 'parent', 'isActive', 'user'],
+    group: 'Pika',
   },
   access: {
     create: isNotSystem,
@@ -46,9 +54,16 @@ export const Categories: CollectionConfig = {
       filterOptions: async ({ user, req }) => {
         if (!user) return true
         if ((user as User).role === 'admin') return true
-        const found = await req.payload.find({ collection: 'users', where: { role: { equals: 'system' } }, limit: 100, depth: 0 })
+        const found = await req.payload.find({
+          collection: 'users',
+          where: { role: { equals: 'system' } },
+          limit: 100,
+          depth: 0,
+        })
         const sysIds = found.docs.map((u) => u.id)
-        return { or: [{ user: { equals: user.id } }, ...(sysIds.length ? [{ user: { in: sysIds } }] : [])] }
+        return {
+          or: [{ user: { equals: user.id } }, ...(sysIds.length ? [{ user: { in: sysIds } }] : [])],
+        }
       },
       admin: {
         allowEdit: false,

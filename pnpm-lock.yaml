@@ -138,6 +138,9 @@ importers:
       jsdom:
         specifier: 28.0.0
         version: 28.0.0(@noble/hashes@1.8.0)
+      lucide-static:
+        specifier: ^1.7.0
+        version: 1.7.0
       prettier:
         specifier: ^3.4.2
         version: 3.8.1
@@ -4833,6 +4836,9 @@ packages:
     resolution: {integrity: sha512-4LjoFv2eEPwYDPg/CUdBJQSDfPyzXCRrVW1X7jrx/trgxnxkHFjnVZINbzvzxjN70dxychOfg+FTYwBiS3pQ5A==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  lucide-static@1.7.0:
+    resolution: {integrity: sha512-d2H0iplJoHN67x9mPUvIfsHhtsI3BRvhhzfreccj+0sHHf4TjHvPEaWHNMR5iMKAFq3HKVfzx3kb82L8sPp2rA==}
 
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
@@ -11315,6 +11321,8 @@ snapshots:
   lucide-react@0.577.0(react@19.2.1):
     dependencies:
       react: 19.2.1
+
+  lucide-static@1.7.0: {}
 
   lz-string@1.5.0: {}
 
