@@ -54,6 +54,7 @@ export default buildConfig({
         { widgetSlug: 'monthly-tags', width: 'large' },
         { widgetSlug: 'monthly-people', width: 'full' },
         { widgetSlug: 'collections', width: 'full' },
+        { widgetSlug: 'reseed', width: 'small' },
       ]) as any,
       widgets: [
         {
@@ -91,6 +92,12 @@ export default buildConfig({
           Component: '@/components/admin/MonthlyPeopleWidget#default',
           minWidth: 'medium',
           maxWidth: 'full',
+        },
+        {
+          slug: 'reseed',
+          Component: '@/components/admin/ReseedWidget#default',
+          minWidth: 'small',
+          maxWidth: 'medium',
         },
       ],
     },

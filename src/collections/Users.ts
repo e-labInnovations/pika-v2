@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import type { CollectionBeforeChangeHook, CollectionAfterChangeHook } from 'payload'
+import type { CollectionBeforeChangeHook, CollectionAfterChangeHook, CollectionAfterDeleteHook } from 'payload'
 import { blockSystemLogin } from '../hooks/blockSystemLogin'
 import { isAdminOrOwn } from '@/access/isAdminOrOwn'
 import { isAdmin } from '@/access/isAdmin'
@@ -46,6 +46,44 @@ const protectLastAdmin: CollectionBeforeChangeHook = async ({
   return data
 }
 
+const createDefaultSettings: CollectionAfterChangeHook = async ({ doc, operation, req }) => {
+  if (operation !== 'create') return doc
+  if (doc.role === 'system') return doc
+
+  const existing = await req.payload.find({
+    collection: 'user-settings',
+    where: { user: { equals: doc.id } },
+    limit: 1,
+    depth: 0,
+    req,
+  })
+  if (existing.totalDocs > 0) return doc
+
+  await req.payload.create({
+    collection: 'user-settings',
+    data: { user: doc.id },
+    overrideAccess: true,
+    req,
+    context: { overrideUserId: doc.id },
+  })
+
+  return doc
+}
+
+const deleteUserSettings: CollectionAfterDeleteHook = async ({ doc, req }) => {
+  const existing = await req.payload.find({
+    collection: 'user-settings',
+    where: { user: { equals: doc.id } },
+    limit: 1,
+    depth: 0,
+  })
+  if (existing.totalDocs === 0) return
+  await req.payload.delete({
+    collection: 'user-settings',
+    where: { user: { equals: doc.id } },
+  })
+}
+
 const seedOnFirstUser: CollectionAfterChangeHook = async ({ doc, operation, req }) => {
   if (operation !== 'create') return doc
   if (doc.role !== 'admin') return doc
@@ -69,7 +107,8 @@ export const Users: CollectionConfig = {
   hooks: {
     beforeOperation: [blockSystemLogin],
     beforeChange: [promoteFirstUser, protectLastAdmin],
-    afterChange: [seedOnFirstUser],
+    afterChange: [createDefaultSettings, seedOnFirstUser],
+    afterDelete: [deleteUserSettings],
   },
   fields: [
     {

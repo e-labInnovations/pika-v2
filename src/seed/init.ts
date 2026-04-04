@@ -1,6 +1,45 @@
 import { systemUser, categories, defaultTags, CategoryData } from '../constants/system';
 import { Payload } from "payload";
 
+export const reseed = async (payload: Payload) => {
+    // Find the system user
+    const existing = await payload.find({
+        collection: 'users',
+        where: { email: { equals: systemUser.email } },
+        limit: 1,
+        depth: 0,
+    })
+
+    if (existing.docs.length > 0) {
+        const systemUserId = existing.docs[0].id as string
+
+        // Delete all categories and tags owned by the system user
+        await payload.delete({ collection: 'categories', where: { user: { equals: systemUserId } } })
+        await payload.delete({ collection: 'tags', where: { user: { equals: systemUserId } } })
+        await payload.delete({ collection: 'users', where: { id: { equals: systemUserId } } })
+
+        console.log(`🗑️  Removed existing system seed data`)
+    }
+
+    // Recreate system user, categories, and tags
+    const created = await payload.create({
+        collection: 'users',
+        data: {
+            email: systemUser.email,
+            name: systemUser.name,
+            password: systemUser.password,
+            role: 'system',
+        },
+    })
+    const systemUserId = created.id as string
+    console.log(`✅ Created system user: ${systemUser.email} (id: ${systemUserId})`)
+
+    await seedCategories(payload, systemUserId)
+    await seedTags(payload, systemUserId)
+
+    console.log(`✅ Reseed complete`)
+}
+
 export const onInit = async (payload: Payload) => {
     // Wait for at least one real user to exist before seeding.
     // This preserves Payload's built-in "create first user" onboarding flow.

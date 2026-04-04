@@ -1,4 +1,6 @@
 import { currenciesHandler, currencyByCodeHandler } from './currencies'
+import { reseedHandler } from './seed'
+import { randomSeedHandler } from './randomSeed'
 import { timezonesHandler, timezoneByIdHandler } from './timezones'
 import { weeklyExpensesHandler, monthlyCalendarHandler, dashboardHandler, monthlyCategoriesHandler, monthlyTagsHandler, monthlyPeopleHandler } from './analytics'
 import { textToTransactionHandler, imageToTransactionHandler } from './ai'
@@ -63,5 +65,15 @@ export const endpoints = [
     path: '/ai/image-to-transaction',
     method: 'post' as const,
     handler: imageToTransactionHandler,
+  },
+  {
+    path: '/seed/reseed',
+    method: 'post' as const,
+    handler: reseedHandler,
+  },
+  {
+    path: '/seed/random',
+    method: 'post' as const,
+    handler: randomSeedHandler,
   },
 ]

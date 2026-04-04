@@ -122,6 +122,7 @@ export interface Config {
     'monthly-categories': MonthlyCategoriesWidget;
     'monthly-tags': MonthlyTagsWidget;
     'monthly-people': MonthlyPeopleWidget;
+    reseed: ReseedWidget;
     collections: CollectionsWidget;
   };
   user: User | PayloadMcpApiKey;
@@ -322,6 +323,7 @@ export interface Transaction {
   isActive?: boolean | null;
   updatedAt: string;
   createdAt: string;
+  deletedAt?: string | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -872,6 +874,7 @@ export interface TransactionsSelect<T extends boolean = true> {
   isActive?: T;
   updatedAt?: T;
   createdAt?: T;
+  deletedAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1213,6 +1216,16 @@ export interface MonthlyPeopleWidget {
     [k: string]: unknown;
   };
   width: 'medium' | 'large' | 'x-large' | 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "reseed_widget".
+ */
+export interface ReseedWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'small' | 'medium';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

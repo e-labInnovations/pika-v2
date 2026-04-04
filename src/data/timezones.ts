@@ -55,6 +55,17 @@ function buildTimezoneInfo(id: string): TimezoneInfo {
   }
 }
 
-export const timezones: TimezoneInfo[] = Intl.supportedValuesOf('timeZone')
-  .map(buildTimezoneInfo)
-  .sort((a, b) => a.id.localeCompare(b.id))
+const UTC_TIMEZONE: TimezoneInfo = {
+  id: 'UTC',
+  region: 'UTC',
+  city: 'UTC',
+  offset: '+00:00',
+  label: 'UTC (UTC, GMT+00:00)',
+}
+
+export const timezones: TimezoneInfo[] = [
+  UTC_TIMEZONE,
+  ...Intl.supportedValuesOf('timeZone')
+    .map(buildTimezoneInfo)
+    .sort((a, b) => a.id.localeCompare(b.id)),
+]

@@ -3,6 +3,7 @@ import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { ownOrSystemRecords } from '../access/ownOrSystemRecords'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
+import { preventDeleteIfUsedInTransactions } from '../hooks/preventDeleteIfUsedInTransactions'
 import {
   userField,
   iconField,
@@ -27,6 +28,7 @@ export const Tags: CollectionConfig = {
   },
   hooks: {
     beforeChange: [setUserOnCreate],
+    beforeDelete: [preventDeleteIfUsedInTransactions('tags')],
   },
   fields: [
     userField,

@@ -28,7 +28,7 @@ export const defaultExpenseCategories: CategoryData[] = [
     // Food & Dining
     {
         name: 'Food & Dining',
-        icon: 'Utensils',
+        icon: 'utensils',
         color: '#FFFFFF',
         bgColor: '#E53E3E',
         type: 'expense',
@@ -36,7 +36,7 @@ export const defaultExpenseCategories: CategoryData[] = [
         children: [
             {
                 name: 'Dining Out',
-                icon: 'Utensils',
+                icon: 'utensils',
                 color: '#FFFFFF',
                 bgColor: '#DD6B20',
                 type: 'expense',
@@ -44,7 +44,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Groceries',
-                icon: 'ShoppingBasket',
+                icon: 'shopping-basket',
                 color: '#FFFFFF',
                 bgColor: '#38A169',
                 type: 'expense',
@@ -52,7 +52,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Coffee & Snacks',
-                icon: 'Coffee',
+                icon: 'coffee',
                 color: '#FFFFFF',
                 bgColor: '#975A16',
                 type: 'expense',
@@ -63,7 +63,7 @@ export const defaultExpenseCategories: CategoryData[] = [
     // Shopping
     {
         name: 'Shopping',
-        icon: 'ShoppingCart',
+        icon: 'shopping-cart',
         color: '#FFFFFF',
         bgColor: '#D53F8C',
         type: 'expense',
@@ -71,7 +71,7 @@ export const defaultExpenseCategories: CategoryData[] = [
         children: [
             {
                 name: 'Clothing',
-                icon: 'Shirt',
+                icon: 'shirt',
                 color: '#FFFFFF',
                 bgColor: '#805AD5',
                 type: 'expense',
@@ -79,7 +79,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Electronics',
-                icon: 'Monitor',
+                icon: 'monitor',
                 color: '#FFFFFF',
                 bgColor: '#2B6CB0',
                 type: 'expense',
@@ -87,7 +87,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Home Goods',
-                icon: 'Sofa',
+                icon: 'sofa',
                 color: '#FFFFFF',
                 bgColor: '#B83280',
                 type: 'expense',
@@ -98,7 +98,7 @@ export const defaultExpenseCategories: CategoryData[] = [
     // Transportation
     {
         name: 'Transportation',
-        icon: 'Car',
+        icon: 'car',
         color: '#FFFFFF',
         bgColor: '#3182CE',
         type: 'expense',
@@ -106,7 +106,7 @@ export const defaultExpenseCategories: CategoryData[] = [
         children: [
             {
                 name: 'Fuel',
-                icon: 'Fuel',
+                icon: 'fuel',
                 color: '#FFFFFF',
                 bgColor: '#C53030',
                 type: 'expense',
@@ -114,7 +114,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Public Transit',
-                icon: 'Bus',
+                icon: 'bus',
                 color: '#FFFFFF',
                 bgColor: '#2C5282',
                 type: 'expense',
@@ -122,7 +122,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Maintenance',
-                icon: 'Wrench',
+                icon: 'wrench',
                 color: '#FFFFFF',
                 bgColor: '#744210',
                 type: 'expense',
@@ -133,7 +133,7 @@ export const defaultExpenseCategories: CategoryData[] = [
     // Housing
     {
         name: 'Housing',
-        icon: 'Home',
+        icon: 'house',
         color: '#FFFFFF',
         bgColor: '#319795',
         type: 'expense',
@@ -141,7 +141,7 @@ export const defaultExpenseCategories: CategoryData[] = [
         children: [
             {
                 name: 'Rent',
-                icon: 'Key',
+                icon: 'key',
                 color: '#FFFFFF',
                 bgColor: '#2D3748',
                 type: 'expense',
@@ -149,7 +149,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Mortgage',
-                icon: 'Building2',
+                icon: 'building-2',
                 color: '#FFFFFF',
                 bgColor: '#2A4365',
                 type: 'expense',
@@ -157,7 +157,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Maintenance',
-                icon: 'Hammer',
+                icon: 'hammer',
                 color: '#FFFFFF',
                 bgColor: '#B7791F',
                 type: 'expense',
@@ -168,7 +168,7 @@ export const defaultExpenseCategories: CategoryData[] = [
     // Utilities
     {
         name: 'Utilities',
-        icon: 'Zap',
+        icon: 'zap',
         color: '#000000',
         bgColor: '#F6E05E',
         type: 'expense',
@@ -176,7 +176,7 @@ export const defaultExpenseCategories: CategoryData[] = [
         children: [
             {
                 name: 'Electricity',
-                icon: 'Zap',
+                icon: 'zap',
                 color: '#000000',
                 bgColor: '#ECC94B',
                 type: 'expense',
@@ -184,7 +184,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Water',
-                icon: 'Droplet',
+                icon: 'droplet',
                 color: '#FFFFFF',
                 bgColor: '#0987A0',
                 type: 'expense',
@@ -192,7 +192,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Internet',
-                icon: 'Wifi',
+                icon: 'wifi',
                 color: '#FFFFFF',
                 bgColor: '#553C9A',
                 type: 'expense',
@@ -203,7 +203,7 @@ export const defaultExpenseCategories: CategoryData[] = [
     // Entertainment
     {
         name: 'Entertainment',
-        icon: 'Film',
+        icon: 'film',
         color: '#FFFFFF',
         bgColor: '#ED64A6',
         type: 'expense',
@@ -211,7 +211,7 @@ export const defaultExpenseCategories: CategoryData[] = [
         children: [
             {
                 name: 'Movies',
-                icon: 'Clapperboard',
+                icon: 'clapperboard',
                 color: '#FFFFFF',
                 bgColor: '#702459',
                 type: 'expense',
@@ -219,7 +219,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Games',
-                icon: 'Gamepad2',
+                icon: 'gamepad-2',
                 color: '#FFFFFF',
                 bgColor: '#4C51BF',
                 type: 'expense',
@@ -227,7 +227,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Music',
-                icon: 'Music',
+                icon: 'music',
                 color: '#FFFFFF',
                 bgColor: '#9F7AEA',
                 type: 'expense',
@@ -235,7 +235,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Sports',
-                icon: 'Trophy',
+                icon: 'trophy',
                 color: '#FFFFFF',
                 bgColor: '#F56500',
                 type: 'expense',
@@ -246,7 +246,7 @@ export const defaultExpenseCategories: CategoryData[] = [
     // Healthcare
     {
         name: 'Healthcare',
-        icon: 'Heart',
+        icon: 'heart',
         color: '#FFFFFF',
         bgColor: '#E53E3E',
         type: 'expense',
@@ -254,7 +254,7 @@ export const defaultExpenseCategories: CategoryData[] = [
         children: [
             {
                 name: 'Medical',
-                icon: 'Stethoscope',
+                icon: 'stethoscope',
                 color: '#FFFFFF',
                 bgColor: '#C53030',
                 type: 'expense',
@@ -262,7 +262,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Pharmacy',
-                icon: 'Pill',
+                icon: 'pill',
                 color: '#FFFFFF',
                 bgColor: '#2B6CB0',
                 type: 'expense',
@@ -273,7 +273,7 @@ export const defaultExpenseCategories: CategoryData[] = [
     // Education
     {
         name: 'Education',
-        icon: 'GraduationCap',
+        icon: 'graduation-cap',
         color: '#FFFFFF',
         bgColor: '#4299E1',
         type: 'expense',
@@ -281,7 +281,7 @@ export const defaultExpenseCategories: CategoryData[] = [
         children: [
             {
                 name: 'Tuition',
-                icon: 'School',
+                icon: 'school',
                 color: '#FFFFFF',
                 bgColor: '#3182CE',
                 type: 'expense',
@@ -289,7 +289,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Books',
-                icon: 'Book',
+                icon: 'book',
                 color: '#FFFFFF',
                 bgColor: '#2C5282',
                 type: 'expense',
@@ -297,7 +297,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Courses',
-                icon: 'NotebookPen',
+                icon: 'notebook-pen',
                 color: '#FFFFFF',
                 bgColor: '#2A4365',
                 type: 'expense',
@@ -308,7 +308,7 @@ export const defaultExpenseCategories: CategoryData[] = [
     // Personal Care
     {
         name: 'Personal Care',
-        icon: 'Smile',
+        icon: 'smile',
         color: '#FFFFFF',
         bgColor: '#48BB78',
         type: 'expense',
@@ -316,7 +316,7 @@ export const defaultExpenseCategories: CategoryData[] = [
         children: [
             {
                 name: 'Hair Care',
-                icon: 'Scissors',
+                icon: 'scissors',
                 color: '#FFFFFF',
                 bgColor: '#38A169',
                 type: 'expense',
@@ -324,7 +324,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Skincare',
-                icon: 'Sparkles',
+                icon: 'sparkles',
                 color: '#FFFFFF',
                 bgColor: '#68D391',
                 type: 'expense',
@@ -332,7 +332,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Fitness',
-                icon: 'Dumbbell',
+                icon: 'dumbbell',
                 color: '#FFFFFF',
                 bgColor: '#2F855A',
                 type: 'expense',
@@ -343,7 +343,7 @@ export const defaultExpenseCategories: CategoryData[] = [
     // Gifts
     {
         name: 'Gifts',
-        icon: 'Gift',
+        icon: 'gift',
         color: '#FFFFFF',
         bgColor: '#E53E3E',
         type: 'expense',
@@ -351,7 +351,7 @@ export const defaultExpenseCategories: CategoryData[] = [
         children: [
             {
                 name: 'Birthday',
-                icon: 'Cake',
+                icon: 'cake',
                 color: '#FFFFFF',
                 bgColor: '#ED8936',
                 type: 'expense',
@@ -359,7 +359,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Holiday',
-                icon: 'Trees',
+                icon: 'trees',
                 color: '#FFFFFF',
                 bgColor: '#38A169',
                 type: 'expense',
@@ -367,7 +367,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Special Occasion',
-                icon: 'PartyPopper',
+                icon: 'party-popper',
                 color: '#FFFFFF',
                 bgColor: '#D69E2E',
                 type: 'expense',
@@ -378,7 +378,7 @@ export const defaultExpenseCategories: CategoryData[] = [
     // Travel
     {
         name: 'Travel',
-        icon: 'Plane',
+        icon: 'plane',
         color: '#FFFFFF',
         bgColor: '#3182CE',
         type: 'expense',
@@ -386,7 +386,7 @@ export const defaultExpenseCategories: CategoryData[] = [
         children: [
             {
                 name: 'Flights',
-                icon: 'PlaneTakeoff',
+                icon: 'plane-takeoff',
                 color: '#FFFFFF',
                 bgColor: '#2B6CB0',
                 type: 'expense',
@@ -394,7 +394,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Hotels',
-                icon: 'Hotel',
+                icon: 'hotel',
                 color: '#FFFFFF',
                 bgColor: '#B7791F',
                 type: 'expense',
@@ -402,7 +402,7 @@ export const defaultExpenseCategories: CategoryData[] = [
             },
             {
                 name: 'Activities',
-                icon: 'Umbrella',
+                icon: 'umbrella',
                 color: '#FFFFFF',
                 bgColor: '#319795',
                 type: 'expense',
@@ -413,7 +413,7 @@ export const defaultExpenseCategories: CategoryData[] = [
     // Uncategorized
     {
         name: 'Uncategorized',
-        icon: 'Receipt',
+        icon: 'receipt',
         color: '#FFFFFF',
         bgColor: '#718096',
         type: 'expense',
@@ -421,7 +421,7 @@ export const defaultExpenseCategories: CategoryData[] = [
         children: [
             {
                 name: 'Other',
-                icon: 'Receipt',
+                icon: 'receipt',
                 color: '#FFFFFF',
                 bgColor: '#4A5568',
                 type: 'expense',
@@ -434,7 +434,7 @@ export const defaultExpenseCategories: CategoryData[] = [
 export const defaultIncomeCategories: CategoryData[] = [
     {
         name: 'Work',
-        icon: 'Briefcase',
+        icon: 'briefcase',
         color: '#FFFFFF',
         bgColor: '#38A169',
         type: 'income',
@@ -442,7 +442,7 @@ export const defaultIncomeCategories: CategoryData[] = [
         children: [
             {
                 name: 'Salary',
-                icon: 'DollarSign',
+                icon: 'dollar-sign',
                 color: '#FFFFFF',
                 bgColor: '#48BB78',
                 type: 'income',
@@ -450,7 +450,7 @@ export const defaultIncomeCategories: CategoryData[] = [
             },
             {
                 name: 'Bonus',
-                icon: 'Gem',
+                icon: 'gem',
                 color: '#FFFFFF',
                 bgColor: '#ECC94B',
                 type: 'income',
@@ -458,7 +458,7 @@ export const defaultIncomeCategories: CategoryData[] = [
             },
             {
                 name: 'Freelance',
-                icon: 'Laptop',
+                icon: 'laptop',
                 color: '#FFFFFF',
                 bgColor: '#4299E1',
                 type: 'income',
@@ -466,7 +466,7 @@ export const defaultIncomeCategories: CategoryData[] = [
             },
             {
                 name: 'Investment',
-                icon: 'TrendingUp',
+                icon: 'trending-up',
                 color: '#FFFFFF',
                 bgColor: '#2F855A',
                 type: 'income',
@@ -477,7 +477,7 @@ export const defaultIncomeCategories: CategoryData[] = [
     // Uncategorized
     {
         name: 'Uncategorized',
-        icon: 'Receipt',
+        icon: 'receipt',
         color: '#FFFFFF',
         bgColor: '#718096',
         type: 'income',
@@ -485,7 +485,7 @@ export const defaultIncomeCategories: CategoryData[] = [
         children: [
             {
                 name: 'Other',
-                icon: 'Receipt',
+                icon: 'receipt',
                 color: '#FFFFFF',
                 bgColor: '#4A5568',
                 type: 'income',
@@ -498,7 +498,7 @@ export const defaultIncomeCategories: CategoryData[] = [
 export const defaultTransferCategories: CategoryData[] = [
     {
         name: 'Transfer',
-        icon: 'PiggyBank',
+        icon: 'piggy-bank',
         color: '#FFFFFF',
         bgColor: '#319795',
         type: 'transfer',
@@ -506,7 +506,7 @@ export const defaultTransferCategories: CategoryData[] = [
         children: [
             {
                 name: 'Bank Transfer',
-                icon: 'Landmark',
+                icon: 'landmark',
                 color: '#FFFFFF',
                 bgColor: '#2C5282',
                 type: 'transfer',
@@ -514,7 +514,7 @@ export const defaultTransferCategories: CategoryData[] = [
             },
             {
                 name: 'ATM',
-                icon: 'HandCoins',
+                icon: 'hand-coins',
                 color: '#FFFFFF',
                 bgColor: '#B7791F',
                 type: 'transfer',
@@ -522,7 +522,7 @@ export const defaultTransferCategories: CategoryData[] = [
             },
             {
                 name: 'CDM',
-                icon: 'BadgeDollarSign',
+                icon: 'badge-dollar-sign',
                 color: '#FFFFFF',
                 bgColor: '#D69E2E',
                 type: 'transfer',
@@ -533,7 +533,7 @@ export const defaultTransferCategories: CategoryData[] = [
     // Uncategorized
     {
         name: 'Uncategorized',
-        icon: 'Receipt',
+        icon: 'receipt',
         color: '#FFFFFF',
         bgColor: '#718096',
         type: 'transfer',
@@ -541,7 +541,7 @@ export const defaultTransferCategories: CategoryData[] = [
         children: [
             {
                 name: 'Other',
-                icon: 'Receipt',
+                icon: 'receipt',
                 color: '#FFFFFF',
                 bgColor: '#4A5568',
                 type: 'transfer',
@@ -554,42 +554,42 @@ export const defaultTransferCategories: CategoryData[] = [
 export const defaultTags: TagData[] = [
     {
         name: 'Initial Balance',
-        icon: 'PlusCircle',
+        icon: 'circle-plus',
         color: '#FFFFFF',
         bgColor: '#38A169',
         description: 'Initial account balance transaction',
     },
     {
         name: 'Recurring',
-        icon: 'Repeat',
+        icon: 'repeat',
         color: '#FFFFFF',
         bgColor: '#3182CE',
         description: 'Recurring transactions',
     },
     {
         name: 'Urgent',
-        icon: 'AlertCircle',
+        icon: 'circle-alert',
         color: '#FFFFFF',
         bgColor: '#E53E3E',
         description: 'Urgent transactions',
     },
     {
         name: 'Shared',
-        icon: 'Users',
+        icon: 'users',
         color: '#FFFFFF',
         bgColor: '#805AD5',
         description: 'Shared expenses',
     },
     {
         name: 'Personal',
-        icon: 'User',
+        icon: 'user',
         color: '#FFFFFF',
         bgColor: '#DD6B20',
         description: 'Personal transactions',
     },
     {
         name: 'Business',
-        icon: 'Briefcase',
+        icon: 'briefcase',
         color: '#FFFFFF',
         bgColor: '#2D3748',
         description: 'Business transactions',

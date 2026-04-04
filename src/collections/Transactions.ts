@@ -1,4 +1,4 @@
-import type { CollectionConfig, Where } from 'payload'
+import type { CollectionConfig, RelationshipFieldSingleValidation, Where } from 'payload'
 import type { User } from '../payload-types'
 import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
@@ -7,6 +7,7 @@ import { userField } from '../fields'
 
 export const Transactions: CollectionConfig = {
   slug: 'transactions',
+  trash: true,
   admin: {
     useAsTitle: 'title',
     defaultColumns: ['title', 'amount', 'type', 'date', 'account', 'user'],
@@ -76,6 +77,16 @@ export const Transactions: CollectionConfig = {
       name: 'category',
       type: 'relationship',
       relationTo: 'categories',
+      validate: (async (value, { req }) => {
+        if (!value) return true
+        const category = await req.payload.findByID({
+          collection: 'categories',
+          id: value as string,
+          depth: 0,
+        })
+        if (!category.parent) return 'Only child categories can be used. Please select a subcategory.'
+        return true
+      }) as RelationshipFieldSingleValidation,
       admin: {
         components: {
           Field: '@/components/admin/CategoryPickerField#CategoryPickerField',

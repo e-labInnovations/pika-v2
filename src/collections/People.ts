@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload'
 import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
+import { preventDeleteIfUsedInTransactions } from '../hooks/preventDeleteIfUsedInTransactions'
 import { userField, isActiveField, descriptionField } from '../fields'
 import { calculatePersonBalance } from '../utilities/calculatePersonBalance'
 
@@ -20,6 +21,7 @@ export const People: CollectionConfig = {
   },
   hooks: {
     beforeChange: [setUserOnCreate],
+    beforeDelete: [preventDeleteIfUsedInTransactions('person')],
     afterRead: [
       async ({ doc, req }) => {
         if (!req?.payload || !doc?.id) return doc

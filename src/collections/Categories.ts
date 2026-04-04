@@ -4,6 +4,8 @@ import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { ownOrSystemRecords } from '../access/ownOrSystemRecords'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
+import { preventDeleteIfUsedInTransactions } from '../hooks/preventDeleteIfUsedInTransactions'
+import { preventDeleteParentCategory } from '../hooks/preventDeleteParentCategory'
 import {
   userField,
   iconField,
@@ -28,6 +30,7 @@ export const Categories: CollectionConfig = {
   },
   hooks: {
     beforeChange: [setUserOnCreate],
+    beforeDelete: [preventDeleteParentCategory, preventDeleteIfUsedInTransactions('category')],
   },
   fields: [
     userField,

@@ -19,6 +19,7 @@ import { default as default_a8c4f64dcd59e1609032d41fbe863af0 } from '@/component
 import { default as default_922394e949747574be9d04f245e7789b } from '@/components/admin/MonthlyCategoryWidget'
 import { default as default_0de3900a49037f8b99d084918f821448 } from '@/components/admin/MonthlyTagWidget'
 import { default as default_444390c3aed4c8b706182a2f32e57f62 } from '@/components/admin/MonthlyPeopleWidget'
+import { default as default_01bbf8eb3c2c124af889f3c8d6d4a0f0 } from '@/components/admin/ReseedWidget'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
 export const importMap = {
@@ -43,5 +44,6 @@ export const importMap = {
   "@/components/admin/MonthlyCategoryWidget#default": default_922394e949747574be9d04f245e7789b,
   "@/components/admin/MonthlyTagWidget#default": default_0de3900a49037f8b99d084918f821448,
   "@/components/admin/MonthlyPeopleWidget#default": default_444390c3aed4c8b706182a2f32e57f62,
+  "@/components/admin/ReseedWidget#default": default_01bbf8eb3c2c124af889f3c8d6d4a0f0,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }
