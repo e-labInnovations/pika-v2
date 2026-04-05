@@ -28,8 +28,8 @@ export default function TestColorPicker() {
         <h3 className="text-lg font-semibold">Icons Test:</h3>
         <div className="flex gap-4 items-center flex-wrap">
           <div className="flex flex-col items-center gap-1">
-            <DynamicIcon name="home" size={24} />
-            <span className="text-xs">home</span>
+            <DynamicIcon name="house" size={24} />
+            <span className="text-xs">house</span>
           </div>
           <div className="flex flex-col items-center gap-1">
             <DynamicIcon name="user" size={24} />

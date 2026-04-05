@@ -81,6 +81,9 @@
     "pnpm": "^9 || ^10"
   },
   "pnpm": {
+    "overrides": {
+      "@modelcontextprotocol/sdk": "1.25.2"
+    },
     "onlyBuiltDependencies": [
       "sharp",
       "esbuild",

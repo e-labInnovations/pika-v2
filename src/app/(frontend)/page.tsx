@@ -1,4 +1,5 @@
 import { headers as getHeaders } from 'next/headers.js'
+import Link from 'next/link'
 import { getPayload } from 'payload'
 import React from 'react'
 import config from '@/payload.config'
@@ -315,13 +316,13 @@ export default async function HomePage() {
       <div className="pika-page">
         {/* Nav */}
         <nav className="pika-nav">
-          <a href="/" className="pika-nav-brand">
+          <Link href="/" className="pika-nav-brand">
             <img src="/icon.svg" alt="Pika" />
             <span>Pika</span>
-          </a>
-          <a href="/admin" className="pika-nav-cta">
+          </Link>
+          <Link href="/admin" className="pika-nav-cta">
             {userName ? `Hi, ${userName}` : 'Sign in'} →
-          </a>
+          </Link>
         </nav>
 
         {/* Hero */}
@@ -336,17 +337,17 @@ export default async function HomePage() {
           </p>
           <div className="pika-hero-actions">
             {userName ? (
-              <a href="/admin" className="pika-btn-primary">
+              <Link href="/admin" className="pika-btn-primary">
                 Go to Dashboard →
-              </a>
+              </Link>
             ) : (
               <>
-                <a href="/admin" className="pika-btn-primary">
+                <Link href="/admin" className="pika-btn-primary">
                   Open Dashboard →
-                </a>
-                <a href="/admin/login" className="pika-btn-ghost">
+                </Link>
+                <Link href="/admin/login" className="pika-btn-ghost">
                   Sign in
-                </a>
+                </Link>
               </>
             )}
           </div>
