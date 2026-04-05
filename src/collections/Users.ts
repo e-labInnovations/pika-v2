@@ -1,4 +1,4 @@
-import type { CollectionConfig, Access } from 'payload'
+import type { CollectionConfig, Access, Where } from 'payload'
 import type { CollectionBeforeChangeHook, CollectionAfterChangeHook, CollectionAfterDeleteHook } from 'payload'
 import { blockSystemLogin } from '../hooks/blockSystemLogin'
 import { isAdmin } from '@/access/isAdmin'
@@ -6,11 +6,14 @@ import { isUser, resolveUser } from '@/access/isUser'
 import { onInit } from '@/seed/init'
 
 // Users are identified by their own `id`, not a `user` relationship field.
+// System users must also be readable so relationship fields on shared records resolve correctly.
 const isAdminOrSelf: Access = ({ req: { user } }) => {
   if (!user) return false
   const resolved = resolveUser(user)
   if (resolved?.role === 'admin') return true
-  return { id: { equals: user.id } }
+  return {
+    or: [{ id: { equals: user.id } }, { role: { equals: 'system' } }],
+  } as Where
 }
 
 const promoteFirstUser: CollectionBeforeChangeHook = async ({ data, operation, req }) => {
