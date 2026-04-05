@@ -1,10 +1,17 @@
-import type { CollectionConfig } from 'payload'
+import type { CollectionConfig, Access } from 'payload'
 import type { CollectionBeforeChangeHook, CollectionAfterChangeHook, CollectionAfterDeleteHook } from 'payload'
 import { blockSystemLogin } from '../hooks/blockSystemLogin'
-import { isAdminOrOwn } from '@/access/isAdminOrOwn'
 import { isAdmin } from '@/access/isAdmin'
-import { isUser } from '@/access/isUser'
+import { isUser, resolveUser } from '@/access/isUser'
 import { onInit } from '@/seed/init'
+
+// Users are identified by their own `id`, not a `user` relationship field.
+const isAdminOrSelf: Access = ({ req: { user } }) => {
+  if (!user) return false
+  const resolved = resolveUser(user)
+  if (resolved?.role === 'admin') return true
+  return { id: { equals: user.id } }
+}
 
 const promoteFirstUser: CollectionBeforeChangeHook = async ({ data, operation, req }) => {
   if (operation !== 'create') return data
@@ -101,8 +108,8 @@ export const Users: CollectionConfig = {
   },
   access: {
     create: () => true,
-    read: isAdminOrOwn,
-    update: isAdminOrOwn,
+    read: isAdminOrSelf,
+    update: isAdminOrSelf,
     delete: isAdmin,
     admin: ({ req: { user } }) => isUser(user) && user.role === 'admin',
   },
