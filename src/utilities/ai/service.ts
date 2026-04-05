@@ -1,4 +1,5 @@
 import type { Payload } from 'payload'
+import type { Category } from '../../payload-types'
 import { callGeminiText, callGeminiImage, type GeminiUsage } from './gemini'
 import {
   TEXT_TO_TRANSACTION_SYSTEM,
@@ -122,8 +123,22 @@ export async function buildUserContext(
   const fmt = (docs: any[], fields: string[]) =>
     docs.map((d) => `${d.id}: ${fields.map((f) => d[f]).filter(Boolean).join(' — ')}`).join('\n') || 'none'
 
+  // Build a map of category IDs to names for parent label lookup
+  const catNameById: Record<string, string> = {}
+  for (const c of cats.docs) catNameById[c.id as string] = c.name as string
+
+  // Only expose child categories (those with a parent) — parent-only categories are not valid for transactions
+  const childCats = cats.docs.filter((c) => c.parent)
+  const categoriesStr = childCats
+    .map((c) => {
+      const parentId = typeof c.parent === 'string' ? c.parent : (c.parent as any)?.id
+      const parentName = catNameById[parentId] ?? ''
+      return `${c.id}: ${c.name} (${c.type})${parentName ? ` [parent: ${parentName}]` : ''}`
+    })
+    .join('\n') || 'none'
+
   return {
-    categories: fmt(cats.docs, ['name', 'type']),
+    categories: categoriesStr,
     tags: fmt(tags.docs, ['name']),
     accounts: fmt(accounts.docs, ['name']),
     people: fmt(people.docs, ['name']),
@@ -184,6 +199,65 @@ async function getUserTimezone(payload: Payload, userId: string): Promise<string
   } catch { return 'UTC' }
 }
 
+// ─── ID → full object resolver ────────────────────────────────────────────────
+
+async function resolveAITransactionData(
+  payload: Payload,
+  userId: string,
+  raw: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const categoryId = typeof raw.category === 'string' && raw.category ? raw.category : null
+  const accountId  = typeof raw.account  === 'string' && raw.account  ? raw.account  : null
+  const toAccountId = typeof raw.toAccount === 'string' && raw.toAccount ? raw.toAccount : null
+  const personId   = typeof raw.person   === 'string' && raw.person   ? raw.person   : null
+  const tagIds: string[] = Array.isArray(raw.tags)
+    ? raw.tags.filter((t): t is string => typeof t === 'string' && !!t)
+    : []
+
+  const accessOpts = { overrideAccess: true, depth: 0 }
+
+  const txType = typeof raw.type === 'string' ? raw.type : null
+
+  const [categoryResolved, account, toAccount, person, tags] = await Promise.all([
+    categoryId
+      ? payload.findByID({ collection: 'categories', id: categoryId, ...accessOpts }).catch(() => null)
+      : Promise.resolve(null),
+    accountId
+      ? payload.findByID({ collection: 'accounts', id: accountId, ...accessOpts }).catch(() => null)
+      : Promise.resolve(null),
+    toAccountId
+      ? payload.findByID({ collection: 'accounts', id: toAccountId, ...accessOpts }).catch(() => null)
+      : Promise.resolve(null),
+    personId
+      ? payload.findByID({ collection: 'people', id: personId, ...accessOpts }).catch(() => null)
+      : Promise.resolve(null),
+    tagIds.length
+      ? payload
+          .find({ collection: 'tags', where: { id: { in: tagIds } }, limit: tagIds.length, ...accessOpts })
+          .then((r) => r.docs)
+          .catch(() => [] as any[])
+      : Promise.resolve([] as any[]),
+  ])
+
+  // Validate category: must be a child category and match the transaction type
+  const category = (() => {
+    if (!categoryResolved) return null
+    const cat = categoryResolved as Category
+    const hasParent = !!cat.parent
+    const typeMatches = !txType || cat.type === txType
+    return hasParent && typeMatches ? cat : null
+  })()
+
+  return {
+    ...raw,
+    category: category ?? null,
+    account:  account  ?? null,
+    toAccount: toAccount ?? null,
+    person:   person   ?? null,
+    tags,
+  }
+}
+
 // ─── Core processors ──────────────────────────────────────────────────────────
 
 export async function processTextToTransaction(
@@ -219,7 +293,8 @@ export async function processTextToTransaction(
 
   await logUsage(payload, userId, { promptType: 'text', model, apiKeyType: config.apiKeyType, status: 'success', usage: result.usage, latencyMs: result.latencyMs })
 
-  return { data: result.data, model, usage: result.usage, latencyMs: result.latencyMs }
+  const resolved = await resolveAITransactionData(payload, userId, result.data)
+  return { data: resolved, model, usage: result.usage, latencyMs: result.latencyMs }
 }
 
 export async function processImageToTransaction(
@@ -256,5 +331,6 @@ export async function processImageToTransaction(
 
   await logUsage(payload, userId, { promptType: 'image', model, apiKeyType: config.apiKeyType, status: 'success', usage: result.usage, latencyMs: result.latencyMs })
 
-  return { data: result.data, model, usage: result.usage, latencyMs: result.latencyMs }
+  const resolved = await resolveAITransactionData(payload, userId, result.data)
+  return { data: resolved, model, usage: result.usage, latencyMs: result.latencyMs }
 }

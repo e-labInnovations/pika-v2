@@ -4,16 +4,18 @@ import React, { useCallback, useRef, useState } from 'react'
 import { useFormFields } from '@payloadcms/ui'
 import DynamicIcon from '@/components/lucide/dynamic-icon'
 
+type ResolvedEntity = { id: string; name: string; [key: string]: unknown }
+
 type ParsedTransaction = {
   title?: string
   amount?: string
   type?: string
   date?: string
-  category?: string
-  account?: string
-  toAccount?: string
-  person?: string
-  tags?: string[]
+  category?: ResolvedEntity | null
+  account?: ResolvedEntity | null
+  toAccount?: ResolvedEntity | null
+  person?: ResolvedEntity | null
+  tags?: ResolvedEntity[]
   note?: string
 }
 
@@ -131,16 +133,16 @@ export function AITransactionPanel() {
     if (!result) return
     const fields: { path: string; value: unknown }[] = []
 
-    if (result.title)     fields.push({ path: 'title',     value: result.title })
-    if (result.amount)    fields.push({ path: 'amount',    value: result.amount })
-    if (result.type)      fields.push({ path: 'type',      value: result.type })
-    if (result.date)      fields.push({ path: 'date',      value: payloadDate(result.date) })
-    if (result.category)  fields.push({ path: 'category',  value: result.category })
-    if (result.account)   fields.push({ path: 'account',   value: result.account })
-    if (result.toAccount) fields.push({ path: 'toAccount', value: result.toAccount })
-    if (result.person)    fields.push({ path: 'person',    value: result.person })
-    if (result.note)      fields.push({ path: 'note',      value: result.note })
-    if (result.tags?.length) fields.push({ path: 'tags', value: result.tags })
+    if (result.title)          fields.push({ path: 'title',     value: result.title })
+    if (result.amount)         fields.push({ path: 'amount',    value: result.amount })
+    if (result.type)           fields.push({ path: 'type',      value: result.type })
+    if (result.date)           fields.push({ path: 'date',      value: payloadDate(result.date) })
+    if (result.category?.id)   fields.push({ path: 'category',  value: result.category.id })
+    if (result.account?.id)    fields.push({ path: 'account',   value: result.account.id })
+    if (result.toAccount?.id)  fields.push({ path: 'toAccount', value: result.toAccount.id })
+    if (result.person?.id)     fields.push({ path: 'person',    value: result.person.id })
+    if (result.note)           fields.push({ path: 'note',      value: result.note })
+    if (result.tags?.length)   fields.push({ path: 'tags',      value: result.tags.map(t => t.id) })
 
     for (const f of fields) {
       dispatchFields({ type: 'UPDATE', path: f.path, value: f.value } as any)
@@ -351,11 +353,11 @@ export function AITransactionPanel() {
                   <ResultRow label="Amount"    value={result.amount} />
                   <ResultRow label="Type"      value={result.type} />
                   <ResultRow label="Date"      value={result.date} />
-                  <ResultRow label="Category"  value={result.category} />
-                  <ResultRow label="Account"   value={result.account} />
-                  <ResultRow label="To Acct"   value={result.toAccount} />
-                  <ResultRow label="Person"    value={result.person} />
-                  <ResultRow label="Tags"      value={result.tags} />
+                  <ResultRow label="Category"  value={result.category?.name} />
+                  <ResultRow label="Account"   value={result.account?.name} />
+                  <ResultRow label="To Acct"   value={result.toAccount?.name} />
+                  <ResultRow label="Person"    value={result.person?.name} />
+                  <ResultRow label="Tags"      value={result.tags?.map(t => t.name)} />
                   <ResultRow label="Note"      value={result.note} />
                 </div>
                 <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(16,185,129,0.15)', display: 'flex', gap: 8 }}>

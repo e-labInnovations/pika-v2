@@ -32,6 +32,10 @@ ${p.people}
 CURRENT DATE AND TIME (User Timezone: ${p.timezone}):
 ${p.currentDatetime}
 
+CATEGORY RULES (STRICT):
+- The category type MUST match the transaction type exactly: expense→expense, income→income, transfer→transfer
+- If no suitable category matches, use empty string ""
+
 ANALYSIS RULES:
 
 **NATURAL LANGUAGE PATTERNS:**
@@ -162,6 +166,10 @@ ${p.people}
 
 CURRENT DATE AND TIME (User Timezone: ${p.timezone}):
 ${p.currentDatetime}
+
+CATEGORY RULES (STRICT):
+- The category type MUST match the transaction type exactly: expense→expense, income→income, transfer→transfer
+- If no suitable category matches, use empty string ""
 
 RECEIPT ANALYSIS RULES:
 

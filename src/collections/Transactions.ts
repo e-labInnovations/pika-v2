@@ -1,5 +1,5 @@
 import type { CollectionConfig, RelationshipFieldSingleValidation, Where } from 'payload'
-import type { User } from '../payload-types'
+import type { User, Transaction } from '../payload-types'
 import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
@@ -77,7 +77,7 @@ export const Transactions: CollectionConfig = {
       name: 'category',
       type: 'relationship',
       relationTo: 'categories',
-      validate: (async (value, { req }) => {
+      validate: (async (value, { req, siblingData, id, operation }) => {
         if (!value) return true
         const category = await req.payload.findByID({
           collection: 'categories',
@@ -85,6 +85,17 @@ export const Transactions: CollectionConfig = {
           depth: 0,
         })
         if (!category.parent) return 'Only child categories can be used. Please select a subcategory.'
+        let txType = (siblingData as { type?: Transaction['type'] })?.type
+        if (!txType && operation === 'update' && id) {
+          const existing = await req.payload.findByID({
+            collection: 'transactions',
+            id: id as string,
+            depth: 0,
+          })
+          txType = existing?.type as Transaction['type'] | undefined
+        }
+        if (txType && category.type !== txType)
+          return `Category type must match transaction type. Expected "${txType}", got "${category.type}".`
         return true
       }) as RelationshipFieldSingleValidation,
       admin: {
