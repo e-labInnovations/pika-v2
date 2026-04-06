@@ -44,6 +44,12 @@ export default buildConfig({
         '@/components/admin/LucideSpriteProvider#default',
         '@/components/admin/TooltipProvider#default',
       ],
+      views: {
+        migrate: {
+          Component: '@/components/admin/MigrationPage#default',
+          path: '/migrate',
+        },
+      },
     },
     dashboard: {
       defaultLayout: ((_args: unknown) => [

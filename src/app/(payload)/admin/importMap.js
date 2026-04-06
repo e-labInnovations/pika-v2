@@ -13,6 +13,7 @@ import { default as default_a44df17d0fc3dcd873dae43dc3bf66bd } from '@/component
 import { default as default_59fb4b1dac690503b3fdaa0fb454d5b6 } from '@/components/admin/GoogleSignInButton'
 import { default as default_675ec30f5e131ac4d8992cfb21f67a8d } from '@/components/admin/LucideSpriteProvider'
 import { default as default_2ecc6543db5db141dd3de3a303f0412b } from '@/components/admin/TooltipProvider'
+import { default as default_9c6b4cea7cd929aa56378090dc24cc72 } from '@/components/admin/MigrationPage'
 import { default as default_c5192f80c64fc937341a06e8b5136d0d } from '@/components/admin/DashboardWidget'
 import { default as default_e2d7356fe10e0f399082615d99eae3c6 } from '@/components/admin/WeeklyExpensesWidget'
 import { default as default_a8c4f64dcd59e1609032d41fbe863af0 } from '@/components/admin/MonthlyCalendarWidget'
@@ -38,6 +39,7 @@ export const importMap = {
   "@/components/admin/GoogleSignInButton#default": default_59fb4b1dac690503b3fdaa0fb454d5b6,
   "@/components/admin/LucideSpriteProvider#default": default_675ec30f5e131ac4d8992cfb21f67a8d,
   "@/components/admin/TooltipProvider#default": default_2ecc6543db5db141dd3de3a303f0412b,
+  "@/components/admin/MigrationPage#default": default_9c6b4cea7cd929aa56378090dc24cc72,
   "@/components/admin/DashboardWidget#default": default_c5192f80c64fc937341a06e8b5136d0d,
   "@/components/admin/WeeklyExpensesWidget#default": default_e2d7356fe10e0f399082615d99eae3c6,
   "@/components/admin/MonthlyCalendarWidget#default": default_a8c4f64dcd59e1609032d41fbe863af0,
