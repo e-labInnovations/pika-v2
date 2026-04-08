@@ -1,4 +1,4 @@
-import { mcpPlugin } from '@payloadcms/plugin-mcp'
+import { MCPAccessSettings, mcpPlugin } from '@payloadcms/plugin-mcp'
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { currencies } from '../data/currencies'
@@ -7,9 +7,10 @@ import { calculateDashboard } from '../utilities/calculateDashboard'
 import { calculateMonthlyCategories } from '../utilities/calculateMonthlyCategories'
 import { calculateMonthlyTags } from '../utilities/calculateMonthlyTags'
 import { calculateMonthlyPeople } from '../utilities/calculateMonthlyPeople'
-import { UserSettings } from '@/payload-types'
+import { User } from '../payload-types'
+import { PayloadRequest } from 'payload'
 
-async function getMcpTimezone(req: any): Promise<string> {
+async function getMcpTimezone(req: PayloadRequest): Promise<string> {
   if (!req.user) return 'UTC'
   try {
     const settings = await req.payload.find({
@@ -26,8 +27,10 @@ async function getMcpTimezone(req: any): Promise<string> {
 }
 
 export const mcp = mcpPlugin({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  overrideAuth: async (req: any, getDefaultMcpAccessSettings: () => Promise<any>) => {
+  overrideAuth: async (
+    req: PayloadRequest,
+    getDefaultMcpAccessSettings: () => Promise<MCPAccessSettings>,
+  ) => {
     const mcpAccessSettings = await getDefaultMcpAccessSettings()
     // Set req.user to the actual users record so custom tool handlers can use req.user.id
     req.user = mcpAccessSettings.user
@@ -46,7 +49,7 @@ export const mcp = mcpPlugin({
     },
     media: {
       description:
-        'Uploaded files and images (avatars, account icons, etc.) referenced by other collections. Read-only — upload via the admin UI.',
+        'Uploaded files and images (avatars, account icons, etc.) referenced by other collections. Read-only — upload via the UI.',
       enabled: {
         find: true,
         create: false,
@@ -132,7 +135,7 @@ export const mcp = mcpPlugin({
         description:
           "Returns the authenticated user's financial dashboard: total balance across all active accounts, percentage change vs last month's surplus, and current month income/expenses/surplus. Use this to answer questions like 'how am I doing this month?' or 'what is my total balance?'",
         parameters: {},
-        handler: async (_args: Record<string, unknown>, req: any) => {
+        handler: async (_args: Record<string, unknown>, req: PayloadRequest) => {
           if (!req.user) {
             return {
               content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }],
@@ -162,7 +165,7 @@ export const mcp = mcpPlugin({
             .optional()
             .describe('Full year e.g. 2026 (defaults to current year)'),
         },
-        handler: async (args: Record<string, unknown>, req: any) => {
+        handler: async (args: Record<string, unknown>, req: PayloadRequest) => {
           if (!req.user) {
             return {
               content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }],
@@ -201,7 +204,7 @@ export const mcp = mcpPlugin({
             .optional()
             .describe('Full year e.g. 2026 (defaults to current year)'),
         },
-        handler: async (args: Record<string, unknown>, req: any) => {
+        handler: async (args: Record<string, unknown>, req: PayloadRequest) => {
           if (!req.user) {
             return {
               content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }],
@@ -220,8 +223,7 @@ export const mcp = mcpPlugin({
         description:
           "Returns the authenticated user's profile (id, email, name, role) and their current settings (currency, timezone, locale, theme). Use this to identify who is connected or to resolve user-specific defaults before making other API calls.",
         parameters: {},
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        handler: async (_args: Record<string, unknown>, req: any) => {
+        handler: async (_args: Record<string, unknown>, req: PayloadRequest) => {
           if (!req.user) {
             return {
               content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }],
@@ -239,7 +241,7 @@ export const mcp = mcpPlugin({
             email: user.email,
             name: user.name,
             role: user.role,
-            settings: (user.settings as UserSettings)?.docs?.[0] ?? null,
+            settings: (user.settings as User['settings'])?.docs?.[0] ?? null,
           }
           return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
         },
@@ -263,7 +265,7 @@ export const mcp = mcpPlugin({
             .optional()
             .describe('Full year e.g. 2026 (defaults to current year)'),
         },
-        handler: async (args: Record<string, unknown>, req: any) => {
+        handler: async (args: Record<string, unknown>, req: PayloadRequest) => {
           if (!req.user) {
             return {
               content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }],
