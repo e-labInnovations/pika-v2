@@ -138,7 +138,6 @@ export const Users: CollectionConfig = {
       collection: 'user-settings',
       on: 'user',
       maxDepth: 1,
-      admin: { readOnly: true },
     },
     {
       name: 'role',
