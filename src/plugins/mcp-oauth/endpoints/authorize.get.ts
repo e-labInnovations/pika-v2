@@ -41,12 +41,13 @@ export const authorizeGetHandler: PayloadHandler = async (req) => {
   }
 
   // Validate resource parameter per RFC 8707 (if provided).
-  // Normalize localhost ↔ 127.0.0.1 so both resolve as the same origin.
+  // Use NEXT_PUBLIC_SERVER_URL as the canonical public origin — req.url contains
+  // the internal address (localhost:3333) when behind a reverse proxy, so we
+  // cannot derive the public hostname from it.
   if (resource) {
-    const normalizedResource = normalizeLocalhost(resource)
-    const serverOrigin = normalizeLocalhost(`${url.protocol}//${url.host}`)
-    const expectedResource = `${serverOrigin}/api/mcp`
-    if (normalizedResource !== expectedResource) {
+    const publicBase = process.env.NEXT_PUBLIC_SERVER_URL ?? `${url.protocol}//${url.host}`
+    const expectedResource = normalizeLocalhost(`${publicBase}/api/mcp`)
+    if (normalizeLocalhost(resource) !== expectedResource) {
       return Response.json(
         { error: 'invalid_target', error_description: `Unknown resource. Expected: ${expectedResource}` },
         { status: 400 },
@@ -54,9 +55,8 @@ export const authorizeGetHandler: PayloadHandler = async (req) => {
     }
   }
 
-  // Build the consent URL using the same origin the client used so all subsequent
-  // redirects stay on the same host (avoids further localhost/127.0.0.1 mismatches).
-  const consentUrl = new URL('/oauth/consent', `${url.protocol}//${url.host}`)
+  // Build the consent URL using the public server origin.
+  const consentUrl = new URL('/oauth/consent', process.env.NEXT_PUBLIC_SERVER_URL ?? `${url.protocol}//${url.host}`)
   consentUrl.searchParams.set('client_id', clientId!)
   consentUrl.searchParams.set('redirect_uri', redirectUri!)
   consentUrl.searchParams.set('client_name', client.name)
