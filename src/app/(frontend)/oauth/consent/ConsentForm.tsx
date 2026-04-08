@@ -101,12 +101,17 @@ export default function ConsentForm({
       <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ padding: '28px 32px 24px', borderBottom: '1px solid #f3f4f6' }}>
-          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon.svg" alt="Pika" width={36} height={36} style={{ borderRadius: 8 }} />
+            <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>Pika</span>
+          </div>
+          <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 6px' }}>
+            {clientName} wants access to your account
+          </h1>
+          <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>
             Signed in as <strong>{userEmail}</strong>
           </p>
-          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>
-            {clientName} is requesting access to your Pika account
-          </h1>
         </div>
 
         {/* Access list */}
