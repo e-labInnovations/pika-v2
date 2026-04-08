@@ -349,7 +349,7 @@ export interface Transaction {
   amount: string;
   date: string;
   type: 'income' | 'expense' | 'transfer';
-  category?: (string | null) | Category;
+  category: string | Category;
   account: string | Account;
   /**
    * Destination account for transfers

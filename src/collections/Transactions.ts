@@ -1,9 +1,38 @@
-import type { CollectionConfig, RelationshipFieldSingleValidation, Where } from 'payload'
+import type {
+  CollectionBeforeChangeHook,
+  CollectionConfig,
+  RelationshipFieldSingleValidation,
+  Where,
+} from 'payload'
 import type { User, Transaction } from '../payload-types'
 import { isNotSystem } from '../access/isNotSystem'
 import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
 import { userField } from '../fields'
+import { ValidationError } from 'payload'
+
+/**
+ * Validate the destination account for transfers
+ * - Destination account is required for transfers
+ * - Destination account must differ from the source account
+ */
+const validateToAccount: CollectionBeforeChangeHook = async ({ data, operation, originalDoc }) => {
+  const type = data?.type ?? (operation === 'update' ? originalDoc?.type : undefined)
+  if (type === 'transfer') {
+    const account = data?.account ?? originalDoc?.account
+    const toAccount = data?.toAccount ?? originalDoc?.toAccount
+    const errors: { message: string; path: string }[] = []
+    if (!toAccount)
+      errors.push({ message: 'Destination account is required for transfers.', path: 'toAccount' })
+    if (toAccount && account && String(toAccount) === String(account))
+      errors.push({
+        message: 'Destination account must differ from the source account.',
+        path: 'toAccount',
+      })
+    if (errors.length) throw new ValidationError({ errors })
+  }
+  return data
+}
 
 export const Transactions: CollectionConfig = {
   slug: 'transactions',
@@ -20,7 +49,7 @@ export const Transactions: CollectionConfig = {
     delete: isAdminOrOwn,
   },
   hooks: {
-    beforeChange: [setUserOnCreate],
+    beforeChange: [setUserOnCreate, validateToAccount],
   },
   fields: [
     userField,
@@ -77,6 +106,7 @@ export const Transactions: CollectionConfig = {
       name: 'category',
       type: 'relationship',
       relationTo: 'categories',
+      required: true,
       validate: (async (value, { req, siblingData, id, operation }) => {
         if (!value) return true
         const category = await req.payload.findByID({
@@ -84,7 +114,8 @@ export const Transactions: CollectionConfig = {
           id: value as string,
           depth: 0,
         })
-        if (!category.parent) return 'Only child categories can be used. Please select a subcategory.'
+        if (!category.parent)
+          return 'Only child categories can be used. Please select a subcategory.'
         let txType = (siblingData as { type?: Transaction['type'] })?.type
         if (!txType && operation === 'update' && id) {
           const existing = await req.payload.findByID({

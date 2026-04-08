@@ -100,7 +100,14 @@ export default function ConsentForm({
   }
 
   return (
-    <div style={{ maxWidth: 440, margin: '60px auto', fontFamily: 'system-ui, sans-serif', padding: '0 16px' }}>
+    <div
+      style={{
+        maxWidth: 440,
+        margin: '60px auto',
+        fontFamily: 'system-ui, sans-serif',
+        padding: '0 16px',
+      }}
+    >
       <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ padding: '28px 32px 24px', borderBottom: '1px solid #f3f4f6' }}>
@@ -122,9 +129,21 @@ export default function ConsentForm({
           <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
             If you approve, <strong>{clientName}</strong> will be able to:
           </p>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <ul
+            style={{
+              listStyle: 'none',
+              padding: 0,
+              margin: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}
+          >
             {ACCESS_LIST.map(({ icon: Icon, label }) => (
-              <li key={label} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}>
+              <li
+                key={label}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}
+              >
                 <Icon size={18} style={{ flexShrink: 0, color: '#6b7280' }} />
                 <span style={{ color: '#374151' }}>{label}</span>
               </li>
@@ -134,7 +153,15 @@ export default function ConsentForm({
 
         {/* Details */}
         <div style={{ padding: '0 32px 20px' }}>
-          <div style={{ background: '#f9fafb', borderRadius: 8, padding: '12px 16px', fontSize: 13, color: '#6b7280' }}>
+          <div
+            style={{
+              background: '#f9fafb',
+              borderRadius: 8,
+              padding: '12px 16px',
+              fontSize: 13,
+              color: '#6b7280',
+            }}
+          >
             <div style={{ display: 'flex', gap: 8 }}>
               <span style={{ flexShrink: 0 }}>Redirect URI:</span>
               <span style={{ color: '#374151', wordBreak: 'break-all' }}>{redirectUri}</span>
@@ -144,7 +171,9 @@ export default function ConsentForm({
 
         {/* Error */}
         {error && (
-          <p style={{ color: '#dc2626', fontSize: 14, padding: '0 32px 16px', margin: 0 }}>{error}</p>
+          <p style={{ color: '#dc2626', fontSize: 14, padding: '0 32px 16px', margin: 0 }}>
+            {error}
+          </p>
         )}
 
         {/* Actions */}
@@ -184,7 +213,15 @@ export default function ConsentForm({
           </button>
         </div>
 
-        <p style={{ fontSize: 12, color: '#9ca3af', padding: '0 32px 20px', margin: 0, textAlign: 'center' }}>
+        <p
+          style={{
+            fontSize: 12,
+            color: '#9ca3af',
+            padding: '0 32px 20px',
+            margin: 0,
+            textAlign: 'center',
+          }}
+        >
           You can revoke access anytime from the Pika App under Settings → Connected Apps.
         </p>
       </div>
