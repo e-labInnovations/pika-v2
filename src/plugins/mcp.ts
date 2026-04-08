@@ -7,6 +7,7 @@ import { calculateDashboard } from '../utilities/calculateDashboard'
 import { calculateMonthlyCategories } from '../utilities/calculateMonthlyCategories'
 import { calculateMonthlyTags } from '../utilities/calculateMonthlyTags'
 import { calculateMonthlyPeople } from '../utilities/calculateMonthlyPeople'
+import { UserSettings } from '@/payload-types'
 
 async function getMcpTimezone(req: any): Promise<string> {
   if (!req.user) return 'UTC'
@@ -19,7 +20,9 @@ async function getMcpTimezone(req: any): Promise<string> {
       context: { internal: true },
     })
     return (settings.docs[0]?.timezone as string) || 'UTC'
-  } catch { return 'UTC' }
+  } catch {
+    return 'UTC'
+  }
 }
 
 export const mcp = mcpPlugin({
@@ -113,7 +116,7 @@ export const mcp = mcpPlugin({
     },
     'user-settings': {
       description:
-        "Per-user preferences: currency code (default USD), timezone (default UTC), locale (default en), UI theme (light / dark / system), default account for new transactions, Gemini API key for AI features, and a flexible JSON settings bag for any additional app-level config. One record per user.",
+        'Per-user preferences: currency code (default USD), timezone (default UTC), locale (default en), UI theme (light / dark / system), default account for new transactions, Gemini API key for AI features, and a flexible JSON settings bag for any additional app-level config. One record per user.',
       enabled: {
         find: true,
         create: false,
@@ -131,7 +134,9 @@ export const mcp = mcpPlugin({
         parameters: {},
         handler: async (_args: Record<string, unknown>, req: any) => {
           if (!req.user) {
-            return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }] }
+            return {
+              content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }],
+            }
           }
           const timezone = await getMcpTimezone(req)
           const data = await calculateDashboard(req.payload, req.user.id, timezone)
@@ -143,18 +148,37 @@ export const mcp = mcpPlugin({
         description:
           "Returns expense spending grouped by category for a given month, including per-category totals, transaction counts, averages, and parent rollup. Use this to answer questions like 'what did I spend on food this month?' or 'show my top spending categories'.",
         parameters: {
-          month: z.number().int().min(1).max(12).optional().describe('Month number 1–12 (defaults to current month)'),
-          year: z.number().int().min(2000).optional().describe('Full year e.g. 2026 (defaults to current year)'),
+          month: z
+            .number()
+            .int()
+            .min(1)
+            .max(12)
+            .optional()
+            .describe('Month number 1–12 (defaults to current month)'),
+          year: z
+            .number()
+            .int()
+            .min(2000)
+            .optional()
+            .describe('Full year e.g. 2026 (defaults to current year)'),
         },
         handler: async (args: Record<string, unknown>, req: any) => {
           if (!req.user) {
-            return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }] }
+            return {
+              content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }],
+            }
           }
           const now = new Date()
           const month = (args.month as number) ?? now.getMonth() + 1
           const year = (args.year as number) ?? now.getFullYear()
           const timezone = await getMcpTimezone(req)
-          const data = await calculateMonthlyCategories(req.payload, req.user.id, month, year, timezone)
+          const data = await calculateMonthlyCategories(
+            req.payload,
+            req.user.id,
+            month,
+            year,
+            timezone,
+          )
           return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
         },
       },
@@ -163,12 +187,25 @@ export const mcp = mcpPlugin({
         description:
           "Returns transaction activity grouped by tag for a given month, split by expense/income/transfer. Use this to answer questions like 'how much did I spend on subscriptions?' or 'show activity by tag this month'.",
         parameters: {
-          month: z.number().int().min(1).max(12).optional().describe('Month number 1–12 (defaults to current month)'),
-          year: z.number().int().min(2000).optional().describe('Full year e.g. 2026 (defaults to current year)'),
+          month: z
+            .number()
+            .int()
+            .min(1)
+            .max(12)
+            .optional()
+            .describe('Month number 1–12 (defaults to current month)'),
+          year: z
+            .number()
+            .int()
+            .min(2000)
+            .optional()
+            .describe('Full year e.g. 2026 (defaults to current year)'),
         },
         handler: async (args: Record<string, unknown>, req: any) => {
           if (!req.user) {
-            return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }] }
+            return {
+              content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }],
+            }
           }
           const now = new Date()
           const month = (args.month as number) ?? now.getMonth() + 1
@@ -179,16 +216,58 @@ export const mcp = mcpPlugin({
         },
       },
       {
+        name: 'get_current_user',
+        description:
+          "Returns the authenticated user's profile (id, email, name, role) and their current settings (currency, timezone, locale, theme). Use this to identify who is connected or to resolve user-specific defaults before making other API calls.",
+        parameters: {},
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        handler: async (_args: Record<string, unknown>, req: any) => {
+          if (!req.user) {
+            return {
+              content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }],
+            }
+          }
+          const user = await req.payload.findByID({
+            collection: 'users',
+            id: req.user.id,
+            depth: 1,
+            overrideAccess: true,
+            context: { internal: true },
+          })
+          const result = {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            settings: (user.settings as UserSettings)?.docs?.[0] ?? null,
+          }
+          return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+        },
+      },
+      {
         name: 'get_monthly_people',
         description:
           "Returns monthly transaction activity per person plus their all-time balance. Use this to answer questions like 'how much did I lend to John this month?' or 'who do I owe money to?'.",
         parameters: {
-          month: z.number().int().min(1).max(12).optional().describe('Month number 1–12 (defaults to current month)'),
-          year: z.number().int().min(2000).optional().describe('Full year e.g. 2026 (defaults to current year)'),
+          month: z
+            .number()
+            .int()
+            .min(1)
+            .max(12)
+            .optional()
+            .describe('Month number 1–12 (defaults to current month)'),
+          year: z
+            .number()
+            .int()
+            .min(2000)
+            .optional()
+            .describe('Full year e.g. 2026 (defaults to current year)'),
         },
         handler: async (args: Record<string, unknown>, req: any) => {
           if (!req.user) {
-            return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }] }
+            return {
+              content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }],
+            }
           }
           const now = new Date()
           const month = (args.month as number) ?? now.getMonth() + 1

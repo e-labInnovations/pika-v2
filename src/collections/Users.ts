@@ -133,6 +133,14 @@ export const Users: CollectionConfig = {
       relationTo: 'media',
     },
     {
+      name: 'settings',
+      type: 'join',
+      collection: 'user-settings',
+      on: 'user',
+      maxDepth: 1,
+      admin: { readOnly: true },
+    },
+    {
       name: 'role',
       type: 'select',
       options: [

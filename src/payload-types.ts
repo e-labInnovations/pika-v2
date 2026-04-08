@@ -86,7 +86,11 @@ export interface Config {
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  collectionsJoins: {};
+  collectionsJoins: {
+    users: {
+      settings: 'user-settings';
+    };
+  };
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
@@ -177,6 +181,11 @@ export interface User {
   id: string;
   name?: string | null;
   avatar?: (string | null) | Media;
+  settings?: {
+    docs?: (string | UserSetting)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   role?: ('user' | 'admin' | 'system') | null;
   updatedAt: string;
   createdAt: string;
@@ -218,6 +227,34 @@ export interface Media {
   height?: number | null;
   focalX?: number | null;
   focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "user-settings".
+ */
+export interface UserSetting {
+  id: string;
+  user: string | User;
+  currency?: string | null;
+  timezone?: string | null;
+  locale?: string | null;
+  theme?: ('light' | 'dark' | 'system') | null;
+  defaultAccount?: (string | null) | Account;
+  /**
+   * Used for AI features. Stored securely — only the masked value is returned via the API.
+   */
+  geminiApiKey?: string | null;
+  settings?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -357,34 +394,6 @@ export interface Reminder {
       }[]
     | null;
   archived?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "user-settings".
- */
-export interface UserSetting {
-  id: string;
-  user: string | User;
-  currency?: string | null;
-  timezone?: string | null;
-  locale?: string | null;
-  theme?: ('light' | 'dark' | 'system') | null;
-  defaultAccount?: (string | null) | Account;
-  /**
-   * Used for AI features. Stored securely — only the masked value is returned via the API.
-   */
-  geminiApiKey?: string | null;
-  settings?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -587,6 +596,10 @@ export interface PayloadMcpApiKey {
      */
     getMonthlyTags?: boolean | null;
     /**
+     * Returns the authenticated user's profile (id, email, name, role) and their current settings (currency, timezone, locale, theme). Use this to identify who is connected or to resolve user-specific defaults before making other API calls.
+     */
+    getCurrentUser?: boolean | null;
+    /**
      * Returns monthly transaction activity per person plus their all-time balance. Use this to answer questions like 'how much did I lend to John this month?' or 'who do I owe money to?'.
      */
     getMonthlyPeople?: boolean | null;
@@ -768,6 +781,7 @@ export interface PayloadMigration {
 export interface UsersSelect<T extends boolean = true> {
   name?: T;
   avatar?: T;
+  settings?: T;
   role?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -1055,6 +1069,7 @@ export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
         getDashboardSummary?: T;
         getMonthlyCategories?: T;
         getMonthlyTags?: T;
+        getCurrentUser?: T;
         getMonthlyPeople?: T;
       };
   'payload-mcp-resource'?:
