@@ -80,6 +80,7 @@ export interface Config {
     'ai-usages': AiUsage;
     'oauth-accounts': OauthAccount;
     'payload-mcp-api-keys': PayloadMcpApiKey;
+    'oauth-codes': OauthCode;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -99,6 +100,7 @@ export interface Config {
     'ai-usages': AiUsagesSelect<false> | AiUsagesSelect<true>;
     'oauth-accounts': OauthAccountsSelect<false> | OauthAccountsSelect<true>;
     'payload-mcp-api-keys': PayloadMcpApiKeysSelect<false> | PayloadMcpApiKeysSelect<true>;
+    'oauth-codes': OauthCodesSelect<false> | OauthCodesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -616,6 +618,23 @@ export interface PayloadMcpApiKey {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "oauth-codes".
+ */
+export interface OauthCode {
+  id: string;
+  code: string;
+  clientId: string;
+  apiKeyId: string;
+  apiKeyValue: string;
+  redirectUri: string;
+  codeChallenge?: string | null;
+  expiresAt: string;
+  userId: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -685,6 +704,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'payload-mcp-api-keys';
         value: string | PayloadMcpApiKey;
+      } | null)
+    | ({
+        relationTo: 'oauth-codes';
+        value: string | OauthCode;
       } | null);
   globalSlug?: string | null;
   user:
@@ -1047,6 +1070,22 @@ export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
   enableAPIKey?: T;
   apiKey?: T;
   apiKeyIndex?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "oauth-codes_select".
+ */
+export interface OauthCodesSelect<T extends boolean = true> {
+  code?: T;
+  clientId?: T;
+  apiKeyId?: T;
+  apiKeyValue?: T;
+  redirectUri?: T;
+  codeChallenge?: T;
+  expiresAt?: T;
+  userId?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

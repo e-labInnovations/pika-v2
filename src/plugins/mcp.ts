@@ -23,6 +23,13 @@ async function getMcpTimezone(req: any): Promise<string> {
 }
 
 export const mcp = mcpPlugin({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  overrideAuth: async (req: any, getDefaultMcpAccessSettings: () => Promise<any>) => {
+    const mcpAccessSettings = await getDefaultMcpAccessSettings()
+    // Set req.user to the actual users record so custom tool handlers can use req.user.id
+    req.user = mcpAccessSettings.user
+    return mcpAccessSettings
+  },
   collections: {
     users: {
       description:
