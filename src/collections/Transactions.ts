@@ -248,5 +248,23 @@ export const Transactions: CollectionConfig = {
       type: 'checkbox',
       defaultValue: true,
     },
+    {
+      name: 'outgoingLinks',
+      type: 'join',
+      collection: 'transaction-links',
+      on: 'from',
+      admin: {
+        description: 'Links where this transaction is the source (e.g. this repaid another)',
+      },
+    },
+    {
+      name: 'incomingLinks',
+      type: 'join',
+      collection: 'transaction-links',
+      on: 'to',
+      admin: {
+        description: 'Links where this transaction is the target (e.g. others repaid this)',
+      },
+    },
   ],
 }

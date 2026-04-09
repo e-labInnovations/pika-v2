@@ -12,6 +12,7 @@ import { Reminders } from './Reminders'
 import { UserSettings } from './UserSettings'
 import { AIUsages } from './AIUsages'
 import { OAuthAccounts } from './OAuthAccounts'
+import { TransactionLinks } from './TransactionLinks'
 
 export const collections = [
   Users,
@@ -21,6 +22,7 @@ export const collections = [
   Categories,
   Tags,
   Transactions,
+  TransactionLinks,
   Reminders,
   UserSettings,
   AIUsages,

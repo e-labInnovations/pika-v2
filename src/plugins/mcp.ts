@@ -9,6 +9,7 @@ import { calculateMonthlyTags } from '../utilities/calculateMonthlyTags'
 import { calculateMonthlyPeople } from '../utilities/calculateMonthlyPeople'
 import { User } from '../payload-types'
 import { PayloadRequest } from 'payload'
+import { maskApiKey } from '../utilities/maskApiKey'
 
 async function getMcpTimezone(req: PayloadRequest): Promise<string> {
   if (!req.user) return 'UTC'
@@ -110,6 +111,16 @@ export const mcp = mcpPlugin({
     reminders: {
       description:
         'Scheduled or recurring financial reminders (e.g. rent, subscriptions, loan repayments). Has a title, optional amount, type (income / expense / transfer), linked category and account, a next due date, and an archived flag. Use to surface upcoming obligations.',
+      enabled: {
+        find: true,
+        create: true,
+        update: true,
+        delete: true,
+      },
+    },
+    'transaction-links': {
+      description:
+        'Directional relationships between transactions. Each link has a source transaction (from), a target transaction (to), and a type (repaid, returned, duplicate, correction). Use this to track partial repayments, refunds, duplicates, or corrections — e.g. "T2 repaid T1". Query by from to get outgoing links or by to to get incoming links.',
       enabled: {
         find: true,
         create: true,
@@ -236,12 +247,22 @@ export const mcp = mcpPlugin({
             overrideAccess: true,
             context: { internal: true },
           })
+          const rawSettings = (user.settings as User['settings'])?.docs?.[0] ?? null
+          const userSetting = typeof rawSettings === 'object' ? rawSettings : null
+          const settings = userSetting
+            ? {
+                ...userSetting,
+                geminiApiKey: userSetting.geminiApiKey
+                  ? maskApiKey(userSetting.geminiApiKey)
+                  : null,
+              }
+            : null
           const result = {
             id: user.id,
             email: user.email,
             name: user.name,
             role: user.role,
-            settings: (user.settings as User['settings'])?.docs?.[0] ?? null,
+            settings,
           }
           return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
         },

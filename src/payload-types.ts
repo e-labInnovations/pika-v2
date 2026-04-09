@@ -75,6 +75,7 @@ export interface Config {
     categories: Category;
     tags: Tag;
     transactions: Transaction;
+    'transaction-links': TransactionLink;
     reminders: Reminder;
     'user-settings': UserSetting;
     'ai-usages': AiUsage;
@@ -90,6 +91,10 @@ export interface Config {
     users: {
       settings: 'user-settings';
     };
+    transactions: {
+      outgoingLinks: 'transaction-links';
+      incomingLinks: 'transaction-links';
+    };
   };
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
@@ -99,6 +104,7 @@ export interface Config {
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     tags: TagsSelect<false> | TagsSelect<true>;
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
+    'transaction-links': TransactionLinksSelect<false> | TransactionLinksSelect<true>;
     reminders: RemindersSelect<false> | RemindersSelect<true>;
     'user-settings': UserSettingsSelect<false> | UserSettingsSelect<true>;
     'ai-usages': AiUsagesSelect<false> | AiUsagesSelect<true>;
@@ -360,9 +366,48 @@ export interface Transaction {
   attachments?: (string | Media)[] | null;
   note?: string | null;
   isActive?: boolean | null;
+  /**
+   * Links where this transaction is the source (e.g. this repaid another)
+   */
+  outgoingLinks?: {
+    docs?: (string | TransactionLink)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Links where this transaction is the target (e.g. others repaid this)
+   */
+  incomingLinks?: {
+    docs?: (string | TransactionLink)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   updatedAt: string;
   createdAt: string;
   deletedAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transaction-links".
+ */
+export interface TransactionLink {
+  id: string;
+  user: string | User;
+  /**
+   * The source transaction (the action)
+   */
+  from: string | Transaction;
+  /**
+   * The target transaction (the reference)
+   */
+  to: string | Transaction;
+  type: 'repaid' | 'returned' | 'duplicate' | 'correction';
+  /**
+   * Additional context for this link
+   */
+  note?: string | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -572,6 +617,24 @@ export interface PayloadMcpApiKey {
      */
     delete?: boolean | null;
   };
+  transactionLinks?: {
+    /**
+     * Allow clients to find transaction-links.
+     */
+    find?: boolean | null;
+    /**
+     * Allow clients to create transaction-links.
+     */
+    create?: boolean | null;
+    /**
+     * Allow clients to update transaction-links.
+     */
+    update?: boolean | null;
+    /**
+     * Allow clients to delete transaction-links.
+     */
+    delete?: boolean | null;
+  };
   userSettings?: {
     /**
      * Allow clients to find user-settings.
@@ -697,6 +760,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'transactions';
         value: string | Transaction;
+      } | null)
+    | ({
+        relationTo: 'transaction-links';
+        value: string | TransactionLink;
       } | null)
     | ({
         relationTo: 'reminders';
@@ -909,9 +976,24 @@ export interface TransactionsSelect<T extends boolean = true> {
   attachments?: T;
   note?: T;
   isActive?: T;
+  outgoingLinks?: T;
+  incomingLinks?: T;
   updatedAt?: T;
   createdAt?: T;
   deletedAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transaction-links_select".
+ */
+export interface TransactionLinksSelect<T extends boolean = true> {
+  user?: T;
+  from?: T;
+  to?: T;
+  type?: T;
+  note?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1050,6 +1132,14 @@ export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
         delete?: T;
       };
   reminders?:
+    | T
+    | {
+        find?: T;
+        create?: T;
+        update?: T;
+        delete?: T;
+      };
+  transactionLinks?:
     | T
     | {
         find?: T;
