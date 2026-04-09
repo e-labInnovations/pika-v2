@@ -1058,7 +1058,7 @@ function TransactionsStep({
         ].filter(Boolean),
         note: t.note,
         oldAttachments: t.attachments || [],
-      })).filter((m) => m.accountV2Id) // skip transactions with unmapped account
+      })).filter((m) => m.accountV2Id && m.categoryV2Id) // skip transactions with unmapped account or category
 
       try {
         const res = await apiPost<{ created: number; failed: number; errors: string[] }>('/migrate/run', {

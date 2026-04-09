@@ -336,20 +336,24 @@ export const seedRandomData = async (
     }
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const txData: Record<string, any> = {
+        title: template.title,
+        amount,
+        date: randomDate(90),
+        type,
+        account: account.id as string,
+        user: userId,
+      }
+      if (toAccount) txData.toAccount = toAccount
+      if (category) txData.category = category
+      if (tags.length > 0) txData.tags = tags
+      if (person) txData.person = person
+
       await payload.create({
         collection: 'transactions',
-        data: {
-          title: template.title,
-          amount,
-          date: randomDate(90),
-          type,
-          account: account.id as string,
-          ...(toAccount ? { toAccount } : {}),
-          ...(category ? { category } : {}),
-          ...(tags.length > 0 ? { tags } : {}),
-          ...(person ? { person } : {}),
-          user: userId,
-        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        data: txData as any,
         user: userDoc,
         overrideAccess: true,
         context: { internal: true },

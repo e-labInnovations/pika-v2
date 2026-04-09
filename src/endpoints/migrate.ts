@@ -29,9 +29,9 @@ export const migrateConnectHandler: PayloadHandler = async (req) => {
 
   try {
     const res = await fetch(`${baseUrl}/wp-json/pika/v1/auth/me`, {
-      headers: { 
+      headers: {
         Authorization: authHeader,
-        Cookie: `pika_token=${authToken}` 
+        Cookie: `pika_token=${authToken}`,
       },
     })
 
@@ -101,9 +101,9 @@ export const migrateFetchHandler: PayloadHandler = async (req) => {
 
   try {
     const res = await fetch(apiUrl, {
-      headers: { 
+      headers: {
         Authorization: authHeader,
-        Cookie: `pika_token=${authToken}`
+        Cookie: `pika_token=${authToken}`,
       },
     })
 
@@ -204,7 +204,7 @@ async function fetchAndUploadMedia(
   entityType: 'person' | 'account' | 'transaction',
   req: any,
   payload: any,
-  userId: string
+  userId: string,
 ) {
   try {
     const res = await fetch(url)
@@ -274,33 +274,62 @@ export const migrateRunHandler: PayloadHandler = async (req) => {
   try {
     if (step === 'accounts') {
       for (const mapping of mappings as AccountMapping[]) {
-        if (mapping.action === 'skip') { skippedCount++; continue }
+        if (mapping.action === 'skip') {
+          skippedCount++
+          continue
+        }
         if (mapping.action === 'use_existing' && mapping.existingId) {
           idMap[mapping.oldId] = mapping.existingId
-          
-          if ((mapping.avatarAction === 'override_existing' || mapping.avatarAction === 'upload_new') && mapping.oldAvatarUrl) {
+
+          if (
+            (mapping.avatarAction === 'override_existing' ||
+              mapping.avatarAction === 'upload_new') &&
+            mapping.oldAvatarUrl
+          ) {
             try {
-              const mediaId = await fetchAndUploadMedia(mapping.oldAvatarUrl, mapping.avatarName, 'avatar', 'account', req, payload, userId)
+              const mediaId = await fetchAndUploadMedia(
+                mapping.oldAvatarUrl,
+                mapping.avatarName,
+                'avatar',
+                'account',
+                req,
+                payload,
+                userId,
+              )
               if (mediaId) {
                 await payload.update({
                   collection: 'accounts',
                   id: mapping.existingId,
                   data: { avatar: mediaId },
-                  req
+                  req,
                 })
               }
             } catch (err) {
-              failed.push(`${mapping.oldId} (Avatar update): ${err instanceof Error ? err.message : String(err)}`)
+              failed.push(
+                `${mapping.oldId} (Avatar update): ${err instanceof Error ? err.message : String(err)}`,
+              )
             }
           }
-          
+
           skippedCount++
           continue
         }
         try {
           let avatarId: string | undefined = undefined
-          if ((mapping.avatarAction === 'upload_new' || mapping.avatarAction === 'override_existing') && mapping.oldAvatarUrl) {
-            avatarId = await fetchAndUploadMedia(mapping.oldAvatarUrl, mapping.avatarName, 'avatar', 'account', req, payload, userId)
+          if (
+            (mapping.avatarAction === 'upload_new' ||
+              mapping.avatarAction === 'override_existing') &&
+            mapping.oldAvatarUrl
+          ) {
+            avatarId = await fetchAndUploadMedia(
+              mapping.oldAvatarUrl,
+              mapping.avatarName,
+              'avatar',
+              'account',
+              req,
+              payload,
+              userId,
+            )
           }
 
           const doc = await payload.create({
@@ -327,7 +356,10 @@ export const migrateRunHandler: PayloadHandler = async (req) => {
 
     if (step === 'tags') {
       for (const mapping of mappings as TagMapping[]) {
-        if (mapping.action === 'skip') { skippedCount++; continue }
+        if (mapping.action === 'skip') {
+          skippedCount++
+          continue
+        }
         if (mapping.action === 'use_existing' && mapping.existingId) {
           idMap[mapping.oldId] = mapping.existingId
           skippedCount++
@@ -357,33 +389,62 @@ export const migrateRunHandler: PayloadHandler = async (req) => {
 
     if (step === 'people') {
       for (const mapping of mappings as PersonMapping[]) {
-        if (mapping.action === 'skip') { skippedCount++; continue }
+        if (mapping.action === 'skip') {
+          skippedCount++
+          continue
+        }
         if (mapping.action === 'use_existing' && mapping.existingId) {
           idMap[mapping.oldId] = mapping.existingId
-          
-          if ((mapping.avatarAction === 'override_existing' || mapping.avatarAction === 'upload_new') && mapping.oldAvatarUrl) {
+
+          if (
+            (mapping.avatarAction === 'override_existing' ||
+              mapping.avatarAction === 'upload_new') &&
+            mapping.oldAvatarUrl
+          ) {
             try {
-              const mediaId = await fetchAndUploadMedia(mapping.oldAvatarUrl, mapping.avatarName, 'avatar', 'person', req, payload, userId)
+              const mediaId = await fetchAndUploadMedia(
+                mapping.oldAvatarUrl,
+                mapping.avatarName,
+                'avatar',
+                'person',
+                req,
+                payload,
+                userId,
+              )
               if (mediaId) {
                 await payload.update({
                   collection: 'people',
                   id: mapping.existingId,
                   data: { avatar: mediaId },
-                  req
+                  req,
                 })
               }
             } catch (err) {
-              failed.push(`${mapping.oldId} (Avatar update): ${err instanceof Error ? err.message : String(err)}`)
+              failed.push(
+                `${mapping.oldId} (Avatar update): ${err instanceof Error ? err.message : String(err)}`,
+              )
             }
           }
-          
+
           skippedCount++
           continue
         }
         try {
           let avatarId: string | undefined = undefined
-          if ((mapping.avatarAction === 'upload_new' || mapping.avatarAction === 'override_existing') && mapping.oldAvatarUrl) {
-            avatarId = await fetchAndUploadMedia(mapping.oldAvatarUrl, mapping.avatarName, 'avatar', 'person', req, payload, userId)
+          if (
+            (mapping.avatarAction === 'upload_new' ||
+              mapping.avatarAction === 'override_existing') &&
+            mapping.oldAvatarUrl
+          ) {
+            avatarId = await fetchAndUploadMedia(
+              mapping.oldAvatarUrl,
+              mapping.avatarName,
+              'avatar',
+              'person',
+              req,
+              payload,
+              userId,
+            )
           }
 
           const doc = await payload.create({
@@ -413,14 +474,17 @@ export const migrateRunHandler: PayloadHandler = async (req) => {
       const children = categoryMappings.filter((m) => m.parentOldId)
 
       for (const mapping of [...parents, ...children]) {
-        if (mapping.action === 'skip') { skippedCount++; continue }
+        if (mapping.action === 'skip') {
+          skippedCount++
+          continue
+        }
         if (mapping.action === 'use_existing' && mapping.existingId) {
           idMap[mapping.oldId] = mapping.existingId
           skippedCount++
           continue
         }
         const parentId = mapping.parentOldId
-          ? (idMap[mapping.parentOldId] || mapping.newParentId || undefined)
+          ? idMap[mapping.parentOldId] || mapping.newParentId || undefined
           : undefined
         try {
           const doc = await payload.create({
@@ -449,31 +513,48 @@ export const migrateRunHandler: PayloadHandler = async (req) => {
     if (step === 'transactions') {
       for (const mapping of mappings as TransactionMapping[]) {
         try {
+          if (!mapping.categoryV2Id) {
+            failed.push(`"${mapping.title}": category is required but was not mapped`)
+            continue
+          }
           const attachmentIds: string[] = []
           if (mapping.oldAttachments && mapping.oldAttachments.length > 0) {
             for (const att of mapping.oldAttachments) {
-              const mediaId = await fetchAndUploadMedia(att.url, att.name, 'attachment', 'transaction', req, payload, userId)
+              const mediaId = await fetchAndUploadMedia(
+                att.url,
+                att.name,
+                'attachment',
+                'transaction',
+                req,
+                payload,
+                userId,
+              )
               if (mediaId) attachmentIds.push(mediaId)
             }
           }
 
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const txData: Record<string, any> = {
+            user: userId,
+            title: mapping.title,
+            amount: String(mapping.amount),
+            date: mapping.date,
+            type: mapping.type,
+            category: mapping.categoryV2Id,
+            account: mapping.accountV2Id,
+            isActive: true,
+          }
+          if (mapping.toAccountV2Id) txData.toAccount = mapping.toAccountV2Id
+          if (mapping.personV2Id) txData.person = mapping.personV2Id
+          if (mapping.tagV2Ids?.length) txData.tags = mapping.tagV2Ids
+          if (mapping.note) txData.note = mapping.note
+          if (attachmentIds.length > 0) txData.attachments = attachmentIds
+
           await payload.create({
             collection: 'transactions',
-            data: {
-              user: userId,
-              title: mapping.title,
-              amount: String(mapping.amount),
-              date: mapping.date,
-              type: mapping.type,
-              category: mapping.categoryV2Id || undefined,
-              account: mapping.accountV2Id,
-              toAccount: mapping.toAccountV2Id || undefined,
-              person: mapping.personV2Id || undefined,
-              tags: mapping.tagV2Ids || [],
-              note: mapping.note || '',
-              attachments: attachmentIds.length > 0 ? attachmentIds : undefined,
-              isActive: true,
-            },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            data: txData as any,
+            overrideAccess: true,
             req,
           })
           createdCount++
