@@ -1,4 +1,5 @@
 import type { Payload } from 'payload'
+import { APIError } from 'payload'
 import type { Category } from '../../payload-types'
 import { callGeminiText, callGeminiImage, type GeminiUsage } from './gemini'
 import {
@@ -100,9 +101,9 @@ export async function checkRateLimits(
   ])
 
   if (daily > 0 && dailyResult.totalDocs >= daily)
-    throw Object.assign(new Error(`Daily AI limit of ${daily} requests reached`), { code: 'rate_limit_daily', limit: daily })
+    throw new APIError(`Daily AI limit of ${daily} requests reached`, 429, null, true)
   if (monthly > 0 && monthlyResult.totalDocs >= monthly)
-    throw Object.assign(new Error(`Monthly AI limit of ${monthly} requests reached`), { code: 'rate_limit_monthly', limit: monthly })
+    throw new APIError(`Monthly AI limit of ${monthly} requests reached`, 429, null, true)
 }
 
 export async function buildUserContext(
@@ -268,11 +269,11 @@ export async function processTextToTransaction(
 ): Promise<AITransactionResult> {
   const config = await resolveAIConfig(payload, userId)
 
-  if (!config.enabled) throw Object.assign(new Error('AI features are disabled'), { code: 'ai_disabled' })
-  if (!config.apiKey) throw Object.assign(new Error('No Gemini API key configured'), { code: 'no_api_key' })
+  if (!config.enabled) throw new APIError('AI features are disabled', 403, null, true)
+  if (!config.apiKey) throw new APIError('No Gemini API key configured', 400, null, true)
 
   const { model, error: modelError } = resolveModel(requestedModel, config)
-  if (modelError) throw Object.assign(new Error(modelError), { code: 'invalid_model' })
+  if (modelError) throw new APIError(modelError, 400, null, true)
 
   await checkRateLimits(payload, userId, config.perUserDailyLimit, config.perUserMonthlyLimit)
 
@@ -306,11 +307,11 @@ export async function processImageToTransaction(
 ): Promise<AITransactionResult> {
   const config = await resolveAIConfig(payload, userId)
 
-  if (!config.enabled) throw Object.assign(new Error('AI features are disabled'), { code: 'ai_disabled' })
-  if (!config.apiKey) throw Object.assign(new Error('No Gemini API key configured'), { code: 'no_api_key' })
+  if (!config.enabled) throw new APIError('AI features are disabled', 403, null, true)
+  if (!config.apiKey) throw new APIError('No Gemini API key configured', 400, null, true)
 
   const { model, error: modelError } = resolveModel(requestedModel, config)
-  if (modelError) throw Object.assign(new Error(modelError), { code: 'invalid_model' })
+  if (modelError) throw new APIError(modelError, 400, null, true)
 
   await checkRateLimits(payload, userId, config.perUserDailyLimit, config.perUserMonthlyLimit)
 
