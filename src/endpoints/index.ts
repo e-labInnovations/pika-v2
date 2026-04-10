@@ -5,6 +5,7 @@ import { timezonesHandler, timezoneByIdHandler } from './timezones'
 import { weeklyExpensesHandler, monthlyCalendarHandler, dashboardHandler, monthlyCategoriesHandler, monthlyTagsHandler, monthlyPeopleHandler } from './analytics'
 import { textToTransactionHandler, imageToTransactionHandler } from './ai'
 import { migrateConnectHandler, migrateFetchHandler, migrateRunHandler } from './migrate'
+import { seedPagesHandler } from './seedPages'
 
 export const endpoints = [
   {
@@ -76,6 +77,11 @@ export const endpoints = [
     path: '/seed/random',
     method: 'post' as const,
     handler: randomSeedHandler,
+  },
+  {
+    path: '/seed/pages',
+    method: 'post' as const,
+    handler: seedPagesHandler,
   },
   {
     path: '/migrate/connect',

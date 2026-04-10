@@ -70,6 +70,7 @@ export interface Config {
   collections: {
     users: User;
     media: Media;
+    pages: Page;
     accounts: Account;
     people: Person;
     categories: Category;
@@ -99,6 +100,7 @@ export interface Config {
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    pages: PagesSelect<false> | PagesSelect<true>;
     accounts: AccountsSelect<false> | AccountsSelect<true>;
     people: PeopleSelect<false> | PeopleSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
@@ -279,6 +281,68 @@ export interface Account {
   balance?: number | null;
   totalTransactions?: number | null;
   lastTransactionAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages".
+ */
+export interface Page {
+  id: string;
+  title: string;
+  /**
+   * URL path for this page (e.g. "privacy-policy" → /pages/privacy-policy)
+   */
+  slug: string;
+  /**
+   * Short summary used in meta tags and page listings.
+   */
+  description?: string | null;
+  /**
+   * Build the page content using blocks.
+   */
+  layout: (
+    | {
+        content: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
+        };
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'richText';
+      }
+    | {
+        style: 'info' | 'warning' | 'success' | 'error';
+        content: string;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'banner';
+      }
+    | {
+        language?: ('bash' | 'json' | 'javascript' | 'typescript' | 'css' | 'text') | null;
+        /**
+         * Optional label shown above the code block
+         */
+        caption?: string | null;
+        code: string;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'code';
+      }
+  )[];
+  publishedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -599,24 +663,6 @@ export interface PayloadMcpApiKey {
      */
     delete?: boolean | null;
   };
-  reminders?: {
-    /**
-     * Allow clients to find reminders.
-     */
-    find?: boolean | null;
-    /**
-     * Allow clients to create reminders.
-     */
-    create?: boolean | null;
-    /**
-     * Allow clients to update reminders.
-     */
-    update?: boolean | null;
-    /**
-     * Allow clients to delete reminders.
-     */
-    delete?: boolean | null;
-  };
   transactionLinks?: {
     /**
      * Allow clients to find transaction-links.
@@ -632,6 +678,24 @@ export interface PayloadMcpApiKey {
     update?: boolean | null;
     /**
      * Allow clients to delete transaction-links.
+     */
+    delete?: boolean | null;
+  };
+  reminders?: {
+    /**
+     * Allow clients to find reminders.
+     */
+    find?: boolean | null;
+    /**
+     * Allow clients to create reminders.
+     */
+    create?: boolean | null;
+    /**
+     * Allow clients to update reminders.
+     */
+    update?: boolean | null;
+    /**
+     * Allow clients to delete reminders.
      */
     delete?: boolean | null;
   };
@@ -740,6 +804,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: string | Media;
+      } | null)
+    | ({
+        relationTo: 'pages';
+        value: string | Page;
       } | null)
     | ({
         relationTo: 'accounts';
@@ -887,6 +955,46 @@ export interface MediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages_select".
+ */
+export interface PagesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  description?: T;
+  layout?:
+    | T
+    | {
+        richText?:
+          | T
+          | {
+              content?: T;
+              id?: T;
+              blockName?: T;
+            };
+        banner?:
+          | T
+          | {
+              style?: T;
+              content?: T;
+              id?: T;
+              blockName?: T;
+            };
+        code?:
+          | T
+          | {
+              language?: T;
+              caption?: T;
+              code?: T;
+              id?: T;
+              blockName?: T;
+            };
+      };
+  publishedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1131,7 +1239,7 @@ export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
         update?: T;
         delete?: T;
       };
-  reminders?:
+  transactionLinks?:
     | T
     | {
         find?: T;
@@ -1139,7 +1247,7 @@ export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
         update?: T;
         delete?: T;
       };
-  transactionLinks?:
+  reminders?:
     | T
     | {
         find?: T;

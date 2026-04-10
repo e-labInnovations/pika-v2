@@ -45,9 +45,11 @@ export default async function ConsentPage({ searchParams }: PageProps) {
 
   if (!clientId || !redirectUri || !codeChallenge) {
     return (
-      <div className="consent-error">
-        <h1>Invalid Request</h1>
-        <p>Missing required OAuth parameters. Please try connecting again from your MCP client.</p>
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="text-center">
+          <h1 className="text-xl font-bold text-foreground mb-2">Invalid Request</h1>
+          <p className="text-sm text-muted-foreground">Missing required OAuth parameters. Please try connecting again from your MCP client.</p>
+        </div>
       </div>
     )
   }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { MCP_SCOPES } from '../../../plugins/mcp'
+import { MCP_SCOPES } from '../../../plugins/mcp-constants'
 
 export async function GET(request: NextRequest) {
   const host = request.headers.get('host') ?? new URL(process.env.NEXT_PUBLIC_SERVER_URL!).host

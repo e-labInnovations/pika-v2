@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import DynamicIcon from '@/components/lucide/dynamic-icon'
 
 type Status = 'idle' | 'confirm' | 'loading' | 'success' | 'error'
-type Action = 'reseed' | 'random'
+type Action = 'reseed' | 'random' | 'pages'
 
 export function ReseedWidgetClient() {
   const [status, setStatus] = useState<Status>('idle')
@@ -35,6 +35,10 @@ export function ReseedWidgetClient() {
         const res = await fetch('/api/seed/reseed', { method: 'POST' })
         const body = await res.json()
         if (!res.ok) throw new Error(body?.error || 'Reseed failed')
+      } else if (pendingAction === 'pages') {
+        const res = await fetch('/api/seed/pages', { method: 'POST' })
+        const body = await res.json()
+        if (!res.ok) throw new Error(body?.error || 'Page seed failed')
       } else {
         const res = await fetch('/api/seed/random', {
           method: 'POST',
@@ -72,7 +76,7 @@ export function ReseedWidgetClient() {
           <div className="mb-4 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-500">
             <div className="mb-1 flex items-center gap-2">
               <DynamicIcon name="circle-check" size={14} />
-              {pendingAction === 'reseed' ? 'System data recreated.' : 'Random data added.'}
+              {pendingAction === 'reseed' ? 'System data recreated.' : pendingAction === 'pages' ? 'Pages seeded.' : 'Random data added.'}
             </div>
             {log.length > 0 && (
               <ul className="mt-1 space-y-0.5 pl-1 opacity-80">
@@ -93,7 +97,7 @@ export function ReseedWidgetClient() {
         {/* Confirm prompt */}
         {status === 'confirm' ? (
           <div className="space-y-3">
-            {pendingAction === 'random' && (
+            {pendingAction === 'random' && pendingAction === 'random' && (
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-1.5 text-xs opacity-70">
                   <span>People</span>
@@ -123,7 +127,7 @@ export function ReseedWidgetClient() {
             )}
             <div className="flex items-center gap-2">
               <span className="text-xs opacity-60">
-                {pendingAction === 'reseed' ? 'Delete and recreate system data?' : 'Generate random data now?'}
+                {pendingAction === 'reseed' ? 'Delete and recreate system data?' : pendingAction === 'pages' ? 'Seed default pages (skips existing)?' : 'Generate random data now?'}
               </span>
               <button
                 type="button"
@@ -145,7 +149,7 @@ export function ReseedWidgetClient() {
         ) : status === 'loading' ? (
           <div className="flex items-center gap-2 text-xs opacity-60">
             <DynamicIcon name="loader-circle" size={14} className="animate-spin" />
-            {pendingAction === 'reseed' ? 'Reseeding…' : 'Generating random data…'}
+            {pendingAction === 'reseed' ? 'Reseeding…' : pendingAction === 'pages' ? 'Seeding pages…' : 'Generating random data…'}
           </div>
         ) : (
           <div className="flex flex-col gap-2">
@@ -162,6 +166,25 @@ export function ReseedWidgetClient() {
               >
                 <DynamicIcon name="refresh-cw" size={14} />
                 Reseed system data
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div style={{ borderTop: '1px solid var(--theme-border-color)' }} className="my-1" />
+
+            {/* Seed pages */}
+            <div>
+              <p className="mb-1.5 text-xs opacity-50">
+                Seed default pages: Terms, Privacy Policy, MCP Setup.
+              </p>
+              <button
+                type="button"
+                onClick={() => requestConfirm('pages')}
+                style={{ border: '1px solid var(--theme-border-color)', borderRadius: '0.5rem' }}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium opacity-70 transition hover:opacity-100"
+              >
+                <DynamicIcon name="file-text" size={14} />
+                Seed pages
               </button>
             </div>
 

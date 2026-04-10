@@ -11,54 +11,7 @@ import { User } from '../payload-types'
 import { PayloadRequest } from 'payload'
 import { maskApiKey } from '../utilities/maskApiKey'
 
-/**
- * OAuth scopes advertised in discovery endpoints.
- * Exported so well-known route handlers can reference the same list.
- */
-export const MCP_SCOPES = [
-  'transactions:read',
-  'transactions:write',
-  'accounts:read',
-  'accounts:write',
-  'people:read',
-  'people:write',
-  'categories:read',
-  'tags:read',
-  'reminders:read',
-  'reminders:write',
-  'transaction-links:read',
-  'transaction-links:write',
-]
-
-/**
- * Full permission set granted to MCP OAuth clients via the consent screen.
- * Exported so ConsentForm.tsx can import it — keeping all MCP config in one place.
- */
-export const MCP_FULL_PERMISSIONS = {
-  transactions: { find: true, create: true, update: true, delete: true },
-  accounts: { find: true, create: true, update: true, delete: true },
-  people: { find: true, create: true, update: true, delete: true },
-  categories: { find: true, create: true, update: true, delete: true },
-  tags: { find: true, create: true, update: true, delete: true },
-  reminders: { find: true, create: true, update: true, delete: true },
-  'transaction-links': { find: true, create: true, update: true, delete: true },
-  userSettings: { find: true, update: true },
-  users: { find: true },
-  media: { find: true },
-  'payload-mcp-tool': {
-    getDashboardSummary: true,
-    getMonthlyCategories: true,
-    getMonthlyTags: true,
-    getMonthlyPeople: true,
-    getCurrentUser: true,
-  },
-  'payload-mcp-resource': {
-    currencies: true,
-    currency: true,
-    timezones: true,
-    timezone: true,
-  },
-}
+export { MCP_SCOPES, MCP_FULL_PERMISSIONS } from './mcp-constants'
 
 async function getMcpTimezone(req: PayloadRequest): Promise<string> {
   if (!req.user) return 'UTC'
@@ -75,6 +28,8 @@ async function getMcpTimezone(req: PayloadRequest): Promise<string> {
     return 'UTC'
   }
 }
+
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3333'
 
 export const mcp = mcpPlugin({
   overrideAuth: async (
@@ -189,6 +144,17 @@ export const mcp = mcpPlugin({
     },
   },
   mcp: {
+    serverOptions: {
+      // icons is a draft MCP spec field — cast needed until plugin types catch up
+      serverInfo: {
+        name: 'Pika',
+        version: '1.0.0',
+        icons: [
+          { src: `${SERVER_URL}/icon.svg`, mimeType: 'image/svg+xml', sizes: ['any'] },
+          { src: `${SERVER_URL}/icons/favicon.ico`, mimeType: 'image/x-icon', sizes: ['48x48'] },
+        ],
+      } as { name: string; version: string },
+    },
     tools: [
       {
         name: 'get_dashboard_summary',

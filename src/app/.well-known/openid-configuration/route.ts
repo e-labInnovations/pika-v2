@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { MCP_SCOPES } from '../../../plugins/mcp'
+import { MCP_SCOPES } from '../../../plugins/mcp-constants'
 
 /**
  * GET /.well-known/openid-configuration

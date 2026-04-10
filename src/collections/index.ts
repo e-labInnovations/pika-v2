@@ -13,10 +13,12 @@ import { UserSettings } from './UserSettings'
 import { AIUsages } from './AIUsages'
 import { OAuthAccounts } from './OAuthAccounts'
 import { TransactionLinks } from './TransactionLinks'
+import { Pages } from './Pages'
 
 export const collections = [
   Users,
   Media,
+  Pages,
   Accounts,
   People,
   Categories,

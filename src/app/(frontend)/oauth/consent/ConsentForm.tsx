@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { CreditCard, BarChart2, Users, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { MCP_FULL_PERMISSIONS } from '../../../../plugins/mcp'
+import { MCP_FULL_PERMISSIONS } from '../../../../plugins/mcp-constants'
 
 interface ConsentFormProps {
   userEmail: string
@@ -18,7 +19,6 @@ interface AccessItem {
   icon: LucideIcon
   label: string
 }
-
 
 const ACCESS_LIST: AccessItem[] = [
   { icon: CreditCard, label: 'View and manage your accounts and transactions' },
@@ -77,130 +77,75 @@ export default function ConsentForm({
   }
 
   return (
-    <div
-      style={{
-        maxWidth: 440,
-        margin: '60px auto',
-        fontFamily: 'system-ui, sans-serif',
-        padding: '0 16px',
-      }}
-    >
-      <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
-        {/* Header */}
-        <div style={{ padding: '28px 32px 24px', borderBottom: '1px solid #f3f4f6' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icon.svg" alt="Pika" width={36} height={36} style={{ borderRadius: 8 }} />
-            <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>Pika</span>
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-[420px]">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-xl">
+          {/* Header */}
+          <div className="px-8 pt-7 pb-6 border-b border-border">
+            <div className="flex items-center gap-2.5 mb-5 justify-center">
+              <Image src="/icon.svg" alt="Pika" width={32} height={32} className="rounded-lg" />
+              <span className="text-base font-semibold text-foreground tracking-tight">Pika</span>
+            </div>
+            <h1 className="text-xl font-bold text-foreground mb-1.5 leading-snug">
+              {clientName} wants access to your account
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Signed in as <span className="text-foreground font-bold">{userEmail}</span>
+            </p>
           </div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 6px' }}>
-            {clientName} wants access to your account
-          </h1>
-          <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>
-            Signed in as <strong>{userEmail}</strong>
-          </p>
-        </div>
 
-        {/* Access list */}
-        <div style={{ padding: '20px 32px' }}>
-          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
-            If you approve, <strong>{clientName}</strong> will be able to:
-          </p>
-          <ul
-            style={{
-              listStyle: 'none',
-              padding: 0,
-              margin: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
-            }}
-          >
-            {ACCESS_LIST.map(({ icon: Icon, label }) => (
-              <li
-                key={label}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}
-              >
-                <Icon size={18} style={{ flexShrink: 0, color: '#6b7280' }} />
-                <span style={{ color: '#374151' }}>{label}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+          {/* Access list */}
+          <div className="px-8 py-6">
+            <p className="text-sm text-muted-foreground mb-4">
+              If you approve, <span className="text-foreground font-medium">{clientName}</span> will
+              be able to:
+            </p>
+            <ul className="space-y-3">
+              {ACCESS_LIST.map(({ icon: Icon, label }) => (
+                <li key={label} className="flex items-center gap-3 text-sm">
+                  <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center shrink-0">
+                    <Icon size={15} className="text-primary" />
+                  </div>
+                  <span className="text-foreground">{label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-        {/* Details */}
-        <div style={{ padding: '0 32px 20px' }}>
-          <div
-            style={{
-              background: '#f9fafb',
-              borderRadius: 8,
-              padding: '12px 16px',
-              fontSize: 13,
-              color: '#6b7280',
-            }}
-          >
-            <div style={{ display: 'flex', gap: 8 }}>
-              <span style={{ flexShrink: 0 }}>Redirect URI:</span>
-              <span style={{ color: '#374151', wordBreak: 'break-all' }}>{redirectUri}</span>
+          {/* Redirect URI */}
+          <div className="px-8 pb-6">
+            <div className="bg-muted rounded-xl px-4 py-3 text-xs text-muted-foreground flex gap-2">
+              <span className="shrink-0">Redirect URI:</span>
+              <span className="text-foreground/70 break-all">{redirectUri}</span>
             </div>
           </div>
-        </div>
 
-        {/* Error */}
-        {error && (
-          <p style={{ color: '#dc2626', fontSize: 14, padding: '0 32px 16px', margin: 0 }}>
-            {error}
+          {/* Error */}
+          {error && <p className="text-destructive text-sm px-8 pb-4">{error}</p>}
+
+          {/* Actions */}
+          <div className="px-8 pb-6 flex gap-3">
+            <button
+              onClick={handleDeny}
+              disabled={loading}
+              className="flex-1 py-2.5 px-4 rounded-xl border border-border bg-secondary text-secondary-foreground text-sm font-medium cursor-pointer hover:bg-accent transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAllow}
+              disabled={loading}
+              className="flex-1 py-2.5 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold cursor-pointer hover:opacity-90 transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? 'Connecting…' : 'Approve'}
+            </button>
+          </div>
+
+          {/* Footer note */}
+          <p className="text-xs text-muted-foreground/60 px-8 pb-6 text-center leading-relaxed">
+            You can revoke access anytime from the Pika App under Settings → Connected Apps.
           </p>
-        )}
-
-        {/* Actions */}
-        <div style={{ padding: '16px 32px 28px', display: 'flex', gap: 12 }}>
-          <button
-            onClick={handleDeny}
-            disabled={loading}
-            style={{
-              flex: 1,
-              padding: '10px 16px',
-              border: '1px solid #d1d5db',
-              borderRadius: 8,
-              background: 'white',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontSize: 14,
-              fontWeight: 500,
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleAllow}
-            disabled={loading}
-            style={{
-              flex: 1,
-              padding: '10px 16px',
-              border: 'none',
-              borderRadius: 8,
-              background: loading ? '#9ca3af' : '#111827',
-              color: 'white',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontSize: 14,
-              fontWeight: 600,
-            }}
-          >
-            {loading ? 'Connecting…' : 'Approve'}
-          </button>
         </div>
-
-        <p
-          style={{
-            fontSize: 12,
-            color: '#9ca3af',
-            padding: '0 32px 20px',
-            margin: 0,
-            textAlign: 'center',
-          }}
-        >
-          You can revoke access anytime from the Pika App under Settings → Connected Apps.
-        </p>
       </div>
     </div>
   )
