@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { CreditCard, BarChart2, Users, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { MCP_FULL_PERMISSIONS } from '../../../../plugins/mcp'
 
 interface ConsentFormProps {
   userEmail: string
@@ -18,30 +19,6 @@ interface AccessItem {
   label: string
 }
 
-const FULL_PERMISSIONS = {
-  transactions: { find: true, create: true, update: true, delete: true },
-  accounts: { find: true, create: true, update: true, delete: true },
-  people: { find: true, create: true, update: true, delete: true },
-  categories: { find: true, create: true, update: true, delete: true },
-  tags: { find: true, create: true, update: true, delete: true },
-  reminders: { find: true, create: true, update: true, delete: true },
-  userSettings: { find: true, update: true },
-  users: { find: true },
-  media: { find: true },
-  'payload-mcp-tool': {
-    getDashboardSummary: true,
-    getMonthlyCategories: true,
-    getMonthlyTags: true,
-    getMonthlyPeople: true,
-    getCurrentUser: true,
-  },
-  'payload-mcp-resource': {
-    currencies: true,
-    currency: true,
-    timezones: true,
-    timezone: true,
-  },
-}
 
 const ACCESS_LIST: AccessItem[] = [
   { icon: CreditCard, label: 'View and manage your accounts and transactions' },
@@ -74,7 +51,7 @@ export default function ConsentForm({
           redirectUri,
           state,
           codeChallenge,
-          permissions: FULL_PERMISSIONS,
+          permissions: MCP_FULL_PERMISSIONS,
           label: clientName,
         }),
       })

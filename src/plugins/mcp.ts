@@ -11,6 +11,55 @@ import { User } from '../payload-types'
 import { PayloadRequest } from 'payload'
 import { maskApiKey } from '../utilities/maskApiKey'
 
+/**
+ * OAuth scopes advertised in discovery endpoints.
+ * Exported so well-known route handlers can reference the same list.
+ */
+export const MCP_SCOPES = [
+  'transactions:read',
+  'transactions:write',
+  'accounts:read',
+  'accounts:write',
+  'people:read',
+  'people:write',
+  'categories:read',
+  'tags:read',
+  'reminders:read',
+  'reminders:write',
+  'transaction-links:read',
+  'transaction-links:write',
+]
+
+/**
+ * Full permission set granted to MCP OAuth clients via the consent screen.
+ * Exported so ConsentForm.tsx can import it — keeping all MCP config in one place.
+ */
+export const MCP_FULL_PERMISSIONS = {
+  transactions: { find: true, create: true, update: true, delete: true },
+  accounts: { find: true, create: true, update: true, delete: true },
+  people: { find: true, create: true, update: true, delete: true },
+  categories: { find: true, create: true, update: true, delete: true },
+  tags: { find: true, create: true, update: true, delete: true },
+  reminders: { find: true, create: true, update: true, delete: true },
+  'transaction-links': { find: true, create: true, update: true, delete: true },
+  userSettings: { find: true, update: true },
+  users: { find: true },
+  media: { find: true },
+  'payload-mcp-tool': {
+    getDashboardSummary: true,
+    getMonthlyCategories: true,
+    getMonthlyTags: true,
+    getMonthlyPeople: true,
+    getCurrentUser: true,
+  },
+  'payload-mcp-resource': {
+    currencies: true,
+    currency: true,
+    timezones: true,
+    timezone: true,
+  },
+}
+
 async function getMcpTimezone(req: PayloadRequest): Promise<string> {
   if (!req.user) return 'UTC'
   try {
@@ -108,9 +157,9 @@ export const mcp = mcpPlugin({
         delete: true,
       },
     },
-    reminders: {
+    'transaction-links': {
       description:
-        'Scheduled or recurring financial reminders (e.g. rent, subscriptions, loan repayments). Has a title, optional amount, type (income / expense / transfer), linked category and account, a next due date, and an archived flag. Use to surface upcoming obligations.',
+        'Links between transactions capturing semantic relationships such as repayments, returns, duplicates, and corrections. Each link has a source transaction (from), a target transaction (to), a type, and an optional note. Use this to track when one transaction settles or relates to another.',
       enabled: {
         find: true,
         create: true,
@@ -118,9 +167,9 @@ export const mcp = mcpPlugin({
         delete: true,
       },
     },
-    'transaction-links': {
+    reminders: {
       description:
-        'Directional relationships between transactions. Each link has a source transaction (from), a target transaction (to), and a type (repaid, returned, duplicate, correction). Use this to track partial repayments, refunds, duplicates, or corrections — e.g. "T2 repaid T1". Query by from to get outgoing links or by to to get incoming links.',
+        'Scheduled or recurring financial reminders (e.g. rent, subscriptions, loan repayments). Has a title, optional amount, type (income / expense / transfer), linked category and account, a next due date, and an archived flag. Use to surface upcoming obligations.',
       enabled: {
         find: true,
         create: true,
