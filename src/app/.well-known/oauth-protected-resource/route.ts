@@ -1,16 +1,12 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
 import { MCP_SCOPES } from '../../../plugins/mcp-constants'
 
-export async function GET(request: NextRequest) {
-  const host = request.headers.get('host') ?? new URL(process.env.NEXT_PUBLIC_SERVER_URL!).host
-  const proto = request.headers.get('x-forwarded-proto') ?? (request.nextUrl.protocol.replace(':', '') || 'http')
-  const base = `${proto}://${host}`
+const BASE = process.env.NEXT_PUBLIC_SERVER_URL!
 
-  return NextResponse.json(
+export function GET() {
+  return Response.json(
     {
-      resource: `${base}/api/mcp`,
-      authorization_servers: [base],
+      resource: `${BASE}/api/mcp`,
+      authorization_servers: [BASE],
       scopes_supported: MCP_SCOPES,
       bearer_methods_supported: ['header'],
     },

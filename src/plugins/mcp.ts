@@ -321,7 +321,7 @@ export const mcp = mcpPlugin({
         name: 'currencies',
         title: 'All Currencies',
         description:
-          'Complete list of supported currencies with their ISO code, symbol, native symbol, plural name, decimal digits, and rounding. Use this to look up currency metadata or present options for user preference selection.',
+          'Returns an array of all supported ISO 4217 currency codes (e.g. ["AED", "AFN", "ALL", ...]). Use this to discover available currencies before fetching full metadata via currencies://code/{code}.',
         uri: 'currencies://all',
         mimeType: 'application/json',
         handler: (uri: URL) => ({
@@ -329,7 +329,9 @@ export const mcp = mcpPlugin({
             {
               uri: uri.href,
               text: JSON.stringify(
-                Object.values(currencies).sort((a, b) => a.code.localeCompare(b.code)),
+                Object.values(currencies)
+                  .sort((a, b) => a.code.localeCompare(b.code))
+                  .map((c) => c.code),
                 null,
                 2,
               ),
@@ -362,11 +364,20 @@ export const mcp = mcpPlugin({
         name: 'timezones',
         title: 'All Timezones',
         description:
-          'Complete list of supported IANA timezones grouped by region with UTC offset and display label. Use this to look up timezone metadata or present options for user preference selection.',
+          'Returns an array of all supported IANA timezone IDs (e.g. ["Africa/Abidjan", "America/New_York", ...]). Use this to discover available timezones before fetching full metadata via timezones://id/{id}.',
         uri: 'timezones://all',
         mimeType: 'application/json',
         handler: (uri: URL) => ({
-          contents: [{ uri: uri.href, text: JSON.stringify(timezones, null, 2) }],
+          contents: [
+            {
+              uri: uri.href,
+              text: JSON.stringify(
+                timezones.map((t) => t.id),
+                null,
+                2,
+              ),
+            },
+          ],
         }),
       },
       {

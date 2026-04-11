@@ -252,15 +252,6 @@ export interface UserSetting {
    * Used for AI features. Stored securely — only the masked value is returned via the API.
    */
   geminiApiKey?: string | null;
-  settings?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -733,7 +724,7 @@ export interface PayloadMcpApiKey {
   };
   'payload-mcp-resource'?: {
     /**
-     * Complete list of supported currencies with their ISO code, symbol, native symbol, plural name, decimal digits, and rounding. Use this to look up currency metadata or present options for user preference selection.
+     * Returns an array of all supported ISO 4217 currency codes (e.g. ["AED", "AFN", "ALL", ...]). Use this to discover available currencies before fetching full metadata via currencies://code/{code}.
      */
     currencies?: boolean | null;
     /**
@@ -741,7 +732,7 @@ export interface PayloadMcpApiKey {
      */
     currency?: boolean | null;
     /**
-     * Complete list of supported IANA timezones grouped by region with UTC offset and display label. Use this to look up timezone metadata or present options for user preference selection.
+     * Returns an array of all supported IANA timezone IDs (e.g. ["Africa/Abidjan", "America/New_York", ...]). Use this to discover available timezones before fetching full metadata via timezones://id/{id}.
      */
     timezones?: boolean | null;
     /**
@@ -1144,7 +1135,6 @@ export interface UserSettingsSelect<T extends boolean = true> {
   theme?: T;
   defaultAccount?: T;
   geminiApiKey?: T;
-  settings?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -16,18 +16,24 @@ export function middleware(request: NextRequest) {
     return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
   }
 
+  // RFC 8707 path-based discovery: some MCP clients (mcp-remote, Claude Desktop)
+  // try GET {resource}/.well-known/oauth-protected-resource in addition to the
+  // standard /.well-known/ path. Rewrite to our canonical well-known route.
+  if (pathname === '/api/mcp/.well-known/oauth-protected-resource') {
+    return NextResponse.rewrite(
+      new URL('/.well-known/oauth-protected-resource', request.url),
+    )
+  }
+
   if (pathname.startsWith('/api/mcp') || pathname.startsWith('/api/oauth')) {
     const response = NextResponse.next()
     Object.entries(CORS_HEADERS).forEach(([k, v]) => response.headers.set(k, v))
 
     if (pathname.startsWith('/api/mcp')) {
-      // Use the Host header (not nextUrl.origin — Next.js normalizes that to localhost).
-      const host = request.headers.get('host') ?? request.nextUrl.host
-      const proto = request.nextUrl.protocol // 'http:' or 'https:'
-      const origin = `${proto}//${host}`
+      const base = process.env.NEXT_PUBLIC_SERVER_URL ?? `${request.nextUrl.protocol}//${request.headers.get('host')}`
       response.headers.set(
         'WWW-Authenticate',
-        `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource"`,
+        `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource"`,
       )
     }
 
@@ -46,5 +52,10 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/mcp', '/api/mcp/:path*', '/api/oauth/:path*', '/.well-known/:path*'],
+  matcher: [
+    '/api/mcp',
+    '/api/mcp/:path*',
+    '/api/oauth/:path*',
+    '/.well-known/:path*',
+  ],
 }

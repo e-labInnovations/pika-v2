@@ -126,10 +126,5 @@ export const UserSettings: CollectionConfig = {
         },
       },
     },
-    {
-      // Flexible key-value store for any additional settings
-      name: 'settings',
-      type: 'json',
-    },
   ],
 }
