@@ -14,7 +14,7 @@ type Credentials = { url: string; username: string; appPassword: string }
 
 type OldMedia = { id: number; url: string; name: string; size: number; type: string }
 type OldAccount = { id: number; name: string; icon: string; color: string; bgColor: string; description?: string; avatar?: OldMedia | null }
-type OldCategory = { id: number; name: string; icon: string; color: string; bgColor: string; type: string; parentId?: number | null; description?: string }
+type OldCategory = { id: number; name: string; icon: string; color: string; bgColor: string; type: string; parentId?: number | null; description?: string; children?: OldCategory[] }
 type OldTag = { id: number; name: string; icon: string; color: string; bgColor: string; description?: string }
 type OldPerson = { id: number; name: string; email?: string; phone?: string; description?: string; avatar?: OldMedia | null }
 type OldTransaction = {
@@ -24,6 +24,19 @@ type OldTransaction = {
 }
 
 type V2Record = { id: string; name: string; hasAvatar?: boolean }
+type V2CategoryRecord = { id: string; name: string; parentId?: string | null }
+
+type FailedTransactionDetail = {
+  title: string
+  amount: string
+  date: string
+  type: string
+  note: string
+  categoryV2Id?: string
+  accountV2Id?: string
+  reason: string
+  rawOldData?: Record<string, unknown>
+}
 
 type ItemAction = 'create' | 'use_existing' | 'skip'
 type AvatarAction = 'skip' | 'upload_new' | 'override_existing' | 'keep_existing'
@@ -545,13 +558,24 @@ function AccountsStep({
 // Step 3 — Categories
 // ---------------------------------------------------------------------------
 
+function flattenOldCategories(cats: OldCategory[], parentId: number | null = null): OldCategory[] {
+  const result: OldCategory[] = []
+  for (const cat of cats) {
+    result.push({ ...cat, parentId: cat.parentId ?? parentId })
+    if (cat.children?.length) {
+      result.push(...flattenOldCategories(cat.children, cat.id))
+    }
+  }
+  return result
+}
+
 function CategoriesStep({
   creds,
   v2Categories,
   onComplete,
 }: {
   creds: Credentials
-  v2Categories: V2Record[]
+  v2Categories: V2CategoryRecord[]
   onComplete: (mappings: CategoryMapping[], result: MigrationResult & { idMap: Record<string, string> }) => void
 }) {
   const [oldCategories, setOldCategories] = useState<OldCategory[]>([])
@@ -563,7 +587,8 @@ function CategoriesStep({
   useEffect(() => {
     apiPost<OldCategory[]>('/migrate/fetch', { ...creds, resource: 'categories' })
       .then((data) => {
-        const items = Array.isArray(data) ? data : []
+        const nested = Array.isArray(data) ? data : []
+        const items = flattenOldCategories(nested)
         const maps: CategoryMapping[] = items.map((c) => {
           const match = v2Categories.find((v) => v.name.toLowerCase() === c.name.toLowerCase())
           return {
@@ -621,80 +646,99 @@ function CategoriesStep({
   if (error) return <Alert type="error">{error}</Alert>
 
   const parents = oldCategories.filter((c) => !c.parentId)
-  const children = oldCategories.filter((c) => c.parentId)
+  const childrenByParent = (parentId: number) => oldCategories.filter((c) => c.parentId === parentId)
+
+  const totalChildren = oldCategories.filter((c) => c.parentId).length
+
+  const renderCategoryCard = (cat: OldCategory, isChild: boolean, parentMapping?: CategoryMapping) => {
+    const idx = mappings.findIndex((m) => m.oldItem.id === cat.id)
+    const m = mappings[idx]
+    if (!m) return null
+
+    // For child "use_existing": filter to only v2 children of the mapped parent
+    const parentV2Id = parentMapping?.action === 'use_existing' ? parentMapping.existingId : undefined
+    const availableV2 = isChild
+      ? parentV2Id
+        ? v2Categories.filter((v) => v.parentId === parentV2Id)
+        : v2Categories.filter((v) => v.parentId)
+      : v2Categories.filter((v) => !v.parentId)
+
+    return (
+      <Card key={cat.id} style={{ marginLeft: isChild ? '1.5rem' : 0, borderLeft: isChild ? '3px solid var(--theme-elevation-200)' : undefined }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div className="twp">
+            <IconPicker value={m.icon as IconName} onValueChange={(icon) => updateMapping(idx, { icon })} searchable categorized>
+              <button
+                type="button"
+                style={{
+                  background: cat.bgColor || '#6366f1',
+                  color: cat.color || '#fff',
+                  borderRadius: '0.5rem',
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: 'none',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                <Icon name={m.icon as IconName} size={14} />
+              </button>
+            </IconPicker>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{cat.name}</div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: typeColor[cat.type] || 'var(--theme-text)', marginTop: 2, textTransform: 'capitalize' }}>
+              {cat.type}
+            </div>
+            {!isValidIcon(cat.icon) && (
+              <div style={{ fontSize: '0.7rem', color: '#f59e0b' }}>Icon &quot;{cat.icon}&quot; not in V2 — click to change</div>
+            )}
+          </div>
+
+          <select
+            value={m.action}
+            onChange={(e) => updateMapping(idx, { action: e.target.value as ItemAction, existingId: undefined })}
+            style={{ border: '1px solid var(--theme-border-color)', borderRadius: '0.375rem', background: 'var(--theme-elevation-100)', color: 'var(--theme-text)', fontSize: '0.8rem', padding: '0.3rem 0.5rem' }}
+          >
+            <option value="create">Create New</option>
+            <option value="use_existing">Use Existing</option>
+            <option value="skip">Skip</option>
+          </select>
+
+          {m.action === 'use_existing' && (
+            <select
+              value={m.existingId || ''}
+              onChange={(e) => updateMapping(idx, { existingId: e.target.value })}
+              style={{ border: '1px solid var(--theme-border-color)', borderRadius: '0.375rem', background: 'var(--theme-elevation-100)', color: 'var(--theme-text)', fontSize: '0.8rem', padding: '0.3rem 0.5rem', maxWidth: 160 }}
+            >
+              <option value="">— pick V2 category —</option>
+              {availableV2.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+              {availableV2.length === 0 && isChild && (
+                <option disabled value="">No child categories for selected parent</option>
+              )}
+            </select>
+          )}
+        </div>
+      </Card>
+    )
+  }
 
   return (
     <div>
-      <StepHeader icon="folder" title="Categories" subtitle={`${oldCategories.length} categor${oldCategories.length === 1 ? 'y' : 'ies'} found (${parents.length} parent, ${children.length} child).`} />
+      <StepHeader icon="folder" title="Categories" subtitle={`${oldCategories.length} categor${oldCategories.length === 1 ? 'y' : 'ies'} found (${parents.length} parent, ${totalChildren} child).`} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
-        {[...parents, ...children].map((cat) => {
-          const idx = mappings.findIndex((m) => m.oldItem.id === cat.id)
-          const m = mappings[idx]
-          if (!m) return null
-          const isChild = !!cat.parentId
-          const parentCat = isChild ? oldCategories.find((p) => p.id === cat.parentId) : null
-
+        {parents.map((parentCat) => {
+          const parentIdx = mappings.findIndex((m) => m.oldItem.id === parentCat.id)
+          const parentMapping = mappings[parentIdx]
+          const childCats = childrenByParent(parentCat.id)
           return (
-            <Card key={cat.id} style={{ marginLeft: isChild ? '1.5rem' : 0, borderLeft: isChild ? '3px solid var(--theme-elevation-200)' : undefined }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                {/* Icon picker */}
-                <div className="twp">
-                  <IconPicker value={m.icon as IconName} onValueChange={(icon) => updateMapping(idx, { icon })} searchable categorized>
-                    <button
-                      type="button"
-                      style={{
-                        background: cat.bgColor || '#6366f1',
-                        color: cat.color || '#fff',
-                        borderRadius: '0.5rem',
-                        width: 32,
-                        height: 32,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        border: 'none',
-                        cursor: 'pointer',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Icon name={m.icon as IconName} size={14} />
-                    </button>
-                  </IconPicker>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>
-                    {isChild && parentCat && <span style={{ opacity: 0.45, fontSize: '0.75rem' }}>{parentCat.name} → </span>}
-                    {cat.name}
-                  </div>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 600, color: typeColor[cat.type] || 'var(--theme-text)', marginTop: 2, textTransform: 'capitalize' }}>
-                    {cat.type}
-                  </div>
-                  {!isValidIcon(cat.icon) && (
-                    <div style={{ fontSize: '0.7rem', color: '#f59e0b' }}>Icon &quot;{cat.icon}&quot; not in V2 — click to change</div>
-                  )}
-                </div>
-
-                <select
-                  value={m.action}
-                  onChange={(e) => updateMapping(idx, { action: e.target.value as ItemAction })}
-                  style={{ border: '1px solid var(--theme-border-color)', borderRadius: '0.375rem', background: 'var(--theme-elevation-100)', color: 'var(--theme-text)', fontSize: '0.8rem', padding: '0.3rem 0.5rem' }}
-                >
-                  <option value="create">Create New</option>
-                  <option value="use_existing">Use Existing</option>
-                  <option value="skip">Skip</option>
-                </select>
-
-                {m.action === 'use_existing' && (
-                  <select
-                    value={m.existingId || ''}
-                    onChange={(e) => updateMapping(idx, { existingId: e.target.value })}
-                    style={{ border: '1px solid var(--theme-border-color)', borderRadius: '0.375rem', background: 'var(--theme-elevation-100)', color: 'var(--theme-text)', fontSize: '0.8rem', padding: '0.3rem 0.5rem', maxWidth: 160 }}
-                  >
-                    <option value="">— pick V2 category —</option>
-                    {v2Categories.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-                  </select>
-                )}
-              </div>
-            </Card>
+            <React.Fragment key={parentCat.id}>
+              {renderCategoryCard(parentCat, false)}
+              {childCats.map((childCat) => renderCategoryCard(childCat, true, parentMapping))}
+            </React.Fragment>
           )
         })}
       </div>
@@ -975,6 +1019,8 @@ function TransactionsStep({
   const [migrating, setMigrating] = useState(false)
   const [done, setDone] = useState(false)
   const [result, setResult] = useState<{ created: number; failed: string[] }>({ created: 0, failed: [] })
+  const [failedDetails, setFailedDetails] = useState<FailedTransactionDetail[]>([])
+  const [finalResult, setFinalResult] = useState<MigrationResult | null>(null)
   const [error, setError] = useState('')
 
   const [migrationTagName, setMigrationTagName] = useState(`Imported on ${new Date().toLocaleDateString()}`)
@@ -1000,6 +1046,7 @@ function TransactionsStep({
     setMigrating(true)
     setProgress(0)
     const allFailed: string[] = []
+    const allFailedDetails: FailedTransactionDetail[] = []
     let totalCreated = 0
     let offset = 0
     let keepFetching = true
@@ -1043,33 +1090,75 @@ function TransactionsStep({
 
       if (batch.length === 0) { keepFetching = false; break }
 
-      const mappings = batch.map((t) => ({
-        title: t.title,
-        amount: String(t.amount),
-        date: t.date,
-        type: t.type,
-        categoryV2Id: t.category?.id ? categoryIdMap[String(t.category.id)] : undefined,
-        accountV2Id: t.account?.id ? accountIdMap[String(t.account.id)] : undefined,
-        toAccountV2Id: t.toAccount?.id ? accountIdMap[String(t.toAccount.id)] : undefined,
-        personV2Id: t.person?.id ? personIdMap[String(t.person.id)] : undefined,
-        tagV2Ids: [
-          ...(t.tags || []).map((tg) => tagIdMap[String(tg.id)]),
-          globalMigrationTagId,
-        ].filter(Boolean),
-        note: t.note,
-        oldAttachments: t.attachments || [],
-      })).filter((m) => m.accountV2Id && m.categoryV2Id) // skip transactions with unmapped account or category
+      // Build a lookup map from old Pika transactions by title+date key for matching failures
+      const oldTxByKey = new Map(
+        batch.map((t) => [`${t.title}|${t.date}`, t as unknown as Record<string, unknown>])
+      )
 
-      try {
-        const res = await apiPost<{ created: number; failed: number; errors: string[] }>('/migrate/run', {
-          step: 'transactions',
-          mappings,
-          userId: '',
-        })
-        totalCreated += res.created
-        allFailed.push(...(res.errors || []))
-      } catch (e) {
-        allFailed.push(e instanceof Error ? e.message : 'Batch failed')
+      const allMappings = batch.map((t) => {
+        const categoryV2Id = t.category?.id ? categoryIdMap[String(t.category.id)] : undefined
+        const accountV2Id = t.account?.id ? accountIdMap[String(t.account.id)] : undefined
+        return {
+          title: t.title,
+          amount: String(t.amount),
+          date: t.date,
+          type: t.type,
+          categoryV2Id,
+          accountV2Id,
+          toAccountV2Id: t.toAccount?.id ? accountIdMap[String(t.toAccount.id)] : undefined,
+          personV2Id: t.person?.id ? personIdMap[String(t.person.id)] : undefined,
+          tagV2Ids: [
+            ...(t.tags || []).map((tg) => tagIdMap[String(tg.id)]),
+            globalMigrationTagId,
+          ].filter(Boolean),
+          note: t.note,
+          oldAttachments: t.attachments || [],
+          _skipReason: !accountV2Id
+            ? `account not mapped (old ID: ${t.account?.id ?? 'none'})`
+            : !categoryV2Id
+            ? `category not mapped (old ID: ${t.category?.id ?? 'none'})`
+            : null,
+        }
+      })
+
+      // Track unmapped/skipped transactions with full raw old data
+      for (const m of allMappings) {
+        if (m._skipReason) {
+          const reason = `Skipped — ${m._skipReason}`
+          allFailed.push(`"${m.title}": ${reason}`)
+          allFailedDetails.push({
+            title: m.title, amount: m.amount, date: m.date, type: m.type,
+            note: m.note || '', categoryV2Id: m.categoryV2Id, accountV2Id: m.accountV2Id,
+            reason, rawOldData: oldTxByKey.get(`${m.title}|${m.date}`),
+          })
+        }
+      }
+
+      const validMappings = allMappings
+        .filter((m) => !m._skipReason)
+        .map(({ _skipReason: _sr, ...rest }) => rest)
+
+      if (validMappings.length > 0) {
+        try {
+          const res = await apiPost<{ created: number; failed: number; errors: string[]; failedItems?: FailedTransactionDetail[] }>('/migrate/run', {
+            step: 'transactions',
+            mappings: validMappings,
+            userId: '',
+          })
+          totalCreated += res.created
+          allFailed.push(...(res.errors || []))
+          // Attach raw old data to each backend failure by matching on title+date
+          if (res.failedItems?.length) {
+            for (const item of res.failedItems) {
+              allFailedDetails.push({
+                ...item,
+                rawOldData: oldTxByKey.get(`${item.title}|${item.date}`),
+              })
+            }
+          }
+        } catch (e) {
+          allFailed.push(e instanceof Error ? e.message : 'Batch failed')
+        }
       }
 
       offset += PAGE_SIZE
@@ -1079,9 +1168,85 @@ function TransactionsStep({
       if (batch.length < PAGE_SIZE) { keepFetching = false }
     }
 
+    const completedResult = { created: totalCreated, skipped: 0, failed: allFailed.length, errors: allFailed }
+    setFailedDetails(allFailedDetails)
+    setFinalResult(completedResult)
     setDone(true)
     setMigrating(false)
-    onComplete({ created: totalCreated, skipped: 0, failed: allFailed.length, errors: allFailed })
+  }
+
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const csvCell = (s: string) => `"${s.replace(/"/g, '""')}"`
+
+  const downloadFailedAs = (format: 'json' | 'csv' | 'html') => {
+    let content = ''
+    let mime = ''
+    let ext = ''
+
+    if (format === 'json') {
+      content = JSON.stringify(failedDetails, null, 2)
+      mime = 'application/json'
+      ext = 'json'
+    } else if (format === 'csv') {
+      const headers = ['Title', 'Amount', 'Date', 'Type', 'Note', 'Failure Reason', 'Old Pika Raw Data (JSON)']
+      const rows = failedDetails.map((d) => [
+        csvCell(d.title),
+        d.amount,
+        d.date,
+        d.type,
+        csvCell(d.note || ''),
+        csvCell(d.reason),
+        csvCell(d.rawOldData ? JSON.stringify(d.rawOldData) : ''),
+      ])
+      content = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
+      mime = 'text/csv'
+      ext = 'csv'
+    } else {
+      const rows = failedDetails.map((d) => {
+        const rawJson = d.rawOldData ? JSON.stringify(d.rawOldData, null, 2) : ''
+        return `
+        <tr>
+          <td>${esc(d.title)}</td>
+          <td style="white-space:nowrap">${esc(d.amount)}</td>
+          <td style="white-space:nowrap">${esc(d.date)}</td>
+          <td>${esc(d.type)}</td>
+          <td>${esc(d.note || '')}</td>
+          <td style="color:#dc2626;font-weight:500">${esc(d.reason)}</td>
+          <td><details><summary style="cursor:pointer;font-size:11px;opacity:0.6">View raw</summary><pre style="font-size:11px;margin:4px 0 0;white-space:pre-wrap;max-width:340px;overflow-x:auto">${esc(rawJson)}</pre></details></td>
+        </tr>`
+      }).join('')
+      content = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Failed Transactions — Pika Migration</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:2rem;color:#111}
+  h2{margin-bottom:1rem}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{border:1px solid #e5e7eb;padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:#f9fafb;font-weight:600;white-space:nowrap}
+  tr:nth-child(even){background:#fafafa}
+  summary{outline:none}
+  pre{background:#f3f4f6;border-radius:4px;padding:6px;font-size:11px}
+</style>
+</head><body>
+<h2>Failed Transactions (${failedDetails.length})</h2>
+<p style="font-size:13px;color:#6b7280;margin-bottom:1.5rem">Generated from Pika V1→V2 migration on ${new Date().toLocaleString()}</p>
+<table>
+  <thead><tr>
+    <th>Title</th><th>Amount</th><th>Date</th><th>Type</th><th>Note</th><th>Failure Reason</th><th>Old Pika Raw Data</th>
+  </tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+</body></html>`
+      mime = 'text/html'
+      ext = 'html'
+    }
+
+    const blob = new Blob([content], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `failed-transactions-${new Date().toISOString().slice(0, 10)}.${ext}`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -1106,20 +1271,69 @@ function TransactionsStep({
 
       {done && (
         <Card style={{ marginBottom: '1rem' }}>
-          <div style={{ display: 'flex', gap: '2rem', padding: '0.5rem 0' }}>
+          <div style={{ display: 'flex', gap: '2rem', padding: '0.5rem 0', marginBottom: result.failed.length > 0 ? '0.75rem' : 0 }}>
             <ResultBadge label="Created" count={result.created} color="#10b981" />
             <ResultBadge label="Failed" count={result.failed.length} color="#ef4444" />
           </div>
           {result.failed.length > 0 && (
-            <details style={{ marginTop: '0.75rem' }}>
-              <summary style={{ fontSize: '0.8rem', opacity: 0.6, cursor: 'pointer' }}>
-                {result.failed.length} errors
-              </summary>
-              <ul style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '0.5rem', paddingLeft: '1rem' }}>
-                {result.failed.slice(0, 20).map((e, i) => <li key={i}>{e}</li>)}
-                {result.failed.length > 20 && <li>…and {result.failed.length - 20} more</li>}
-              </ul>
-            </details>
+            <div style={{ marginTop: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#ef4444' }}>
+                  {result.failed.length} transaction{result.failed.length === 1 ? '' : 's'} failed — see reasons below:
+                </div>
+                {failedDetails.length > 0 && (
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    {(['json', 'csv', 'html'] as const).map((fmt) => (
+                      <button
+                        key={fmt}
+                        type="button"
+                        onClick={() => downloadFailedAs(fmt)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.3rem',
+                          background: 'var(--theme-elevation-150)',
+                          border: '1px solid var(--theme-border-color)',
+                          borderRadius: '0.375rem',
+                          padding: '0.25rem 0.6rem',
+                          fontSize: '0.75rem', fontWeight: 600,
+                          cursor: 'pointer', color: 'var(--theme-text)',
+                        }}
+                      >
+                        <DynamicIcon name="download" size={11} />
+                        {fmt.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div
+                style={{
+                  background: 'rgba(239,68,68,0.06)',
+                  border: '1px solid rgba(239,68,68,0.2)',
+                  borderRadius: '0.5rem',
+                  padding: '0.5rem 0.75rem',
+                  maxHeight: 320,
+                  overflowY: 'auto',
+                }}
+              >
+                {result.failed.map((e, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      fontSize: '0.775rem',
+                      color: 'var(--theme-text)',
+                      padding: '0.3rem 0',
+                      borderBottom: i < result.failed.length - 1 ? '1px solid rgba(239,68,68,0.1)' : 'none',
+                      display: 'flex',
+                      gap: '0.5rem',
+                      alignItems: 'flex-start',
+                    }}
+                  >
+                    <DynamicIcon name="circle-x" size={12} style={{ color: '#ef4444', flexShrink: 0, marginTop: 2 }} />
+                    <span style={{ wordBreak: 'break-word' }}>{e}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </Card>
       )}
@@ -1156,6 +1370,13 @@ function TransactionsStep({
         <Btn onClick={handleMigrate} loading={migrating}>
           <DynamicIcon name="download" size={13} />
           Start Transaction Import
+        </Btn>
+      )}
+
+      {done && finalResult && (
+        <Btn onClick={() => onComplete(finalResult)}>
+          <DynamicIcon name="arrow-right" size={13} />
+          Continue to Summary
         </Btn>
       )}
     </div>
@@ -1234,7 +1455,7 @@ export function MigrationPageClient({ userName }: { userId?: string; userName: s
   const [creds, setCreds] = useState<Credentials | null>(null)
   const [v2Data, setV2Data] = useState<{
     accounts: V2Record[]
-    categories: V2Record[]
+    categories: V2CategoryRecord[]
     tags: V2Record[]
     people: V2Record[]
   }>({ accounts: [], categories: [], tags: [], people: [] })
@@ -1255,13 +1476,17 @@ export function MigrationPageClient({ userName }: { userId?: string; userName: s
     try {
       const [accRes, catRes, tagRes, peopleRes] = await Promise.all([
         fetch('/api/accounts?limit=200&depth=0').then((r) => r.json()),
-        fetch('/api/categories?limit=500&depth=0').then((r) => r.json()),
+        fetch('/api/categories?limit=500&depth=1').then((r) => r.json()),
         fetch('/api/tags?limit=500&depth=0').then((r) => r.json()),
         fetch('/api/people?limit=200&depth=0').then((r) => r.json()),
       ])
       setV2Data({
         accounts: (accRes.docs || []).map((d: { id: string; name: string; avatar?: unknown }) => ({ id: d.id, name: d.name, hasAvatar: !!d.avatar })),
-        categories: (catRes.docs || []).map((d: { id: string; name: string }) => ({ id: d.id, name: d.name })),
+        categories: (catRes.docs || []).map((d: { id: string; name: string; parent?: { id: string } | string | null }) => ({
+          id: d.id,
+          name: d.name,
+          parentId: d.parent ? (typeof d.parent === 'string' ? d.parent : d.parent.id) : null,
+        })),
         tags: (tagRes.docs || []).map((d: { id: string; name: string }) => ({ id: d.id, name: d.name })),
         people: (peopleRes.docs || []).map((d: { id: string; name: string; avatar?: unknown }) => ({ id: d.id, name: d.name, hasAvatar: !!d.avatar })),
       })

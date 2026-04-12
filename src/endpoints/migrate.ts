@@ -510,11 +510,34 @@ export const migrateRunHandler: PayloadHandler = async (req) => {
       }
     }
 
+    type FailedTransactionItem = {
+      title: string
+      amount: string
+      date: string
+      type: string
+      note: string
+      categoryV2Id: string | undefined
+      accountV2Id: string | undefined
+      reason: string
+    }
+    const failedItems: FailedTransactionItem[] = []
+
     if (step === 'transactions') {
       for (const mapping of mappings as TransactionMapping[]) {
+        const baseItem = {
+          title: mapping.title,
+          amount: String(mapping.amount),
+          date: mapping.date,
+          type: mapping.type,
+          note: mapping.note || '',
+          categoryV2Id: mapping.categoryV2Id,
+          accountV2Id: mapping.accountV2Id,
+        }
         try {
           if (!mapping.categoryV2Id) {
-            failed.push(`"${mapping.title}": category is required but was not mapped`)
+            const reason = 'Category not mapped — no matching V2 category found'
+            failed.push(`"${mapping.title}": ${reason}`)
+            failedItems.push({ ...baseItem, reason })
             continue
           }
           const attachmentIds: string[] = []
@@ -559,7 +582,9 @@ export const migrateRunHandler: PayloadHandler = async (req) => {
           })
           createdCount++
         } catch (err) {
-          failed.push(err instanceof Error ? err.message : String(err))
+          const reason = err instanceof Error ? err.message : String(err)
+          failed.push(`"${mapping.title}": ${reason}`)
+          failedItems.push({ ...baseItem, reason })
         }
       }
     }
@@ -571,6 +596,7 @@ export const migrateRunHandler: PayloadHandler = async (req) => {
       skipped: skippedCount,
       failed: failed.length,
       errors: failed,
+      failedItems,
       idMap,
     })
   } catch (err) {
