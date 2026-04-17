@@ -504,7 +504,7 @@ export interface Reminder {
 export interface AiUsage {
   id: string;
   user: string | User;
-  promptType: 'text' | 'image';
+  promptType: 'text' | 'image' | 'category-suggestion';
   model?: string | null;
   promptTokens?: number | null;
   candidateTokens?: number | null;

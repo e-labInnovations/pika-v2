@@ -21,7 +21,12 @@ const GraphQLJSON = new GraphQLScalarType({
     return null
   },
 })
-import { processTextToTransaction, processImageToTransaction } from '../utilities/ai/service'
+import {
+  processTextToTransaction,
+  processImageToTransaction,
+  processCategorySuggestion,
+  type TxType,
+} from '../utilities/ai/service'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +48,19 @@ const AITransactionResultType = new GraphQLObjectType({
     usage:      { type: new GraphQLNonNull(AIUsageMetaType) },
   },
 })
+
+const AICategorySuggestionResultType = new GraphQLObjectType({
+  name: 'AICategorySuggestionResult',
+  fields: {
+    category:   { type: GraphQLJSON, description: 'Resolved child Category object, or null if no match' },
+    reason:     { type: new GraphQLNonNull(GraphQLString) },
+    model:      { type: new GraphQLNonNull(GraphQLString) },
+    latencyMs:  { type: new GraphQLNonNull(GraphQLFloat) },
+    usage:      { type: new GraphQLNonNull(AIUsageMetaType) },
+  },
+})
+
+const ALLOWED_TX_TYPES: TxType[] = ['income', 'expense', 'transfer']
 
 // ─── Mutations ────────────────────────────────────────────────────────────────
 
@@ -95,6 +113,66 @@ export const aiMutations = () => ({
       if (!allowed.includes(mimeType)) throw new Error(`Unsupported image type "${mimeType}". Allowed: ${allowed.join(', ')}`)
 
       return processImageToTransaction(req.payload, String(req.user.id), imageBase64, mimeType, args.model)
+    },
+  },
+
+  /**
+   * mutation {
+   *   suggestCategory(type: "expense", title: "Starbucks coffee") {
+   *     category
+   *     reason
+   *     model
+   *     latencyMs
+   *     usage { totalTokenCount }
+   *   }
+   * }
+   */
+  suggestCategory: {
+    type: AICategorySuggestionResultType,
+    args: {
+      type:     { type: new GraphQLNonNull(GraphQLString) },
+      title:    { type: new GraphQLNonNull(GraphQLString) },
+      amount:   { type: GraphQLString },
+      date:     { type: GraphQLString },
+      note:     { type: GraphQLString },
+      personId: { type: GraphQLString },
+      model:    { type: GraphQLString },
+    },
+    resolve: async (
+      _: unknown,
+      args: {
+        type: string
+        title: string
+        amount?: string
+        date?: string
+        note?: string
+        personId?: string
+        model?: string
+      },
+      context: { req: any },
+    ) => {
+      const { req } = context
+      if (!req.user) throw new Error('Unauthorized')
+
+      if (!ALLOWED_TX_TYPES.includes(args.type as TxType)) {
+        throw new Error(`"type" must be one of: ${ALLOWED_TX_TYPES.join(', ')}`)
+      }
+      const title = args.title?.trim()
+      if (!title) throw new Error('"title" is required')
+
+      return processCategorySuggestion(
+        req.payload,
+        String(req.user.id),
+        {
+          type: args.type as TxType,
+          title,
+          amount: args.amount || undefined,
+          date: args.date || undefined,
+          note: args.note || undefined,
+          personId: args.personId || undefined,
+        },
+        args.model,
+      )
     },
   },
 })

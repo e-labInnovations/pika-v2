@@ -1,5 +1,12 @@
 import type { PayloadHandler } from 'payload'
-import { processTextToTransaction, processImageToTransaction } from '../utilities/ai/service'
+import {
+  processTextToTransaction,
+  processImageToTransaction,
+  processCategorySuggestion,
+  type TxType,
+} from '../utilities/ai/service'
+
+const ALLOWED_TX_TYPES: TxType[] = ['income', 'expense', 'transfer']
 
 const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
 
@@ -67,6 +74,63 @@ export const imageToTransactionHandler: PayloadHandler = async (req) => {
 
   try {
     const result = await processImageToTransaction(req.payload, String(req.user.id), imageBase64, mimeType, requestedModel)
+    return Response.json(result)
+  } catch (e: any) {
+    return Response.json({ errors: [{ message: e.message, code: e.code }] }, { status: errorStatus(e.code) })
+  }
+}
+
+/**
+ * POST /api/ai/suggest-category
+ * Body: { type, title, amount?, date?, note?, personId?, model? }
+ */
+export const suggestCategoryHandler: PayloadHandler = async (req) => {
+  if (!req.user) return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
+
+  let body: {
+    type?: string
+    title?: string
+    amount?: string
+    date?: string
+    note?: string
+    personId?: string
+    model?: string
+  } = {}
+  try {
+    body = await req.json?.()
+  } catch {
+    return Response.json({ errors: [{ message: 'Invalid JSON body' }] }, { status: 400 })
+  }
+
+  const type = typeof body.type === 'string' ? (body.type as TxType) : undefined
+  const title = typeof body.title === 'string' ? body.title.trim() : ''
+
+  if (!type || !ALLOWED_TX_TYPES.includes(type)) {
+    return Response.json(
+      { errors: [{ message: `"type" must be one of: ${ALLOWED_TX_TYPES.join(', ')}` }] },
+      { status: 400 },
+    )
+  }
+  if (!title) {
+    return Response.json({ errors: [{ message: '"title" is required' }] }, { status: 400 })
+  }
+
+  const requestedModel = body.model ?? (req.url ? new URL(req.url).searchParams.get('model') : null)
+
+  try {
+    const result = await processCategorySuggestion(
+      req.payload,
+      String(req.user.id),
+      {
+        type,
+        title,
+        amount: body.amount || undefined,
+        date: body.date || undefined,
+        note: body.note || undefined,
+        personId: body.personId || undefined,
+      },
+      requestedModel,
+    )
     return Response.json(result)
   } catch (e: any) {
     return Response.json({ errors: [{ message: e.message, code: e.code }] }, { status: errorStatus(e.code) })

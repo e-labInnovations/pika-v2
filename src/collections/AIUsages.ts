@@ -32,6 +32,7 @@ export const AIUsages: CollectionConfig = {
       options: [
         { label: 'Text', value: 'text' },
         { label: 'Image', value: 'image' },
+        { label: 'Category Suggestion', value: 'category-suggestion' },
       ],
     },
     {

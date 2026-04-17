@@ -1,12 +1,19 @@
 import type { Payload } from 'payload'
 import { APIError } from 'payload'
 import type { Category } from '../../payload-types'
-import { callGeminiText, callGeminiImage, type GeminiUsage } from './gemini'
+import {
+  callGeminiText,
+  callGeminiImage,
+  CATEGORY_SUGGESTION_RESPONSE_SCHEMA,
+  type GeminiUsage,
+} from './gemini'
 import {
   TEXT_TO_TRANSACTION_SYSTEM,
   IMAGE_TO_TRANSACTION_SYSTEM,
+  CATEGORY_SUGGESTION_SYSTEM,
   buildTextToTransactionPrompt,
   buildImageToTransactionPrompt,
+  buildCategorySuggestionPrompt,
 } from './prompts'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -27,6 +34,16 @@ export type AITransactionResult = {
   latencyMs: number
   usage: GeminiUsage
 }
+
+export type AICategorySuggestionResult = {
+  category: Category | null
+  reason: string
+  model: string
+  latencyMs: number
+  usage: GeminiUsage
+}
+
+export type TxType = 'income' | 'expense' | 'transfer'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -150,7 +167,7 @@ export async function logUsage(
   payload: Payload,
   userId: string,
   params: {
-    promptType: 'text' | 'image'
+    promptType: 'text' | 'image' | 'category-suggestion'
     model: string
     apiKeyType: 'user' | 'app'
     status: 'success' | 'error'
@@ -334,4 +351,180 @@ export async function processImageToTransaction(
 
   const resolved = await resolveAITransactionData(payload, userId, result.data)
   return { data: resolved, model, usage: result.usage, latencyMs: result.latencyMs }
+}
+
+// ─── Category suggestion ──────────────────────────────────────────────────────
+
+async function buildFilteredCategoriesForSuggestion(
+  payload: Payload,
+  userId: string,
+  txType: TxType,
+): Promise<string> {
+  const sysResult = await payload.find({
+    collection: 'users',
+    where: { role: { equals: 'system' } },
+    limit: 100,
+    depth: 0,
+  })
+  const sysIds = sysResult.docs.map((u) => u.id)
+  const ownerOr = [
+    { user: { equals: userId } },
+    ...(sysIds.length ? [{ user: { in: sysIds } }] : []),
+  ]
+
+  const cats = await payload.find({
+    collection: 'categories',
+    where: {
+      and: [
+        { isActive: { equals: true } },
+        { type: { equals: txType } },
+        { or: ownerOr },
+      ],
+    },
+    limit: 500,
+    depth: 0,
+  })
+
+  const nameById: Record<string, string> = {}
+  for (const c of cats.docs) nameById[c.id as string] = c.name as string
+
+  const childCats = cats.docs.filter((c) => c.parent)
+  return (
+    childCats
+      .map((c) => {
+        const parentId = typeof c.parent === 'string' ? c.parent : (c.parent as any)?.id
+        const parentName = nameById[parentId] ?? ''
+        return `${c.id}: ${c.name}${parentName ? ` [parent: ${parentName}]` : ''}`
+      })
+      .join('\n') || 'none'
+  )
+}
+
+async function resolvePersonName(
+  payload: Payload,
+  userId: string,
+  personId: string,
+): Promise<string | undefined> {
+  try {
+    const person = await payload.findByID({
+      collection: 'people',
+      id: personId,
+      depth: 0,
+      overrideAccess: true,
+    })
+    const ownerId = typeof (person as any).user === 'string' ? (person as any).user : (person as any).user?.id
+    if (String(ownerId) !== String(userId)) return undefined
+    return (person as any).name as string | undefined
+  } catch {
+    return undefined
+  }
+}
+
+export async function processCategorySuggestion(
+  payload: Payload,
+  userId: string,
+  args: {
+    type: TxType
+    title: string
+    amount?: string
+    date?: string
+    note?: string
+    personId?: string
+  },
+  requestedModel?: string | null,
+): Promise<AICategorySuggestionResult> {
+  const config = await resolveAIConfig(payload, userId)
+
+  if (!config.enabled) throw new APIError('AI features are disabled', 403, null, true)
+  if (!config.apiKey) throw new APIError('No Gemini API key configured', 400, null, true)
+
+  const { model, error: modelError } = resolveModel(requestedModel, config)
+  if (modelError) throw new APIError(modelError, 400, null, true)
+
+  await checkRateLimits(payload, userId, config.perUserDailyLimit, config.perUserMonthlyLimit)
+
+  const [categoriesStr, personName] = await Promise.all([
+    buildFilteredCategoriesForSuggestion(payload, userId, args.type),
+    args.personId ? resolvePersonName(payload, userId, args.personId) : Promise.resolve(undefined),
+  ])
+
+  const userPrompt = buildCategorySuggestionPrompt({
+    type: args.type,
+    title: args.title,
+    amount: args.amount,
+    date: args.date,
+    note: args.note,
+    personName,
+    categories: categoriesStr,
+  })
+
+  let result
+  try {
+    result = await callGeminiText({
+      apiKey: config.apiKey,
+      model,
+      systemPrompt: CATEGORY_SUGGESTION_SYSTEM,
+      userPrompt,
+      responseSchema: CATEGORY_SUGGESTION_RESPONSE_SCHEMA,
+    })
+  } catch (e: any) {
+    await logUsage(payload, userId, {
+      promptType: 'category-suggestion',
+      model,
+      apiKeyType: config.apiKeyType,
+      status: 'error',
+      error: e.message,
+    })
+    throw e
+  }
+
+  await logUsage(payload, userId, {
+    promptType: 'category-suggestion',
+    model,
+    apiKeyType: config.apiKeyType,
+    status: 'success',
+    usage: result.usage,
+    latencyMs: result.latencyMs,
+  })
+
+  const raw = result.data
+  const categoryId = typeof raw.categoryId === 'string' && raw.categoryId ? raw.categoryId : ''
+  const reason = typeof raw.reason === 'string' ? raw.reason : ''
+
+  let category: Category | null = null
+  if (categoryId) {
+    try {
+      const fetched = (await payload.findByID({
+        collection: 'categories',
+        id: categoryId,
+        depth: 1,
+        overrideAccess: true,
+      })) as Category
+      const hasParent = !!fetched.parent
+      const typeMatches = fetched.type === args.type
+      // Owner-or-system validation: owner matches user, or owner is a system user
+      const ownerId = typeof fetched.user === 'string' ? fetched.user : (fetched.user as any)?.id
+      let ownerOk = String(ownerId) === String(userId)
+      if (!ownerOk) {
+        const sysResult = await payload.find({
+          collection: 'users',
+          where: { role: { equals: 'system' } },
+          limit: 100,
+          depth: 0,
+        })
+        ownerOk = sysResult.docs.some((u) => String(u.id) === String(ownerId))
+      }
+      if (hasParent && typeMatches && ownerOk) category = fetched
+    } catch {
+      category = null
+    }
+  }
+
+  return {
+    category,
+    reason,
+    model,
+    latencyMs: result.latencyMs,
+    usage: result.usage,
+  }
 }

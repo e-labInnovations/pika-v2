@@ -235,3 +235,47 @@ CRITICAL RULES:
 - Default type: "expense"
 `.trim()
 }
+
+// ─── Category Suggestion ───────────────────────────────────────────────────────
+
+export const CATEGORY_SUGGESTION_SYSTEM = `You are an expert at classifying financial transactions into categories for a money management application. Choose exactly one child category ID from the provided list that best matches the transaction. Return only valid JSON matching the schema. If nothing fits, return an empty string for categoryId.`
+
+export function buildCategorySuggestionPrompt(p: {
+  type: 'income' | 'expense' | 'transfer'
+  title: string
+  amount?: string
+  date?: string
+  note?: string
+  personName?: string
+  categories: string
+}): string {
+  const optional: string[] = []
+  if (p.amount) optional.push(`- Amount: ${p.amount}`)
+  if (p.date) optional.push(`- Date: ${p.date}`)
+  if (p.note) optional.push(`- Note: ${p.note}`)
+  if (p.personName) optional.push(`- Person: ${p.personName}`)
+  const optionalBlock = optional.length ? `\nADDITIONAL CONTEXT:\n${optional.join('\n')}\n` : ''
+
+  return `
+Classify the transaction below into one of the provided child categories. All listed categories are already filtered to match the transaction type (${p.type}).
+
+TRANSACTION:
+- Type: ${p.type}
+- Title: ${p.title}
+${optionalBlock}
+AVAILABLE CHILD CATEGORIES (use ID only):
+${p.categories}
+
+RULES:
+- Pick exactly ONE category ID from the list above.
+- If nothing is a reasonable fit, return empty string "" for categoryId.
+- Reason should be a single short sentence (max ~20 words) justifying the pick.
+- Do not invent IDs. Do not output any text outside the JSON.
+
+RESPONSE FORMAT (return only this JSON, no extra text):
+{
+  "categoryId": "string",
+  "reason": "string"
+}
+`.trim()
+}

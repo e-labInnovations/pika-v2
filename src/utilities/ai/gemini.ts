@@ -31,11 +31,21 @@ export const TRANSACTION_RESPONSE_SCHEMA = {
   },
 }
 
+export const CATEGORY_SUGGESTION_RESPONSE_SCHEMA = {
+  type: Type.OBJECT,
+  required: ['categoryId', 'reason'],
+  properties: {
+    categoryId: { type: Type.STRING, description: 'Chosen child category ID from the provided list, or empty string if no match' },
+    reason:     { type: Type.STRING, description: 'Short 1-sentence reason for the choice' },
+  },
+}
+
 export async function callGeminiText(params: {
   apiKey: string
   model: string
   systemPrompt: string
   userPrompt: string
+  responseSchema?: unknown
 }): Promise<GeminiResult> {
   const ai = new GoogleGenAI({ apiKey: params.apiKey })
   const start = Date.now()
@@ -45,7 +55,7 @@ export async function callGeminiText(params: {
     config: {
       systemInstruction: params.systemPrompt,
       responseMimeType: 'application/json',
-      responseSchema: TRANSACTION_RESPONSE_SCHEMA,
+      responseSchema: (params.responseSchema ?? TRANSACTION_RESPONSE_SCHEMA) as typeof TRANSACTION_RESPONSE_SCHEMA,
     },
     contents: params.userPrompt,
   })

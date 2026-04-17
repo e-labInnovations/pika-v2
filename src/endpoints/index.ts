@@ -3,7 +3,7 @@ import { reseedHandler } from './seed'
 import { randomSeedHandler } from './randomSeed'
 import { timezonesHandler, timezoneByIdHandler } from './timezones'
 import { weeklyExpensesHandler, monthlyCalendarHandler, dashboardHandler, monthlyCategoriesHandler, monthlyTagsHandler, monthlyPeopleHandler } from './analytics'
-import { textToTransactionHandler, imageToTransactionHandler } from './ai'
+import { textToTransactionHandler, imageToTransactionHandler, suggestCategoryHandler } from './ai'
 import { migrateConnectHandler, migrateFetchHandler, migrateRunHandler } from './migrate'
 import { seedPagesHandler } from './seedPages'
 
@@ -67,6 +67,11 @@ export const endpoints = [
     path: '/ai/image-to-transaction',
     method: 'post' as const,
     handler: imageToTransactionHandler,
+  },
+  {
+    path: '/ai/suggest-category',
+    method: 'post' as const,
+    handler: suggestCategoryHandler,
   },
   {
     path: '/seed/reseed',
