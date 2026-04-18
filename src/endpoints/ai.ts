@@ -10,13 +10,22 @@ const ALLOWED_TX_TYPES: TxType[] = ['income', 'expense', 'transfer']
 
 const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
 
-function errorStatus(code: string | undefined): number {
+function legacyStatus(code: string | undefined): number {
   if (code === 'rate_limit_daily' || code === 'rate_limit_monthly' || code === 'ai_rate_limit') return 429
   if (code === 'ai_service_unavailable') return 503
   if (code === 'ai_disabled') return 403
   if (code === 'no_api_key') return 422
   if (code === 'invalid_model') return 400
   return 500
+}
+
+function aiErrorResponse(e: any): Response {
+  const status =
+    typeof e?.status === 'number' ? e.status : legacyStatus(e?.data?.code ?? e?.code)
+  const code = e?.data?.code ?? e?.code
+  const body: any = { errors: [{ message: e?.message ?? 'Unknown error', code }] }
+  if (e?.data?.retryAfterSec != null) body.errors[0].retryAfterSec = e.data.retryAfterSec
+  return Response.json(body, { status })
 }
 
 /**
@@ -41,7 +50,7 @@ export const textToTransactionHandler: PayloadHandler = async (req) => {
     const result = await processTextToTransaction(req.payload, String(req.user.id), text, requestedModel)
     return Response.json(result)
   } catch (e: any) {
-    return Response.json({ errors: [{ message: e.message, code: e.code }] }, { status: errorStatus(e.code) })
+    return aiErrorResponse(e)
   }
 }
 
@@ -76,7 +85,7 @@ export const imageToTransactionHandler: PayloadHandler = async (req) => {
     const result = await processImageToTransaction(req.payload, String(req.user.id), imageBase64, mimeType, requestedModel)
     return Response.json(result)
   } catch (e: any) {
-    return Response.json({ errors: [{ message: e.message, code: e.code }] }, { status: errorStatus(e.code) })
+    return aiErrorResponse(e)
   }
 }
 
@@ -133,6 +142,6 @@ export const suggestCategoryHandler: PayloadHandler = async (req) => {
     )
     return Response.json(result)
   } catch (e: any) {
-    return Response.json({ errors: [{ message: e.message, code: e.code }] }, { status: errorStatus(e.code) })
+    return aiErrorResponse(e)
   }
 }

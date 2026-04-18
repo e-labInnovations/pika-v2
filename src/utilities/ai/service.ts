@@ -15,6 +15,7 @@ import {
   buildImageToTransactionPrompt,
   buildCategorySuggestionPrompt,
 } from './prompts'
+import { translateGeminiError } from './errors'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -306,7 +307,7 @@ export async function processTextToTransaction(
     result = await callGeminiText({ apiKey: config.apiKey, model, systemPrompt: TEXT_TO_TRANSACTION_SYSTEM, userPrompt })
   } catch (e: any) {
     await logUsage(payload, userId, { promptType: 'text', model, apiKeyType: config.apiKeyType, status: 'error', error: e.message })
-    throw e
+    throw translateGeminiError(e) ?? e
   }
 
   await logUsage(payload, userId, { promptType: 'text', model, apiKeyType: config.apiKeyType, status: 'success', usage: result.usage, latencyMs: result.latencyMs })
@@ -344,7 +345,7 @@ export async function processImageToTransaction(
     result = await callGeminiImage({ apiKey: config.apiKey, model, systemPrompt: IMAGE_TO_TRANSACTION_SYSTEM, userPrompt, imageBase64, mimeType })
   } catch (e: any) {
     await logUsage(payload, userId, { promptType: 'image', model, apiKeyType: config.apiKeyType, status: 'error', error: e.message })
-    throw e
+    throw translateGeminiError(e) ?? e
   }
 
   await logUsage(payload, userId, { promptType: 'image', model, apiKeyType: config.apiKeyType, status: 'success', usage: result.usage, latencyMs: result.latencyMs })
@@ -475,7 +476,7 @@ export async function processCategorySuggestion(
       status: 'error',
       error: e.message,
     })
-    throw e
+    throw translateGeminiError(e) ?? e
   }
 
   await logUsage(payload, userId, {
