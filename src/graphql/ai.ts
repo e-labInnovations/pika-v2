@@ -27,6 +27,7 @@ import {
   processCategorySuggestion,
   type TxType,
 } from '../utilities/ai/service'
+import { processCategoryPrediction } from '../utilities/ai/predict-category'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,6 +58,16 @@ const AICategorySuggestionResultType = new GraphQLObjectType({
     model:      { type: new GraphQLNonNull(GraphQLString) },
     latencyMs:  { type: new GraphQLNonNull(GraphQLFloat) },
     usage:      { type: new GraphQLNonNull(AIUsageMetaType) },
+  },
+})
+
+const AICategoryPredictionResultType = new GraphQLObjectType({
+  name: 'AICategoryPredictionResult',
+  fields: {
+    category:  { type: GraphQLJSON, description: 'Resolved child Category object, or null when no candidate clears the score threshold' },
+    score:     { type: new GraphQLNonNull(GraphQLFloat), description: 'Best cosine similarity in [0, 1]' },
+    model:     { type: new GraphQLNonNull(GraphQLString) },
+    latencyMs: { type: new GraphQLNonNull(GraphQLFloat) },
   },
 })
 
@@ -173,6 +184,44 @@ export const aiMutations = () => ({
         },
         args.model,
       )
+    },
+  },
+
+  /**
+   * mutation {
+   *   predictCategory(type: "expense", title: "Starbucks") {
+   *     category score model latencyMs
+   *   }
+   * }
+   *
+   * Fast local prediction using transformers.js — designed to be called
+   * debounced as the user types. Returns `category: null` when no candidate
+   * clears the score threshold.
+   */
+  predictCategory: {
+    type: AICategoryPredictionResultType,
+    args: {
+      type:  { type: new GraphQLNonNull(GraphQLString) },
+      title: { type: new GraphQLNonNull(GraphQLString) },
+    },
+    resolve: async (
+      _: unknown,
+      args: { type: string; title: string },
+      context: { req: any },
+    ) => {
+      const { req } = context
+      if (!req.user) throw new Error('Unauthorized')
+
+      if (!ALLOWED_TX_TYPES.includes(args.type as TxType)) {
+        throw new Error(`"type" must be one of: ${ALLOWED_TX_TYPES.join(', ')}`)
+      }
+      const title = args.title?.trim()
+      if (!title) throw new Error('"title" is required')
+
+      return processCategoryPrediction(req.payload, String(req.user.id), {
+        type: args.type as TxType,
+        title,
+      })
     },
   },
 })

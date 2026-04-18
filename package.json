@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.46.0",
+    "@huggingface/transformers": "^4.1.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@payloadcms/db-postgres": "3.79.0",
     "@payloadcms/next": "3.79.0",
@@ -89,7 +90,8 @@
     "onlyBuiltDependencies": [
       "sharp",
       "esbuild",
-      "unrs-resolver"
+      "unrs-resolver",
+      "onnxruntime-node"
     ]
   }
 }

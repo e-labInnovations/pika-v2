@@ -504,7 +504,7 @@ export interface Reminder {
 export interface AiUsage {
   id: string;
   user: string | User;
-  promptType: 'text' | 'image' | 'category-suggestion';
+  promptType: 'text' | 'image' | 'category-suggestion' | 'category-prediction';
   model?: string | null;
   promptTokens?: number | null;
   candidateTokens?: number | null;
@@ -1370,6 +1370,10 @@ export interface AppSetting {
      * Maximum AI requests per user per month. Set to 0 for unlimited.
      */
     perUserMonthlyLimit?: number | null;
+    /**
+     * Uses a small on-server ML model (transformers.js) to auto-suggest categories as the user types. No external API call.
+     */
+    predictionEnabled?: boolean | null;
   };
   updatedAt?: string | null;
   createdAt?: string | null;
@@ -1394,6 +1398,7 @@ export interface AppSettingsSelect<T extends boolean = true> {
             };
         perUserDailyLimit?: T;
         perUserMonthlyLimit?: T;
+        predictionEnabled?: T;
       };
   updatedAt?: T;
   createdAt?: T;

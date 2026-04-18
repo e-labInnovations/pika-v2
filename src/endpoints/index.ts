@@ -3,7 +3,12 @@ import { reseedHandler } from './seed'
 import { randomSeedHandler } from './randomSeed'
 import { timezonesHandler, timezoneByIdHandler } from './timezones'
 import { weeklyExpensesHandler, monthlyCalendarHandler, dashboardHandler, monthlyCategoriesHandler, monthlyTagsHandler, monthlyPeopleHandler } from './analytics'
-import { textToTransactionHandler, imageToTransactionHandler, suggestCategoryHandler } from './ai'
+import {
+  textToTransactionHandler,
+  imageToTransactionHandler,
+  suggestCategoryHandler,
+  predictCategoryHandler,
+} from './ai'
 import { migrateConnectHandler, migrateFetchHandler, migrateRunHandler } from './migrate'
 import { seedPagesHandler } from './seedPages'
 
@@ -72,6 +77,11 @@ export const endpoints = [
     path: '/ai/suggest-category',
     method: 'post' as const,
     handler: suggestCategoryHandler,
+  },
+  {
+    path: '/ai/predict-category',
+    method: 'post' as const,
+    handler: predictCategoryHandler,
   },
   {
     path: '/seed/reseed',

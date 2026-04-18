@@ -5,6 +5,7 @@ import {
   processCategorySuggestion,
   type TxType,
 } from '../utilities/ai/service'
+import { processCategoryPrediction } from '../utilities/ai/predict-category'
 
 const ALLOWED_TX_TYPES: TxType[] = ['income', 'expense', 'transfer']
 
@@ -140,6 +141,48 @@ export const suggestCategoryHandler: PayloadHandler = async (req) => {
       },
       requestedModel,
     )
+    return Response.json(result)
+  } catch (e: any) {
+    return aiErrorResponse(e)
+  }
+}
+
+/**
+ * POST /api/ai/predict-category
+ * Body: { type, title }
+ *
+ * Fast local prediction using transformers.js sentence embeddings. No Gemini
+ * involvement, no rate limits — designed for debounced auto-prefill as the
+ * user types a title.
+ */
+export const predictCategoryHandler: PayloadHandler = async (req) => {
+  if (!req.user) return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
+
+  let body: { type?: string; title?: string } = {}
+  try {
+    body = await req.json?.()
+  } catch {
+    return Response.json({ errors: [{ message: 'Invalid JSON body' }] }, { status: 400 })
+  }
+
+  const type = typeof body.type === 'string' ? (body.type as TxType) : undefined
+  const title = typeof body.title === 'string' ? body.title.trim() : ''
+
+  if (!type || !ALLOWED_TX_TYPES.includes(type)) {
+    return Response.json(
+      { errors: [{ message: `"type" must be one of: ${ALLOWED_TX_TYPES.join(', ')}` }] },
+      { status: 400 },
+    )
+  }
+  if (!title) {
+    return Response.json({ errors: [{ message: '"title" is required' }] }, { status: 400 })
+  }
+
+  try {
+    const result = await processCategoryPrediction(req.payload, String(req.user.id), {
+      type,
+      title,
+    })
     return Response.json(result)
   } catch (e: any) {
     return aiErrorResponse(e)

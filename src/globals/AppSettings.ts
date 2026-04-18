@@ -117,6 +117,16 @@ export const AppSettings: GlobalConfig = {
             description: 'Maximum AI requests per user per month. Set to 0 for unlimited.',
           },
         },
+        {
+          name: 'predictionEnabled',
+          type: 'checkbox',
+          label: 'Enable Local Category Prediction',
+          defaultValue: true,
+          admin: {
+            description:
+              'Uses a small on-server ML model (transformers.js) to auto-suggest categories as the user types. No external API call.',
+          },
+        },
       ],
     },
   ],

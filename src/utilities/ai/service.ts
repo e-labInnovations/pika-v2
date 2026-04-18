@@ -168,7 +168,7 @@ export async function logUsage(
   payload: Payload,
   userId: string,
   params: {
-    promptType: 'text' | 'image' | 'category-suggestion'
+    promptType: 'text' | 'image' | 'category-suggestion' | 'category-prediction'
     model: string
     apiKeyType: 'user' | 'app'
     status: 'success' | 'error'
