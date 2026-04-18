@@ -163,6 +163,58 @@ const PAGES: PageSeed[] = [
       },
     ],
   },
+  {
+    title: 'Get Your Gemini API Key',
+    slug: 'gemini-api-key',
+    description: 'How to generate a personal Google Gemini API key for Pika AI features.',
+    layout: [
+      {
+        blockType: 'richText',
+        content: {
+          root: {
+            type: 'root',
+            children: [
+              { type: 'heading', tag: 'h2', children: [{ type: 'text', text: 'Get Your Gemini API Key' }] },
+              { type: 'paragraph', children: [{ type: 'text', text: 'Pika uses Google Gemini to power AI features like transaction parsing from text/receipts and smart category suggestions. You can use a personal Gemini API key to avoid shared rate limits and keep your usage under your own Google account.' }] },
+              { type: 'heading', tag: 'h3', children: [{ type: 'text', text: 'Step 1: Sign in to Google AI Studio' }] },
+              { type: 'paragraph', children: [{ type: 'text', text: 'Open Google AI Studio and sign in with any Google account.' }] },
+            ],
+            direction: 'ltr',
+            format: '',
+            indent: 0,
+            version: 1,
+          },
+        },
+      },
+      {
+        blockType: 'banner',
+        style: 'info',
+        content: 'Google AI Studio: https://aistudio.google.com/app/apikey — this is where you manage your Gemini API keys.',
+      },
+      {
+        blockType: 'richText',
+        content: {
+          root: {
+            type: 'root',
+            children: [
+              { type: 'heading', tag: 'h3', children: [{ type: 'text', text: 'Step 2: Create an API Key' }] },
+              { type: 'paragraph', children: [{ type: 'text', text: 'Click "Create API key", optionally select a Google Cloud project (a default will be used if you skip this), and copy the generated key. It starts with "AIzaSy...".' }] },
+              { type: 'heading', tag: 'h3', children: [{ type: 'text', text: 'Step 3: Paste the key into Pika' }] },
+              { type: 'paragraph', children: [{ type: 'text', text: 'Open Pika → Settings → AI and paste your key into the Gemini API Key field, then tap Save. Your key is stored securely on your account and is never shared with other users.' }] },
+              { type: 'heading', tag: 'h3', children: [{ type: 'text', text: 'Pricing & Rate Limits' }] },
+              { type: 'paragraph', children: [{ type: 'text', text: 'The Gemini free tier includes generous daily quota for the gemini-2.5-flash model that Pika uses by default. If you exceed it, Pika will show a clear rate-limit message and retry is possible after the cooldown. See Google\'s pricing page for the latest limits.' }] },
+              { type: 'heading', tag: 'h3', children: [{ type: 'text', text: 'Revoking or rotating your key' }] },
+              { type: 'paragraph', children: [{ type: 'text', text: 'You can delete or rotate the key anytime from Google AI Studio. After rotating, paste the new key into Pika Settings and save.' }] },
+            ],
+            direction: 'ltr',
+            format: '',
+            indent: 0,
+            version: 1,
+          },
+        },
+      },
+    ],
+  },
 ]
 
 export const seedPages = async (payload: Payload): Promise<void> => {
