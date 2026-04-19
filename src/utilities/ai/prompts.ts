@@ -17,7 +17,7 @@ Analyze the provided text (SMS, natural language descriptions, transaction detai
 INPUT TEXT:
 ${p.text}
 
-AVAILABLE CATEGORIES (use ID only):
+AVAILABLE CATEGORIES (tree — pick a CHILD id from "- <id>: name — desc" lines; "### <type>" and "## <parent>" are context only, never return them):
 ${p.categories}
 
 AVAILABLE TAGS (use ID only):
@@ -152,7 +152,7 @@ export function buildImageToTransactionPrompt(p: {
   return `
 Analyze the provided receipt image and extract comprehensive transaction details. Return structured JSON data based on the receipt type and content.
 
-AVAILABLE CATEGORIES (use ID only):
+AVAILABLE CATEGORIES (tree — pick a CHILD id from "- <id>: name — desc" lines; "### <type>" and "## <parent>" are context only, never return them):
 ${p.categories}
 
 AVAILABLE TAGS (use ID only):
@@ -263,11 +263,12 @@ TRANSACTION:
 - Type: ${p.type}
 - Title: ${p.title}
 ${optionalBlock}
-AVAILABLE CHILD CATEGORIES (use ID only):
+AVAILABLE CATEGORIES (grouped as "## ParentName — parent description" followed by child rows "- <id>: ChildName — child description"):
 ${p.categories}
 
 RULES:
-- Pick exactly ONE category ID from the list above.
+- Pick exactly ONE child-category ID (the value after "- " and before ":").
+- Never return a parent/group header — those are context only.
 - If nothing is a reasonable fit, return empty string "" for categoryId.
 - Reason should be a single short sentence (max ~20 words) justifying the pick.
 - Do not invent IDs. Do not output any text outside the JSON.

@@ -126,5 +126,19 @@ export const UserSettings: CollectionConfig = {
         },
       },
     },
+    {
+      name: 'categoryAiMethod',
+      type: 'select',
+      label: 'Category Suggestion Method',
+      defaultValue: 'minilm',
+      options: [
+        { label: 'Local (MiniLM)', value: 'minilm' },
+        { label: 'Cloud (Gemini)', value: 'gemini' },
+      ],
+      admin: {
+        description:
+          'Which AI backend powers category suggestions in the transaction form. Local is free and fast; Gemini is slower but more reasoning-aware and counts against the AI quota.',
+      },
+    },
   ],
 }

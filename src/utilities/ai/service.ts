@@ -16,6 +16,11 @@ import {
   buildCategorySuggestionPrompt,
 } from './prompts'
 import { translateGeminiError } from './errors'
+import {
+  predictCategoryWithEmbeddings,
+  resolveUserCategoryMethod,
+  SCORE_THRESHOLD,
+} from './minilm'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -101,18 +106,27 @@ export async function checkRateLimits(
   const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0)
   const monthStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1))
 
+  // Per-user quota applies ONLY to Gemini calls that consumed the app's API
+  // key. User-key calls are the user's own quota; local (MiniLM) calls don't
+  // hit any external service. Both are excluded by the apiKeyType filter.
+  const baseWhere = {
+    user: { equals: userId },
+    status: { equals: 'success' },
+    apiKeyType: { equals: 'app' },
+  }
+
   const [dailyResult, monthlyResult] = await Promise.all([
     daily > 0
       ? payload.find({
           collection: 'ai-usages',
-          where: { and: [{ user: { equals: userId } }, { status: { equals: 'success' } }, { createdAt: { greater_than_equal: dayStart.toISOString() } }] },
+          where: { and: [baseWhere, { createdAt: { greater_than_equal: dayStart.toISOString() } }] },
           limit: 0, pagination: false, depth: 0,
         })
       : Promise.resolve({ totalDocs: 0 }),
     monthly > 0
       ? payload.find({
           collection: 'ai-usages',
-          where: { and: [{ user: { equals: userId } }, { status: { equals: 'success' } }, { createdAt: { greater_than_equal: monthStart.toISOString() } }] },
+          where: { and: [baseWhere, { createdAt: { greater_than_equal: monthStart.toISOString() } }] },
           limit: 0, pagination: false, depth: 0,
         })
       : Promise.resolve({ totalDocs: 0 }),
@@ -142,26 +156,127 @@ export async function buildUserContext(
   const fmt = (docs: any[], fields: string[]) =>
     docs.map((d) => `${d.id}: ${fields.map((f) => d[f]).filter(Boolean).join(' — ')}`).join('\n') || 'none'
 
-  // Build a map of category IDs to names for parent label lookup
-  const catNameById: Record<string, string> = {}
-  for (const c of cats.docs) catNameById[c.id as string] = c.name as string
-
-  // Only expose child categories (those with a parent) — parent-only categories are not valid for transactions
-  const childCats = cats.docs.filter((c) => c.parent)
-  const categoriesStr = childCats
-    .map((c) => {
-      const parentId = typeof c.parent === 'string' ? c.parent : (c.parent as any)?.id
-      const parentName = catNameById[parentId] ?? ''
-      return `${c.id}: ${c.name} (${c.type})${parentName ? ` [parent: ${parentName}]` : ''}`
-    })
-    .join('\n') || 'none'
+  // Categories are grouped by type → parent → children so the parent name and
+  // description appear ONCE per group (fewer tokens) and the tree structure
+  // gives the model strong semantic context. See also
+  // buildFilteredCategoriesForSuggestion (same idea, single-type variant).
+  const categoriesStr = renderCategoryTree(cats.docs as Category[], { includeType: true }) || 'none'
 
   return {
     categories: categoriesStr,
-    tags: fmt(tags.docs, ['name']),
-    accounts: fmt(accounts.docs, ['name']),
-    people: fmt(people.docs, ['name']),
+    // Descriptions add the semantic context the model needs to disambiguate
+    // similarly-named entries; when the field is empty the `filter(Boolean)`
+    // in `fmt` drops the trailing " — " so there's no token waste.
+    tags: fmt(tags.docs, ['name', 'description']),
+    accounts: fmt(accounts.docs, ['name', 'description']),
+    // Email + phone are especially useful for SMS parsing where the sender
+    // may appear by number/email in the message text.
+    people: fmt(people.docs, ['name', 'email', 'phone', 'description']),
   }
+}
+
+/**
+ * Render Categories as a hierarchical tree for LLM prompts.
+ *
+ *   ### expense                        <- only when includeType=true
+ *   ## Food & Dining — Eating out
+ *   - <id>: Coffee & Snacks — Coffee shops
+ *   - <id>: Groceries
+ *
+ *   ## Transportation
+ *   - <id>: Fuel
+ *
+ * Emits only groups that have at least one child (the model picks child IDs).
+ * Orphan children whose parent isn't in the list land under `## Other`.
+ */
+function renderCategoryTree(
+  cats: Category[],
+  opts: { includeType?: boolean } = {},
+): string {
+  type CatRow = {
+    id: string
+    name: string
+    description: string
+    parent: string | null
+    type: TxType
+  }
+
+  const rows: CatRow[] = cats.map((c) => {
+    const parentRef = c.parent
+    const parentId =
+      typeof parentRef === 'string'
+        ? parentRef
+        : parentRef && typeof parentRef === 'object'
+          ? (parentRef as Category).id
+          : null
+    return {
+      id: c.id,
+      name: c.name ?? '',
+      description: c.description ?? '',
+      parent: parentId,
+      type: (c.type ?? 'expense') as TxType,
+    }
+  })
+
+  // Partition by type (needed when includeType=true; harmless otherwise).
+  const typeOrder: TxType[] = ['expense', 'income', 'transfer']
+  const rowsByType = new Map<TxType, CatRow[]>()
+  for (const r of rows) {
+    const arr = rowsByType.get(r.type) ?? []
+    arr.push(r)
+    rowsByType.set(r.type, arr)
+  }
+
+  const renderForRows = (typeRows: CatRow[]): string[] => {
+    const parents = new Map<string, CatRow>()
+    const childrenByParent = new Map<string, CatRow[]>()
+    for (const r of typeRows) {
+      if (!r.parent) {
+        parents.set(r.id, r)
+      } else {
+        const arr = childrenByParent.get(r.parent) ?? []
+        arr.push(r)
+        childrenByParent.set(r.parent, arr)
+      }
+    }
+
+    const out: string[] = []
+    for (const [parentId, parent] of parents) {
+      const children = childrenByParent.get(parentId) ?? []
+      if (children.length === 0) continue
+      const header = parent.description
+        ? `## ${parent.name} — ${parent.description}`
+        : `## ${parent.name}`
+      const lines = children.map((c) =>
+        c.description ? `- ${c.id}: ${c.name} — ${c.description}` : `- ${c.id}: ${c.name}`,
+      )
+      out.push([header, ...lines].join('\n'))
+    }
+
+    const orphans = typeRows.filter((r) => r.parent && !parents.has(r.parent))
+    if (orphans.length > 0) {
+      const lines = orphans.map((c) =>
+        c.description ? `- ${c.id}: ${c.name} — ${c.description}` : `- ${c.id}: ${c.name}`,
+      )
+      out.push(['## Other', ...lines].join('\n'))
+    }
+    return out
+  }
+
+  if (!opts.includeType) {
+    const all = Array.from(rowsByType.values()).flat()
+    return renderForRows(all).join('\n\n')
+  }
+
+  const sections: string[] = []
+  for (const t of typeOrder) {
+    const typeRows = rowsByType.get(t) ?? []
+    if (typeRows.length === 0) continue
+    const groups = renderForRows(typeRows)
+    if (groups.length === 0) continue
+    sections.push(`### ${t}\n\n${groups.join('\n\n')}`)
+  }
+  return sections.join('\n\n')
 }
 
 export async function logUsage(
@@ -170,7 +285,12 @@ export async function logUsage(
   params: {
     promptType: 'text' | 'image' | 'category-suggestion' | 'category-prediction'
     model: string
-    apiKeyType: 'user' | 'app'
+    /**
+     * 'user' — the user's own Gemini API key (doesn't count against app quota)
+     * 'app'  — the app's Gemini API key (counts against per-user app quota)
+     * 'local'— no external API (MiniLM, doesn't count against any quota)
+     */
+    apiKeyType: 'user' | 'app' | 'local'
     status: 'success' | 'error'
     usage?: GeminiUsage
     latencyMs?: number
@@ -293,7 +413,11 @@ export async function processTextToTransaction(
   const { model, error: modelError } = resolveModel(requestedModel, config)
   if (modelError) throw new APIError(modelError, 400, null, true)
 
-  await checkRateLimits(payload, userId, config.perUserDailyLimit, config.perUserMonthlyLimit)
+  // Per-user app quota only applies when the app's Gemini key is in use.
+  // Users with their own key manage their own quota.
+  if (config.apiKeyType === 'app') {
+    await checkRateLimits(payload, userId, config.perUserDailyLimit, config.perUserMonthlyLimit)
+  }
 
   const [timezone, context] = await Promise.all([
     getUserTimezone(payload, userId),
@@ -331,7 +455,11 @@ export async function processImageToTransaction(
   const { model, error: modelError } = resolveModel(requestedModel, config)
   if (modelError) throw new APIError(modelError, 400, null, true)
 
-  await checkRateLimits(payload, userId, config.perUserDailyLimit, config.perUserMonthlyLimit)
+  // Per-user app quota only applies when the app's Gemini key is in use.
+  // Users with their own key manage their own quota.
+  if (config.apiKeyType === 'app') {
+    await checkRateLimits(payload, userId, config.perUserDailyLimit, config.perUserMonthlyLimit)
+  }
 
   const [timezone, context] = await Promise.all([
     getUserTimezone(payload, userId),
@@ -355,6 +483,52 @@ export async function processImageToTransaction(
 }
 
 // ─── Category suggestion ──────────────────────────────────────────────────────
+
+/**
+ * MiniLM-backed implementation of `processCategorySuggestion`. Shapes the
+ * embedding result into an `AICategorySuggestionResult` so the REST/GraphQL
+ * surface stays identical regardless of which backend ran.
+ */
+async function runLocalCategorySuggestion(
+  payload: Payload,
+  userId: string,
+  args: { type: TxType; title: string },
+): Promise<AICategorySuggestionResult> {
+  if (!args.title) throw new APIError('"title" is required', 400, null, true)
+
+  let best: Awaited<ReturnType<typeof predictCategoryWithEmbeddings>> | null = null
+  let status: 'success' | 'error' = 'success'
+  let errorMessage: string | undefined
+  try {
+    best = await predictCategoryWithEmbeddings(payload, userId, args)
+  } catch (e: any) {
+    status = 'error'
+    errorMessage = e?.message ?? 'Prediction failed'
+  }
+
+  await logUsage(payload, userId, {
+    promptType: 'category-suggestion',
+    model: best?.model ?? 'Xenova/all-MiniLM-L6-v2',
+    apiKeyType: 'local',
+    status,
+    latencyMs: best?.latencyMs ?? 0,
+    error: errorMessage,
+  })
+
+  if (status === 'error')
+    throw new APIError(errorMessage ?? 'Prediction failed', 500, null, true)
+
+  const passes = !!best?.category && best.score >= SCORE_THRESHOLD
+  return {
+    category: passes ? best!.category : null,
+    reason: passes
+      ? `Matched locally (score ${(best!.score).toFixed(2)})`
+      : 'No confident local match.',
+    model: best?.model ?? 'Xenova/all-MiniLM-L6-v2',
+    latencyMs: best?.latencyMs ?? 0,
+    usage: { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 },
+  }
+}
 
 async function buildFilteredCategoriesForSuggestion(
   payload: Payload,
@@ -386,19 +560,11 @@ async function buildFilteredCategoriesForSuggestion(
     depth: 0,
   })
 
-  const nameById: Record<string, string> = {}
-  for (const c of cats.docs) nameById[c.id as string] = c.name as string
-
-  const childCats = cats.docs.filter((c) => c.parent)
-  return (
-    childCats
-      .map((c) => {
-        const parentId = typeof c.parent === 'string' ? c.parent : (c.parent as any)?.id
-        const parentName = nameById[parentId] ?? ''
-        return `${c.id}: ${c.name}${parentName ? ` [parent: ${parentName}]` : ''}`
-      })
-      .join('\n') || 'none'
-  )
+  // Tree-structured render so the parent name/description appears ONCE per
+  // group (fewer tokens than repeating `[parent: X]` on every child) and the
+  // hierarchy gives the model strong semantic context. Categories here are
+  // pre-filtered to a single type, so the `type` header isn't needed.
+  return renderCategoryTree(cats.docs as Category[], { includeType: false }) || 'none'
 }
 
 async function resolvePersonName(
@@ -431,9 +597,27 @@ export async function processCategorySuggestion(
     date?: string
     note?: string
     personId?: string
+    /**
+     * Optional one-off override of the user's `categoryAiMethod` setting.
+     * Used by the client's "Try with Gemini" fallback when the MiniLM path
+     * doesn't produce a match — we want to call Gemini for that single
+     * request without permanently flipping the user's preference.
+     */
+    forceMethod?: 'minilm' | 'gemini'
   },
   requestedModel?: string | null,
 ): Promise<AICategorySuggestionResult> {
+  // Respect the user's preferred backend unless the caller overrode it.
+  // MiniLM is free + local; Gemini is heavier and counts against quota.
+  const method =
+    args.forceMethod ?? (await resolveUserCategoryMethod(payload, userId))
+  if (method === 'minilm') {
+    return runLocalCategorySuggestion(payload, userId, {
+      type: args.type,
+      title: args.title.trim(),
+    })
+  }
+
   const config = await resolveAIConfig(payload, userId)
 
   if (!config.enabled) throw new APIError('AI features are disabled', 403, null, true)
@@ -442,7 +626,11 @@ export async function processCategorySuggestion(
   const { model, error: modelError } = resolveModel(requestedModel, config)
   if (modelError) throw new APIError(modelError, 400, null, true)
 
-  await checkRateLimits(payload, userId, config.perUserDailyLimit, config.perUserMonthlyLimit)
+  // Per-user app quota only applies when the app's Gemini key is in use.
+  // Users with their own key manage their own quota.
+  if (config.apiKeyType === 'app') {
+    await checkRateLimits(payload, userId, config.perUserDailyLimit, config.perUserMonthlyLimit)
+  }
 
   const [categoriesStr, personName] = await Promise.all([
     buildFilteredCategoriesForSuggestion(payload, userId, args.type),

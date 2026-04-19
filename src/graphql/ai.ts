@@ -141,13 +141,14 @@ export const aiMutations = () => ({
   suggestCategory: {
     type: AICategorySuggestionResultType,
     args: {
-      type:     { type: new GraphQLNonNull(GraphQLString) },
-      title:    { type: new GraphQLNonNull(GraphQLString) },
-      amount:   { type: GraphQLString },
-      date:     { type: GraphQLString },
-      note:     { type: GraphQLString },
-      personId: { type: GraphQLString },
-      model:    { type: GraphQLString },
+      type:        { type: new GraphQLNonNull(GraphQLString) },
+      title:       { type: new GraphQLNonNull(GraphQLString) },
+      amount:      { type: GraphQLString },
+      date:        { type: GraphQLString },
+      note:        { type: GraphQLString },
+      personId:    { type: GraphQLString },
+      model:       { type: GraphQLString },
+      forceMethod: { type: GraphQLString, description: '"minilm" | "gemini" — overrides the user preference for this one call' },
     },
     resolve: async (
       _: unknown,
@@ -159,6 +160,7 @@ export const aiMutations = () => ({
         note?: string
         personId?: string
         model?: string
+        forceMethod?: string
       },
       context: { req: any },
     ) => {
@@ -171,6 +173,11 @@ export const aiMutations = () => ({
       const title = args.title?.trim()
       if (!title) throw new Error('"title" is required')
 
+      const fm = args.forceMethod
+      if (fm && fm !== 'minilm' && fm !== 'gemini') {
+        throw new Error('"forceMethod" must be "minilm" or "gemini"')
+      }
+
       return processCategorySuggestion(
         req.payload,
         String(req.user.id),
@@ -181,6 +188,7 @@ export const aiMutations = () => ({
           date: args.date || undefined,
           note: args.note || undefined,
           personId: args.personId || undefined,
+          forceMethod: fm as 'minilm' | 'gemini' | undefined,
         },
         args.model,
       )

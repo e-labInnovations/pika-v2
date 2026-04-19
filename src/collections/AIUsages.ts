@@ -75,6 +75,7 @@ export const AIUsages: CollectionConfig = {
       options: [
         { label: 'User', value: 'user' },
         { label: 'App', value: 'app' },
+        { label: 'Local', value: 'local' },
       ],
     },
     {

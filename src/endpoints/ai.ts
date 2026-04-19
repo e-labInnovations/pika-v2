@@ -105,6 +105,7 @@ export const suggestCategoryHandler: PayloadHandler = async (req) => {
     note?: string
     personId?: string
     model?: string
+    forceMethod?: string
   } = {}
   try {
     body = await req.json?.()
@@ -125,6 +126,14 @@ export const suggestCategoryHandler: PayloadHandler = async (req) => {
     return Response.json({ errors: [{ message: '"title" is required' }] }, { status: 400 })
   }
 
+  const fm = body.forceMethod
+  if (fm && fm !== 'minilm' && fm !== 'gemini') {
+    return Response.json(
+      { errors: [{ message: '"forceMethod" must be "minilm" or "gemini"' }] },
+      { status: 400 },
+    )
+  }
+
   const requestedModel = body.model ?? (req.url ? new URL(req.url).searchParams.get('model') : null)
 
   try {
@@ -138,6 +147,7 @@ export const suggestCategoryHandler: PayloadHandler = async (req) => {
         date: body.date || undefined,
         note: body.note || undefined,
         personId: body.personId || undefined,
+        forceMethod: fm as 'minilm' | 'gemini' | undefined,
       },
       requestedModel,
     )

@@ -252,6 +252,10 @@ export interface UserSetting {
    * Used for AI features. Stored securely — only the masked value is returned via the API.
    */
   geminiApiKey?: string | null;
+  /**
+   * Which AI backend powers category suggestions in the transaction form. Local is free and fast; Gemini is slower but more reasoning-aware and counts against the AI quota.
+   */
+  categoryAiMethod?: ('minilm' | 'gemini') | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -511,7 +515,7 @@ export interface AiUsage {
   totalTokens?: number | null;
   latencyMs?: number | null;
   status: 'success' | 'error';
-  apiKeyType?: ('user' | 'app') | null;
+  apiKeyType?: ('user' | 'app' | 'local') | null;
   error?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -1135,6 +1139,7 @@ export interface UserSettingsSelect<T extends boolean = true> {
   theme?: T;
   defaultAccount?: T;
   geminiApiKey?: T;
+  categoryAiMethod?: T;
   updatedAt?: T;
   createdAt?: T;
 }
