@@ -1,4 +1,5 @@
 import type {
+  CollectionAfterChangeHook,
   CollectionBeforeChangeHook,
   CollectionConfig,
   RelationshipFieldSingleValidation,
@@ -10,12 +11,38 @@ import { isAdminOrOwn } from '../access/isAdminOrOwn'
 import { setUserOnCreate } from '../hooks/setUserOnCreate'
 import { userField } from '../fields'
 import { ValidationError } from 'payload'
+import { scheduleTitleEmbedding, invalidateUserHistoryCache } from '../utilities/ai/user-history'
 
 /**
  * Validate the destination account for transfers
  * - Destination account is required for transfers
  * - Destination account must differ from the source account
  */
+/**
+ * Embed the transaction title for later MiniLM-based category prediction,
+ * and invalidate the user's in-memory history cache so the next prediction
+ * picks up the fresh row. Fire-and-forget — never block the write response.
+ */
+const afterChangeEmbedTitle: CollectionAfterChangeHook = ({
+  doc,
+  previousDoc,
+  req,
+  context,
+}) => {
+  const userId = typeof doc.user === 'string' ? doc.user : doc.user?.id
+  if (userId) invalidateUserHistoryCache(String(userId))
+
+  // Avoid re-entering this hook when we write the embedding back below.
+  if ((context as any)?.skipEmbeddingHook) return
+
+  const titleChanged = doc.title !== previousDoc?.title
+  const hasEmbedding = !!doc.titleEmbedding
+  if (!titleChanged && hasEmbedding) return
+
+  // Schedule async — do not await. Errors are swallowed inside.
+  scheduleTitleEmbedding(req.payload, doc.id, doc.title).catch(() => {})
+}
+
 const validateToAccount: CollectionBeforeChangeHook = async ({ data, operation, originalDoc }) => {
   const type = data?.type ?? (operation === 'update' ? originalDoc?.type : undefined)
   if (type === 'transfer') {
@@ -50,6 +77,7 @@ export const Transactions: CollectionConfig = {
   },
   hooks: {
     beforeChange: [setUserOnCreate, validateToAccount],
+    afterChange: [afterChangeEmbedTitle],
   },
   fields: [
     userField,
@@ -247,6 +275,19 @@ export const Transactions: CollectionConfig = {
       name: 'isActive',
       type: 'checkbox',
       defaultValue: true,
+    },
+    // ── MiniLM title embedding (cached for history-based prediction) ────────
+    // Populated by afterChangeEmbedTitle when the title changes. Nullable on
+    // existing rows — back-filled lazily in the background on first prediction.
+    {
+      name: 'titleEmbedding',
+      type: 'json',
+      admin: { hidden: true, readOnly: true },
+    },
+    {
+      name: 'titleEmbeddingModel',
+      type: 'text',
+      admin: { hidden: true, readOnly: true },
     },
     {
       name: 'outgoingLinks',

@@ -425,6 +425,16 @@ export interface Transaction {
   attachments?: (string | Media)[] | null;
   note?: string | null;
   isActive?: boolean | null;
+  titleEmbedding?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  titleEmbeddingModel?: string | null;
   /**
    * Links where this transaction is the source (e.g. this repaid another)
    */
@@ -1079,6 +1089,8 @@ export interface TransactionsSelect<T extends boolean = true> {
   attachments?: T;
   note?: T;
   isActive?: T;
+  titleEmbedding?: T;
+  titleEmbeddingModel?: T;
   outgoingLinks?: T;
   incomingLinks?: T;
   updatedAt?: T;

@@ -127,6 +127,15 @@ export const AppSettings: GlobalConfig = {
               'Uses a small on-server ML model (transformers.js) to auto-suggest categories as the user types. No external API call.',
           },
         },
+        {
+          name: 'embeddingBackfillAction',
+          type: 'ui',
+          admin: {
+            components: {
+              Field: '@/components/admin/EmbeddingBackfillField#EmbeddingBackfillField',
+            },
+          },
+        },
       ],
     },
   ],

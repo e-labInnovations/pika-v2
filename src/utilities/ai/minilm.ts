@@ -10,6 +10,10 @@ import type { Payload } from 'payload'
 import type { Category } from '../../payload-types'
 import { cosine, embed, EMBEDDING_MODEL } from './embeddings'
 import type { TxType } from './service'
+import {
+  HISTORY_STRONG_THRESHOLD,
+  predictCategoryFromHistory,
+} from './user-history'
 
 export type MinilmCategoryPrediction = {
   category: Category | null
@@ -124,16 +128,66 @@ async function fetchChildCategories(
 }
 
 /**
- * Run the local MiniLM similarity search for a (user, type, title) triple.
- * Returns the best candidate regardless of score — the caller decides whether
- * the score clears SCORE_THRESHOLD.
+ * Two-tier local prediction:
+ *
+ *   Tier 1 — USER HISTORY (k-NN over past transactions)
+ *     Runs when the user has ≥ HISTORY_MIN_SAMPLES embedded transactions.
+ *     Captures personal vocabulary (merchant shorthand, slang).
+ *     Returns early when its score clears HISTORY_STRONG_THRESHOLD.
+ *
+ *   Tier 2 — CATEGORY NAME/DESCRIPTION
+ *     Current behaviour: query title vs parent+name+description embeddings.
+ *     Works for cold-start users and brand-new categories.
+ *
+ * The caller gets whichever tier had the higher confidence (or, if history
+ * cleared its strong threshold, it's returned immediately). Score semantics
+ * differ slightly between tiers but are comparable as [0, 1] confidence.
  */
 export async function predictCategoryWithEmbeddings(
   payload: Payload,
   userId: string,
   args: { type: TxType; title: string },
 ): Promise<MinilmCategoryPrediction> {
-  const start = Date.now()
+  const overallStart = Date.now()
+
+  // ─── Tier 1: user history ───────────────────────────────────────────────
+  let historyBest: MinilmCategoryPrediction | null = null
+  try {
+    const h = await predictCategoryFromHistory(payload, userId, args)
+    if (h && h.category) {
+      historyBest = {
+        category: h.category,
+        score: h.score,
+        model: EMBEDDING_MODEL,
+        latencyMs: Date.now() - overallStart,
+      }
+      if (h.score >= HISTORY_STRONG_THRESHOLD) {
+        // Strong personal signal — skip the category-name scan.
+        return historyBest
+      }
+    }
+  } catch (e) {
+    // History tier is best-effort; fall through to category tier.
+    console.warn(
+      '[minilm] history-tier failed, falling back to category tier:',
+      (e as Error)?.message ?? e,
+    )
+  }
+
+  // ─── Tier 2: category name/description embeddings ───────────────────────
+  const categoryBest = await predictFromCategoryEmbeddings(payload, userId, args, overallStart)
+
+  // Pick the higher-confidence tier.
+  if (historyBest && historyBest.score > categoryBest.score) return historyBest
+  return categoryBest
+}
+
+async function predictFromCategoryEmbeddings(
+  payload: Payload,
+  userId: string,
+  args: { type: TxType; title: string },
+  start: number,
+): Promise<MinilmCategoryPrediction> {
   const { children, parentById } = await fetchChildCategories(payload, userId, args.type)
   if (children.length === 0) {
     return {

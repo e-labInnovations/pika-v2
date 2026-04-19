@@ -20,6 +20,7 @@ import { TagPickerField as TagPickerField_538af7a9fcdf5e0a862b53977bec48d2 } fro
 import { CurrencyPickerField as CurrencyPickerField_0197c80b04e1f70e7ad1aa63a5049eee } from '@/components/admin/CurrencyPickerField'
 import { TimezonePickerField as TimezonePickerField_4a20e86b2e8e9db3486ec8b0b1659281 } from '@/components/admin/TimezonePickerField'
 import { ApiKeyField as ApiKeyField_2eaee1a2580d542d57c8ca674e3a4bbb } from '@/components/admin/ApiKeyField'
+import { EmbeddingBackfillField as EmbeddingBackfillField_7c3d7834ef0461a16d920bc343fd77d7 } from '@/components/admin/EmbeddingBackfillField'
 import { default as default_534076e2c753ea5d539a54b05f456b1b } from '@/components/admin/Icon'
 import { default as default_a44df17d0fc3dcd873dae43dc3bf66bd } from '@/components/admin/Logo'
 import { default as default_59fb4b1dac690503b3fdaa0fb454d5b6 } from '@/components/admin/GoogleSignInButton'
@@ -58,6 +59,7 @@ export const importMap = {
   "@/components/admin/CurrencyPickerField#CurrencyPickerField": CurrencyPickerField_0197c80b04e1f70e7ad1aa63a5049eee,
   "@/components/admin/TimezonePickerField#TimezonePickerField": TimezonePickerField_4a20e86b2e8e9db3486ec8b0b1659281,
   "@/components/admin/ApiKeyField#ApiKeyField": ApiKeyField_2eaee1a2580d542d57c8ca674e3a4bbb,
+  "@/components/admin/EmbeddingBackfillField#EmbeddingBackfillField": EmbeddingBackfillField_7c3d7834ef0461a16d920bc343fd77d7,
   "@/components/admin/Icon#default": default_534076e2c753ea5d539a54b05f456b1b,
   "@/components/admin/Logo#default": default_a44df17d0fc3dcd873dae43dc3bf66bd,
   "@/components/admin/GoogleSignInButton#default": default_59fb4b1dac690503b3fdaa0fb454d5b6,

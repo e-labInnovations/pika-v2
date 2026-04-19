@@ -6,6 +6,10 @@ import {
   type TxType,
 } from '../utilities/ai/service'
 import { processCategoryPrediction } from '../utilities/ai/predict-category'
+import {
+  getUserEmbeddingStats,
+  kickOffUserBackfillAllTypes,
+} from '../utilities/ai/user-history'
 
 const ALLOWED_TX_TYPES: TxType[] = ['income', 'expense', 'transfer']
 
@@ -194,6 +198,40 @@ export const predictCategoryHandler: PayloadHandler = async (req) => {
       title,
     })
     return Response.json(result)
+  } catch (e: any) {
+    return aiErrorResponse(e)
+  }
+}
+
+/**
+ * POST /api/ai/backfill-embeddings
+ *
+ * Kicks off a background pass that embeds every transaction title the user has
+ * but that doesn't yet carry an up-to-date `titleEmbedding`. Runs for all three
+ * transaction types. Idempotent — calling it again while a pass is in flight
+ * just returns the current stats.
+ */
+export const backfillEmbeddingsHandler: PayloadHandler = async (req) => {
+  if (!req.user) return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
+  const userId = String(req.user.id)
+  try {
+    kickOffUserBackfillAllTypes(req.payload, userId)
+    const stats = await getUserEmbeddingStats(req.payload, userId)
+    return Response.json({ ...stats, running: true })
+  } catch (e: any) {
+    return aiErrorResponse(e)
+  }
+}
+
+/**
+ * GET /api/ai/backfill-embeddings/status
+ * Returns current embedding coverage for the authenticated user.
+ */
+export const embeddingsStatusHandler: PayloadHandler = async (req) => {
+  if (!req.user) return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
+  try {
+    const stats = await getUserEmbeddingStats(req.payload, String(req.user.id))
+    return Response.json(stats)
   } catch (e: any) {
     return aiErrorResponse(e)
   }

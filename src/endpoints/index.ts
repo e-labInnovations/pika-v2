@@ -8,6 +8,8 @@ import {
   imageToTransactionHandler,
   suggestCategoryHandler,
   predictCategoryHandler,
+  backfillEmbeddingsHandler,
+  embeddingsStatusHandler,
 } from './ai'
 import { migrateConnectHandler, migrateFetchHandler, migrateRunHandler } from './migrate'
 import { seedPagesHandler } from './seedPages'
@@ -82,6 +84,16 @@ export const endpoints = [
     path: '/ai/predict-category',
     method: 'post' as const,
     handler: predictCategoryHandler,
+  },
+  {
+    path: '/ai/backfill-embeddings',
+    method: 'post' as const,
+    handler: backfillEmbeddingsHandler,
+  },
+  {
+    path: '/ai/backfill-embeddings/status',
+    method: 'get' as const,
+    handler: embeddingsStatusHandler,
   },
   {
     path: '/seed/reseed',
