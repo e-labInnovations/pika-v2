@@ -249,13 +249,25 @@ export interface UserSetting {
   theme?: ('light' | 'dark' | 'system') | null;
   defaultAccount?: (string | null) | Account;
   /**
-   * Used for AI features. Stored securely — only the masked value is returned via the API.
+   * Personal Gemini API key. Used when your preferred model is a Gemini model.
    */
   geminiApiKey?: string | null;
   /**
-   * Which AI backend powers category suggestions in the transaction form. Local is free and fast; Gemini is slower but more reasoning-aware and counts against the AI quota.
+   * Personal HuggingFace API key. Used when your preferred model is a HuggingFace model.
    */
-  categoryAiMethod?: ('minilm' | 'gemini') | null;
+  hfApiKey?: string | null;
+  /**
+   * Model ID to use for all AI features (must match an ID in the app model list). Leave blank to use the app default.
+   */
+  preferredModel?: string | null;
+  /**
+   * If no API key is available for your preferred model's provider, automatically fall back to the app's default model.
+   */
+  allowFallback?: boolean | null;
+  /**
+   * Which backend powers category suggestions. Local is free and fast; Cloud uses your configured AI model and counts against quota.
+   */
+  categoryAiMethod?: ('minilm' | 'cloud') | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -525,7 +537,7 @@ export interface AiUsage {
   totalTokens?: number | null;
   latencyMs?: number | null;
   status: 'success' | 'error';
-  apiKeyType?: ('user' | 'app' | 'local') | null;
+  apiKeyType?: ('user' | 'app' | 'user-hf' | 'app-hf' | 'local') | null;
   error?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -1151,6 +1163,9 @@ export interface UserSettingsSelect<T extends boolean = true> {
   theme?: T;
   defaultAccount?: T;
   geminiApiKey?: T;
+  hfApiKey?: T;
+  preferredModel?: T;
+  allowFallback?: T;
   categoryAiMethod?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -1359,34 +1374,51 @@ export interface AppSetting {
      */
     enabled?: boolean | null;
     /**
-     * App-level Gemini API key. Used as fallback when a user has no personal key configured.
+     * App-level Gemini API key. Used when the active model is a Gemini model and no user key is configured.
      */
     geminiApiKey?: string | null;
     /**
-     * When enabled, users with their own Gemini API key will use it instead of the app key.
+     * App-level HuggingFace API key. Used when the active model is a HuggingFace model and no user key is configured.
+     */
+    hfApiKey?: string | null;
+    /**
+     * When enabled, users with their own Gemini or HuggingFace API key will use it instead of the app key.
      */
     allowUserApiKey?: boolean | null;
     /**
-     * Model used when no model is specified in the request.
+     * Model ID used when the user has no preferred model set. Must match an ID in the models list below.
      */
     defaultModel?: string | null;
     /**
-     * List of model IDs clients can choose from. Leave empty to allow any model.
+     * Models users can select. The ID is the exact model identifier sent to the API.
      */
     models?:
       | {
+          id: string | null;
           name: string;
-          id?: string | null;
+          provider: 'gemini' | 'huggingface';
+          /**
+           * Uncheck to disable this model without removing it.
+           */
+          enabled?: boolean | null;
+          /**
+           * Token limit per user per month for this model. 0 = unlimited.
+           */
+          maxUserMonthlyTokens?: number | null;
+          /**
+           * Maximum context length of this model. Informational only.
+           */
+          contextWindow?: number | null;
         }[]
       | null;
     /**
-     * Maximum AI requests per user per day. Set to 0 for unlimited.
+     * Maximum tokens a user may consume per day using the app key. Set to 0 for unlimited.
      */
-    perUserDailyLimit?: number | null;
+    perUserDailyTokenLimit?: number | null;
     /**
-     * Maximum AI requests per user per month. Set to 0 for unlimited.
+     * Maximum tokens a user may consume per month using the app key. Set to 0 for unlimited.
      */
-    perUserMonthlyLimit?: number | null;
+    perUserMonthlyTokenLimit?: number | null;
     /**
      * Uses a small on-server ML model (transformers.js) to auto-suggest categories as the user types. No external API call.
      */
@@ -1405,16 +1437,21 @@ export interface AppSettingsSelect<T extends boolean = true> {
     | {
         enabled?: T;
         geminiApiKey?: T;
+        hfApiKey?: T;
         allowUserApiKey?: T;
         defaultModel?: T;
         models?:
           | T
           | {
-              name?: T;
               id?: T;
+              name?: T;
+              provider?: T;
+              enabled?: T;
+              maxUserMonthlyTokens?: T;
+              contextWindow?: T;
             };
-        perUserDailyLimit?: T;
-        perUserMonthlyLimit?: T;
+        perUserDailyTokenLimit?: T;
+        perUserMonthlyTokenLimit?: T;
         predictionEnabled?: T;
       };
   updatedAt?: T;

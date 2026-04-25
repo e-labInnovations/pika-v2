@@ -226,7 +226,7 @@ async function predictFromCategoryEmbeddings(
 export async function resolveUserCategoryMethod(
   payload: Payload,
   userId: string,
-): Promise<'minilm' | 'gemini'> {
+): Promise<'minilm' | 'cloud'> {
   try {
     const settings = await payload.find({
       collection: 'user-settings',
@@ -236,7 +236,7 @@ export async function resolveUserCategoryMethod(
       context: { internal: true },
     })
     const method = (settings.docs[0] as any)?.categoryAiMethod
-    return method === 'gemini' ? 'gemini' : 'minilm'
+    return method === 'cloud' ? 'cloud' : 'minilm'
   } catch {
     return 'minilm'
   }

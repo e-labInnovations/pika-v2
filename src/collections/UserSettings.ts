@@ -7,6 +7,7 @@ import { currencies } from '../data/currencies'
 import { maskApiKey, isMaskedKey } from '../utilities/maskApiKey'
 import { validateTimezone } from '../utilities/validateTimezone'
 
+
 export const UserSettings: CollectionConfig = {
   slug: 'user-settings',
   admin: {
@@ -37,21 +38,24 @@ export const UserSettings: CollectionConfig = {
         }
         return data
       },
-      // Prevent overwriting the real key when the masked placeholder is submitted unchanged
       async ({ data, originalDoc }) => {
         if (data?.geminiApiKey && isMaskedKey(data.geminiApiKey)) {
           data.geminiApiKey = originalDoc?.geminiApiKey ?? null
+        }
+        if (data?.hfApiKey && isMaskedKey(data.hfApiKey)) {
+          data.hfApiKey = originalDoc?.hfApiKey ?? null
         }
         return data
       },
     ],
     afterRead: [
       ({ doc, req }) => {
-        // Skip masking for internal server-side reads (e.g. AI request handlers).
-        // Pass context: { internal: true } when calling payload.find/findByID on the server.
         if (req?.context?.internal) return doc
         if (doc?.geminiApiKey) {
           doc.geminiApiKey = maskApiKey(doc.geminiApiKey)
+        }
+        if (doc?.hfApiKey) {
+          doc.hfApiKey = maskApiKey(doc.hfApiKey)
         }
         return doc
       },
@@ -120,10 +124,42 @@ export const UserSettings: CollectionConfig = {
       label: 'Gemini API Key',
       admin: {
         description:
-          'Used for AI features. Stored securely — only the masked value is returned via the API.',
+          'Personal Gemini API key. Used when your preferred model is a Gemini model.',
         components: {
           Field: '@/components/admin/ApiKeyField#ApiKeyField',
         },
+      },
+    },
+    {
+      name: 'hfApiKey',
+      type: 'text',
+      label: 'HuggingFace API Key',
+      admin: {
+        description:
+          'Personal HuggingFace API key. Used when your preferred model is a HuggingFace model.',
+        components: {
+          Field: '@/components/admin/ApiKeyField#ApiKeyField',
+        },
+      },
+    },
+    {
+      name: 'preferredModel',
+      type: 'text',
+      label: 'Preferred AI Model ID',
+      admin: {
+        description:
+          'Model ID to use for all AI features (must match an ID in the app model list). Leave blank to use the app default.',
+        placeholder: 'e.g. gemini-2.5-flash or Qwen/Qwen3-VL-8B-Instruct',
+      },
+    },
+    {
+      name: 'allowFallback',
+      type: 'checkbox',
+      label: 'Allow Provider Fallback',
+      defaultValue: true,
+      admin: {
+        description:
+          'If no API key is available for your preferred model\'s provider, automatically fall back to the app\'s default model.',
       },
     },
     {
@@ -133,11 +169,11 @@ export const UserSettings: CollectionConfig = {
       defaultValue: 'minilm',
       options: [
         { label: 'Local (MiniLM)', value: 'minilm' },
-        { label: 'Cloud (Gemini)', value: 'gemini' },
+        { label: 'Cloud (AI Model)', value: 'cloud' },
       ],
       admin: {
         description:
-          'Which AI backend powers category suggestions in the transaction form. Local is free and fast; Gemini is slower but more reasoning-aware and counts against the AI quota.',
+          'Which backend powers category suggestions. Local is free and fast; Cloud uses your configured AI model and counts against quota.',
       },
     },
   ],

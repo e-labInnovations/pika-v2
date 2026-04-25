@@ -148,7 +148,7 @@ export const aiMutations = () => ({
       note:        { type: GraphQLString },
       personId:    { type: GraphQLString },
       model:       { type: GraphQLString },
-      forceMethod: { type: GraphQLString, description: '"minilm" | "gemini" — overrides the user preference for this one call' },
+      forceMethod: { type: GraphQLString, description: '"minilm" | "cloud" — overrides the user preference for this one call' },
     },
     resolve: async (
       _: unknown,
@@ -174,8 +174,8 @@ export const aiMutations = () => ({
       if (!title) throw new Error('"title" is required')
 
       const fm = args.forceMethod
-      if (fm && fm !== 'minilm' && fm !== 'gemini') {
-        throw new Error('"forceMethod" must be "minilm" or "gemini"')
+      if (fm && fm !== 'minilm' && fm !== 'cloud') {
+        throw new Error('"forceMethod" must be "minilm" or "cloud"')
       }
 
       return processCategorySuggestion(
@@ -188,7 +188,7 @@ export const aiMutations = () => ({
           date: args.date || undefined,
           note: args.note || undefined,
           personId: args.personId || undefined,
-          forceMethod: fm as 'minilm' | 'gemini' | undefined,
+          forceMethod: fm as 'minilm' | 'cloud' | undefined,
         },
         args.model,
       )

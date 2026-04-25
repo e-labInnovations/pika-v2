@@ -73,8 +73,10 @@ export const AIUsages: CollectionConfig = {
       name: 'apiKeyType',
       type: 'select',
       options: [
-        { label: 'User', value: 'user' },
-        { label: 'App', value: 'app' },
+        { label: 'User (Gemini)', value: 'user' },
+        { label: 'App (Gemini)', value: 'app' },
+        { label: 'User (HuggingFace)', value: 'user-hf' },
+        { label: 'App (HuggingFace)', value: 'app-hf' },
         { label: 'Local', value: 'local' },
       ],
     },

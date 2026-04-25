@@ -4,7 +4,7 @@
  * Routes between the two implementations based on the user's
  * `categoryAiMethod` preference (UserSettings):
  *   - 'minilm' (default): local sentence embeddings, free + fast
- *   - 'gemini': delegates to processCategorySuggestion
+ *   - 'cloud': delegates to processCategorySuggestion (Gemini or HuggingFace)
  *
  * Returns `category: null` when no candidate clears the confidence bar —
  * callers should leave the field empty rather than guess.
@@ -53,7 +53,7 @@ export async function processCategoryPrediction(
   }
 
   const method = await resolveUserCategoryMethod(payload, userId)
-  if (method === 'gemini') {
+  if (method === 'cloud') {
     // Reuse processCategorySuggestion, shape the result into our shape.
     const result = await processCategorySuggestion(payload, userId, {
       type: args.type,

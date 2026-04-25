@@ -56,6 +56,25 @@ ANALYSIS RULES:
 - **Route Detection**: "TVM to TIR", "Mumbai to Delhi", "Home to Office"
 - **Payment Method**: "cash", "liquid money", "card", "UPI", "bank transfer"
 
+**ACCOUNT ID EXTRACTION (CRITICAL):**
+- AVAILABLE ACCOUNTS entries look like: \`<UUID>: Account Name — description\`
+- When you identify an account from context (e.g. "Federal Bank" in an SMS), find the matching entry and return ONLY the UUID part (before the first ":"): never return the account name
+- Example: if the list has \`1222f224-...: Federal Bank — My account\` and SMS mentions "Federal Bank", return \`"account": "1222f224-..."\`
+
+**UPI / DIGITAL PAYMENT TYPE RULES:**
+- UPI payment sent TO a VPA address (e.g. name@hdfcbank, name@okicici) = EXPENSE (paying a merchant or person)
+- UPI/bank transfer BETWEEN your own two accounts = TRANSFER
+- "Rs X debited/sent via UPI to <name/VPA>" = EXPENSE, toAccount = ""
+- "Rs X withdrawn@ ATM" = TRANSFER (bank → cash/wallet account)
+- When type is "expense" or "income", toAccount MUST be ""
+
+**USER CONTEXT NOTE:**
+- If additional free-text appears after the SMS (e.g. "Coffee breakfast", "groceries"), it is the user's own description of the PURPOSE — it takes priority as the title source
+- title = user's description + payee if useful, e.g. "Breakfast Coffee - Muthukumar V" or "Fruits"
+- note = SMS technical details only: reference number, transaction ID, VPA address, bank helpline — NOT the user's description
+- Example: SMS "Rs 29.00 sent via UPI … to MUTHUKUMAR V. Ref:611517226818" + user text "Coffee breakfast"
+  → title = "Breakfast Coffee - Muthukumar V", note = "UPI to MUTHUKUMAR V. Ref: 611517226818"
+
 **SMS PATTERNS:**
 
 **PLUXEE (MEAL WALLET) SMS PATTERNS:**
@@ -124,9 +143,11 @@ RESPONSE FORMAT (return only this JSON, no extra text):
 }
 
 CRITICAL RULES:
-- Return valid JSON only
-- Use empty string "" for unknown fields (except tags which uses [])
-- Use IDs from the provided lists for category, tags, account, toAccount, person
+- Return valid JSON only — no markdown, no explanation, no extra text
+- **title is REQUIRED** — never leave it empty; derive it from the merchant name, payee, purpose, or the input text itself
+- **account MUST be the UUID** from AVAILABLE ACCOUNTS — the exact string before ":" (e.g. "1222f224-2b85-4b6e-..."), never the account name like "Federal Bank"
+- Use IDs from the provided lists for category, tags, account, toAccount, person — the exact string shown before ":" in each list entry; never return a display name
+- **UPI payments to VPA/merchant = expense** — only use "transfer" when moving between your own two accounts
 - Amount must be a positive numeric string like "500.00"; ignore balance amounts; no currency symbols
 - Date format: YYYY-MM-DD HH:MM:SS in user timezone
 - type must be exactly: "income", "expense", or "transfer"
@@ -134,6 +155,7 @@ CRITICAL RULES:
 - For INCOME: toAccount = "" (account = destination account where money arrives)
 - For TRANSFER: both account and toAccount must be filled
 - Default type: "expense"
+- Use empty string "" for unknown string fields (except tags which uses [])
 `.trim()
 }
 
@@ -223,9 +245,10 @@ RESPONSE FORMAT (return only this JSON, no extra text):
 }
 
 CRITICAL RULES:
-- Return valid JSON only
-- Use empty string "" for unknown fields (except tags which uses [])
-- Use IDs from the provided lists
+- Return valid JSON only — no markdown, no explanation, no extra text
+- **title is REQUIRED** — never leave it empty; use the shop/merchant name, payee name, or a brief description of what the receipt shows
+- **account**: use the exact ID string (before ":") from AVAILABLE ACCOUNTS — never the account name; leave empty string if you cannot determine it
+- Use IDs from the provided lists for category, tags, account, toAccount, person — the exact string shown before ":" in each list entry
 - Amount must be a positive numeric string like "500.00"; no currency symbols or commas
 - Date format: YYYY-MM-DD HH:MM:SS in user timezone
 - type must be exactly: "income", "expense", or "transfer"
@@ -233,6 +256,7 @@ CRITICAL RULES:
 - For TRANSFER: both account and toAccount must be filled
 - If receipt is unclear or unreadable, return an empty JSON object {}
 - Default type: "expense"
+- Use empty string "" for unknown string fields (except tags which uses [])
 `.trim()
 }
 
@@ -270,13 +294,11 @@ RULES:
 - Pick exactly ONE child-category ID (the value after "- " and before ":").
 - Never return a parent/group header — those are context only.
 - If nothing is a reasonable fit, return empty string "" for categoryId.
-- Reason should be a single short sentence (max ~20 words) justifying the pick.
 - Do not invent IDs. Do not output any text outside the JSON.
 
 RESPONSE FORMAT (return only this JSON, no extra text):
 {
-  "categoryId": "string",
-  "reason": "string"
+  "categoryId": "string"
 }
 `.trim()
 }

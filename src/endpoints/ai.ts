@@ -131,9 +131,9 @@ export const suggestCategoryHandler: PayloadHandler = async (req) => {
   }
 
   const fm = body.forceMethod
-  if (fm && fm !== 'minilm' && fm !== 'gemini') {
+  if (fm && fm !== 'minilm' && fm !== 'cloud') {
     return Response.json(
-      { errors: [{ message: '"forceMethod" must be "minilm" or "gemini"' }] },
+      { errors: [{ message: '"forceMethod" must be "minilm" or "cloud"' }] },
       { status: 400 },
     )
   }
@@ -151,7 +151,7 @@ export const suggestCategoryHandler: PayloadHandler = async (req) => {
         date: body.date || undefined,
         note: body.note || undefined,
         personId: body.personId || undefined,
-        forceMethod: fm as 'minilm' | 'gemini' | undefined,
+        forceMethod: fm as 'minilm' | 'cloud' | undefined,
       },
       requestedModel,
     )

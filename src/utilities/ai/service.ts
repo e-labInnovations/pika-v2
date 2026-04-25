@@ -7,6 +7,7 @@ import {
   CATEGORY_SUGGESTION_RESPONSE_SCHEMA,
   type GeminiUsage,
 } from './gemini'
+import { callHFText, callHFImage, type HFUsage } from './huggingface'
 import {
   TEXT_TO_TRANSACTION_SYSTEM,
   IMAGE_TO_TRANSACTION_SYSTEM,
@@ -15,30 +16,36 @@ import {
   buildImageToTransactionPrompt,
   buildCategorySuggestionPrompt,
 } from './prompts'
-import { translateGeminiError } from './errors'
+import { translateGeminiError, translateHFError } from './errors'
 import {
   predictCategoryWithEmbeddings,
   resolveUserCategoryMethod,
   SCORE_THRESHOLD,
 } from './minilm'
+import { type AIProvider } from './models'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type AIKeyType = 'user' | 'app' | 'user-hf' | 'app-hf' | 'local'
+
 export type AIConfig = {
   enabled: boolean
+  provider: AIProvider
   apiKey: string
-  apiKeyType: 'user' | 'app'
-  defaultModel: string
-  allowedModels: string[]
-  perUserDailyLimit: number
-  perUserMonthlyLimit: number
+  apiKeyType: AIKeyType
+  model: string
+  perUserDailyTokenLimit: number
+  perUserMonthlyTokenLimit: number
 }
+
+// Shared usage shape — both Gemini and HF return token counts
+export type AIUsage = GeminiUsage | HFUsage
 
 export type AITransactionResult = {
   data: Record<string, unknown>
   model: string
   latencyMs: number
-  usage: GeminiUsage
+  usage: AIUsage
 }
 
 export type AICategorySuggestionResult = {
@@ -46,12 +53,12 @@ export type AICategorySuggestionResult = {
   reason: string
   model: string
   latencyMs: number
-  usage: GeminiUsage
+  usage: AIUsage
 }
 
 export type TxType = 'income' | 'expense' | 'transfer'
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Config resolution ────────────────────────────────────────────────────────
 
 export async function resolveAIConfig(payload: Payload, userId: string): Promise<AIConfig> {
   const [appSettingsResult, userSettingsResult] = await Promise.all([
@@ -66,76 +73,146 @@ export async function resolveAIConfig(payload: Payload, userId: string): Promise
   ])
 
   const appAI = appSettingsResult?.ai ?? {}
-  const userKey = (userSettingsResult.docs[0] as any)?.geminiApiKey as string | undefined
-  const allowUserKey: boolean = appAI.allowUserApiKey !== false
+  const userSettings = userSettingsResult.docs[0] as any
 
+  // Build a lookup map from model ID → provider using the DB models list.
+  // Falls back to name-based detection (gemini-* prefix) if a model isn't in the list.
+  type DBModel = { id: string; provider: AIProvider; enabled: boolean }
+  const dbModels: DBModel[] = ((appAI.models ?? []) as { id: string; provider: string; enabled?: boolean }[]).map(
+    (m) => ({
+      id: m.id,
+      provider: (m.provider === 'huggingface' ? 'huggingface' : 'gemini') as AIProvider,
+      enabled: m.enabled !== false,
+    }),
+  )
+
+  function providerForModelId(modelId: string): AIProvider {
+    return dbModels.find((m) => m.id === modelId)?.provider
+      ?? (modelId.startsWith('gemini-') ? 'gemini' : 'huggingface')
+  }
+
+  const allowUserKey: boolean = appAI.allowUserApiKey !== false
+  const allowFallback: boolean = userSettings?.allowFallback !== false
+
+  const appDefaultModel: string = appAI.defaultModel || 'gemini-2.5-flash'
+
+  // Determine effective model: user preference → app default
+  const effectiveModel: string = userSettings?.preferredModel || appDefaultModel
+  const provider = providerForModelId(effectiveModel)
+
+  const keyOpts = {
+    allowUserKey,
+    userGeminiKey: userSettings?.geminiApiKey as string | undefined,
+    userHfKey: userSettings?.hfApiKey as string | undefined,
+    appGeminiKey: appAI.geminiApiKey as string | undefined,
+    appHfKey: appAI.hfApiKey as string | undefined,
+  }
+
+  // Resolve API key for the effective provider
+  const resolved = resolveKeyForProvider(provider, keyOpts)
+
+  // If no key for the effective provider and fallback is allowed, try the app default model.
+  // This covers two cases: (a) user has a preferredModel but no key for it, and
+  // (b) app default model's provider has no key but the other provider does.
+  if (!resolved && allowFallback) {
+    const fallbackProvider = providerForModelId(appDefaultModel)
+    const fallbackResolved = resolveKeyForProvider(fallbackProvider, keyOpts)
+
+    if (fallbackResolved) {
+      return {
+        enabled: appAI.enabled !== false,
+        provider: fallbackProvider,
+        apiKey: fallbackResolved.apiKey,
+        apiKeyType: fallbackResolved.apiKeyType,
+        model: appDefaultModel,
+        perUserDailyTokenLimit: appAI.perUserDailyTokenLimit ?? 100000,
+        perUserMonthlyTokenLimit: appAI.perUserMonthlyTokenLimit ?? 1000000,
+      }
+    }
+  }
+
+  // No key available — callers check config.apiKey and throw a 400.
   return {
     enabled: appAI.enabled !== false,
-    apiKey: allowUserKey && userKey ? userKey : (appAI.geminiApiKey ?? ''),
-    apiKeyType: allowUserKey && userKey ? 'user' : 'app',
-    defaultModel: appAI.defaultModel || 'gemini-2.5-flash',
-    allowedModels: ((appAI.models as any[]) ?? []).map((m: any) => m?.name as string).filter(Boolean),
-    perUserDailyLimit: appAI.perUserDailyLimit ?? 20,
-    perUserMonthlyLimit: appAI.perUserMonthlyLimit ?? 200,
+    provider,
+    apiKey: resolved?.apiKey ?? '',
+    apiKeyType: resolved?.apiKeyType ?? (provider === 'huggingface' ? 'app-hf' : 'app'),
+    model: effectiveModel,
+    perUserDailyTokenLimit: appAI.perUserDailyTokenLimit ?? 20,
+    perUserMonthlyTokenLimit: appAI.perUserMonthlyTokenLimit ?? 200,
   }
 }
 
-export function resolveModel(
-  requested: string | undefined | null,
-  config: Pick<AIConfig, 'defaultModel' | 'allowedModels'>,
-): { model: string; error?: string } {
-  const model = requested?.trim() || config.defaultModel
-  if (config.allowedModels.length > 0 && !config.allowedModels.includes(model)) {
-    return {
-      model,
-      error: `Model "${model}" is not allowed. Allowed: ${config.allowedModels.join(', ')}`,
+function resolveKeyForProvider(
+  provider: AIProvider,
+  opts: {
+    allowUserKey: boolean
+    userGeminiKey?: string
+    userHfKey?: string
+    appGeminiKey?: string
+    appHfKey?: string
+  },
+): { apiKey: string; apiKeyType: AIKeyType } | null {
+  if (provider === 'gemini') {
+    if (opts.allowUserKey && opts.userGeminiKey) {
+      return { apiKey: opts.userGeminiKey, apiKeyType: 'user' }
     }
+    if (opts.appGeminiKey) {
+      return { apiKey: opts.appGeminiKey, apiKeyType: 'app' }
+    }
+    return null
   }
-  return { model }
+
+  // huggingface
+  if (opts.allowUserKey && opts.userHfKey) {
+    return { apiKey: opts.userHfKey, apiKeyType: 'user-hf' }
+  }
+  if (opts.appHfKey) {
+    return { apiKey: opts.appHfKey, apiKeyType: 'app-hf' }
+  }
+  return null
 }
 
 export async function checkRateLimits(
   payload: Payload,
   userId: string,
-  daily: number,
-  monthly: number,
+  dailyTokens: number,
+  monthlyTokens: number,
 ): Promise<void> {
-  if (daily <= 0 && monthly <= 0) return
+  if (dailyTokens <= 0 && monthlyTokens <= 0) return
 
   const now = new Date()
   const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0)
   const monthStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1))
 
-  // Per-user quota applies ONLY to Gemini calls that consumed the app's API
-  // key. User-key calls are the user's own quota; local (MiniLM) calls don't
-  // hit any external service. Both are excluded by the apiKeyType filter.
+  // App-key calls (both Gemini and HF) count against the per-user quota.
+  // User-key calls use the user's own provider quota; local calls hit no external API.
   const baseWhere = {
     user: { equals: userId },
     status: { equals: 'success' },
-    apiKeyType: { equals: 'app' },
+    apiKeyType: { in: ['app', 'app-hf'] },
   }
 
-  const [dailyResult, monthlyResult] = await Promise.all([
-    daily > 0
-      ? payload.find({
-          collection: 'ai-usages',
-          where: { and: [baseWhere, { createdAt: { greater_than_equal: dayStart.toISOString() } }] },
-          limit: 0, pagination: false, depth: 0,
-        })
-      : Promise.resolve({ totalDocs: 0 }),
-    monthly > 0
-      ? payload.find({
-          collection: 'ai-usages',
-          where: { and: [baseWhere, { createdAt: { greater_than_equal: monthStart.toISOString() } }] },
-          limit: 0, pagination: false, depth: 0,
-        })
-      : Promise.resolve({ totalDocs: 0 }),
+  async function sumTokens(since: Date): Promise<number> {
+    const result = await payload.find({
+      collection: 'ai-usages',
+      where: { and: [baseWhere, { createdAt: { greater_than_equal: since.toISOString() } }] },
+      limit: 10000,
+      pagination: false,
+      depth: 0,
+    })
+    return result.docs.reduce((sum, r) => sum + ((r.totalTokens as number) ?? 0), 0)
+  }
+
+  const [dailyUsed, monthlyUsed] = await Promise.all([
+    dailyTokens > 0 ? sumTokens(dayStart) : Promise.resolve(0),
+    monthlyTokens > 0 ? sumTokens(monthStart) : Promise.resolve(0),
   ])
 
-  if (daily > 0 && dailyResult.totalDocs >= daily)
-    throw new APIError(`Daily AI limit of ${daily} requests reached`, 429, null, true)
-  if (monthly > 0 && monthlyResult.totalDocs >= monthly)
-    throw new APIError(`Monthly AI limit of ${monthly} requests reached`, 429, null, true)
+  if (dailyTokens > 0 && dailyUsed >= dailyTokens)
+    throw new APIError(`Daily AI token limit of ${dailyTokens.toLocaleString()} reached`, 429, null, true)
+  if (monthlyTokens > 0 && monthlyUsed >= monthlyTokens)
+    throw new APIError(`Monthly AI token limit of ${monthlyTokens.toLocaleString()} reached`, 429, null, true)
 }
 
 export async function buildUserContext(
@@ -156,21 +233,12 @@ export async function buildUserContext(
   const fmt = (docs: any[], fields: string[]) =>
     docs.map((d) => `${d.id}: ${fields.map((f) => d[f]).filter(Boolean).join(' — ')}`).join('\n') || 'none'
 
-  // Categories are grouped by type → parent → children so the parent name and
-  // description appear ONCE per group (fewer tokens) and the tree structure
-  // gives the model strong semantic context. See also
-  // buildFilteredCategoriesForSuggestion (same idea, single-type variant).
   const categoriesStr = renderCategoryTree(cats.docs as Category[], { includeType: true }) || 'none'
 
   return {
     categories: categoriesStr,
-    // Descriptions add the semantic context the model needs to disambiguate
-    // similarly-named entries; when the field is empty the `filter(Boolean)`
-    // in `fmt` drops the trailing " — " so there's no token waste.
     tags: fmt(tags.docs, ['name', 'description']),
     accounts: fmt(accounts.docs, ['name', 'description']),
-    // Email + phone are especially useful for SMS parsing where the sender
-    // may appear by number/email in the message text.
     people: fmt(people.docs, ['name', 'email', 'phone', 'description']),
   }
 }
@@ -218,7 +286,6 @@ function renderCategoryTree(
     }
   })
 
-  // Partition by type (needed when includeType=true; harmless otherwise).
   const typeOrder: TxType[] = ['expense', 'income', 'transfer']
   const rowsByType = new Map<TxType, CatRow[]>()
   for (const r of rows) {
@@ -285,14 +352,9 @@ export async function logUsage(
   params: {
     promptType: 'text' | 'image' | 'category-suggestion' | 'category-prediction'
     model: string
-    /**
-     * 'user' — the user's own Gemini API key (doesn't count against app quota)
-     * 'app'  — the app's Gemini API key (counts against per-user app quota)
-     * 'local'— no external API (MiniLM, doesn't count against any quota)
-     */
-    apiKeyType: 'user' | 'app' | 'local'
+    apiKeyType: AIKeyType
     status: 'success' | 'error'
-    usage?: GeminiUsage
+    usage?: AIUsage
     latencyMs?: number
     error?: string
   },
@@ -342,7 +404,6 @@ async function getUserTimezone(payload: Payload, userId: string): Promise<string
 
 async function resolveAITransactionData(
   payload: Payload,
-  userId: string,
   raw: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   const categoryId = typeof raw.category === 'string' && raw.category ? raw.category : null
@@ -378,7 +439,6 @@ async function resolveAITransactionData(
       : Promise.resolve([] as any[]),
   ])
 
-  // Validate category: must be a child category and match the transaction type
   const category = (() => {
     if (!categoryResolved) return null
     const cat = categoryResolved as Category
@@ -397,26 +457,78 @@ async function resolveAITransactionData(
   }
 }
 
+// ─── Provider-aware call helpers ──────────────────────────────────────────────
+
+async function callTextProvider(
+  config: AIConfig,
+  params: { systemPrompt: string; userPrompt: string; useCategorySchema?: boolean },
+) {
+  if (config.provider === 'huggingface') {
+    return callHFText({
+      apiKey: config.apiKey,
+      model: config.model,
+      systemPrompt: params.systemPrompt,
+      userPrompt: params.userPrompt,
+      useCategorySchema: params.useCategorySchema,
+    })
+  }
+  return callGeminiText({
+    apiKey: config.apiKey,
+    model: config.model,
+    systemPrompt: params.systemPrompt,
+    userPrompt: params.userPrompt,
+    responseSchema: params.useCategorySchema ? CATEGORY_SUGGESTION_RESPONSE_SCHEMA : undefined,
+  })
+}
+
+async function callImageProvider(
+  config: AIConfig,
+  params: { systemPrompt: string; userPrompt: string; imageBase64: string; mimeType: string },
+) {
+  if (config.provider === 'huggingface') {
+    return callHFImage({
+      apiKey: config.apiKey,
+      model: config.model,
+      systemPrompt: params.systemPrompt,
+      userPrompt: params.userPrompt,
+      imageBase64: params.imageBase64,
+      mimeType: params.mimeType,
+    })
+  }
+  return callGeminiImage({
+    apiKey: config.apiKey,
+    model: config.model,
+    systemPrompt: params.systemPrompt,
+    userPrompt: params.userPrompt,
+    imageBase64: params.imageBase64,
+    mimeType: params.mimeType,
+  })
+}
+
+function translateProviderError(config: AIConfig, err: unknown): APIError | null {
+  if (config.provider === 'huggingface') return translateHFError(err)
+  return translateGeminiError(err)
+}
+
 // ─── Core processors ──────────────────────────────────────────────────────────
 
 export async function processTextToTransaction(
   payload: Payload,
   userId: string,
   text: string,
-  requestedModel?: string | null,
+  _requestedModel?: string | null,
 ): Promise<AITransactionResult> {
   const config = await resolveAIConfig(payload, userId)
 
   if (!config.enabled) throw new APIError('AI features are disabled', 403, null, true)
-  if (!config.apiKey) throw new APIError('No Gemini API key configured', 400, null, true)
+  if (!config.apiKey) throw new APIError('No API key configured for the selected AI provider', 400, null, true)
 
-  const { model, error: modelError } = resolveModel(requestedModel, config)
-  if (modelError) throw new APIError(modelError, 400, null, true)
+  // requestedModel is deprecated — model comes from user/app settings now.
+  // Keep the parameter for backward-compat with existing API callers.
+  const model = config.model
 
-  // Per-user app quota only applies when the app's Gemini key is in use.
-  // Users with their own key manage their own quota.
-  if (config.apiKeyType === 'app') {
-    await checkRateLimits(payload, userId, config.perUserDailyLimit, config.perUserMonthlyLimit)
+  if (config.apiKeyType === 'app' || config.apiKeyType === 'app-hf') {
+    await checkRateLimits(payload, userId, config.perUserDailyTokenLimit, config.perUserMonthlyTokenLimit)
   }
 
   const [timezone, context] = await Promise.all([
@@ -428,15 +540,15 @@ export async function processTextToTransaction(
 
   let result
   try {
-    result = await callGeminiText({ apiKey: config.apiKey, model, systemPrompt: TEXT_TO_TRANSACTION_SYSTEM, userPrompt })
+    result = await callTextProvider(config, { systemPrompt: TEXT_TO_TRANSACTION_SYSTEM, userPrompt })
   } catch (e: any) {
     await logUsage(payload, userId, { promptType: 'text', model, apiKeyType: config.apiKeyType, status: 'error', error: e.message })
-    throw translateGeminiError(e) ?? e
+    throw translateProviderError(config, e) ?? e
   }
 
   await logUsage(payload, userId, { promptType: 'text', model, apiKeyType: config.apiKeyType, status: 'success', usage: result.usage, latencyMs: result.latencyMs })
 
-  const resolved = await resolveAITransactionData(payload, userId, result.data)
+  const resolved = await resolveAITransactionData(payload, result.data)
   return { data: resolved, model, usage: result.usage, latencyMs: result.latencyMs }
 }
 
@@ -445,20 +557,17 @@ export async function processImageToTransaction(
   userId: string,
   imageBase64: string,
   mimeType: string,
-  requestedModel?: string | null,
+  _requestedModel?: string | null,
 ): Promise<AITransactionResult> {
   const config = await resolveAIConfig(payload, userId)
 
   if (!config.enabled) throw new APIError('AI features are disabled', 403, null, true)
-  if (!config.apiKey) throw new APIError('No Gemini API key configured', 400, null, true)
+  if (!config.apiKey) throw new APIError('No API key configured for the selected AI provider', 400, null, true)
 
-  const { model, error: modelError } = resolveModel(requestedModel, config)
-  if (modelError) throw new APIError(modelError, 400, null, true)
+  const model = config.model
 
-  // Per-user app quota only applies when the app's Gemini key is in use.
-  // Users with their own key manage their own quota.
-  if (config.apiKeyType === 'app') {
-    await checkRateLimits(payload, userId, config.perUserDailyLimit, config.perUserMonthlyLimit)
+  if (config.apiKeyType === 'app' || config.apiKeyType === 'app-hf') {
+    await checkRateLimits(payload, userId, config.perUserDailyTokenLimit, config.perUserMonthlyTokenLimit)
   }
 
   const [timezone, context] = await Promise.all([
@@ -470,25 +579,20 @@ export async function processImageToTransaction(
 
   let result
   try {
-    result = await callGeminiImage({ apiKey: config.apiKey, model, systemPrompt: IMAGE_TO_TRANSACTION_SYSTEM, userPrompt, imageBase64, mimeType })
+    result = await callImageProvider(config, { systemPrompt: IMAGE_TO_TRANSACTION_SYSTEM, userPrompt, imageBase64, mimeType })
   } catch (e: any) {
     await logUsage(payload, userId, { promptType: 'image', model, apiKeyType: config.apiKeyType, status: 'error', error: e.message })
-    throw translateGeminiError(e) ?? e
+    throw translateProviderError(config, e) ?? e
   }
 
   await logUsage(payload, userId, { promptType: 'image', model, apiKeyType: config.apiKeyType, status: 'success', usage: result.usage, latencyMs: result.latencyMs })
 
-  const resolved = await resolveAITransactionData(payload, userId, result.data)
+  const resolved = await resolveAITransactionData(payload, result.data)
   return { data: resolved, model, usage: result.usage, latencyMs: result.latencyMs }
 }
 
 // ─── Category suggestion ──────────────────────────────────────────────────────
 
-/**
- * MiniLM-backed implementation of `processCategorySuggestion`. Shapes the
- * embedding result into an `AICategorySuggestionResult` so the REST/GraphQL
- * surface stays identical regardless of which backend ran.
- */
 async function runLocalCategorySuggestion(
   payload: Payload,
   userId: string,
@@ -560,10 +664,6 @@ async function buildFilteredCategoriesForSuggestion(
     depth: 0,
   })
 
-  // Tree-structured render so the parent name/description appears ONCE per
-  // group (fewer tokens than repeating `[parent: X]` on every child) and the
-  // hierarchy gives the model strong semantic context. Categories here are
-  // pre-filtered to a single type, so the `type` header isn't needed.
   return renderCategoryTree(cats.docs as Category[], { includeType: false }) || 'none'
 }
 
@@ -599,18 +699,13 @@ export async function processCategorySuggestion(
     personId?: string
     /**
      * Optional one-off override of the user's `categoryAiMethod` setting.
-     * Used by the client's "Try with Gemini" fallback when the MiniLM path
-     * doesn't produce a match — we want to call Gemini for that single
-     * request without permanently flipping the user's preference.
+     * Used by the client's "Try with AI" fallback when MiniLM doesn't match.
      */
-    forceMethod?: 'minilm' | 'gemini'
+    forceMethod?: 'minilm' | 'cloud'
   },
-  requestedModel?: string | null,
+  _requestedModel?: string | null,
 ): Promise<AICategorySuggestionResult> {
-  // Respect the user's preferred backend unless the caller overrode it.
-  // MiniLM is free + local; Gemini is heavier and counts against quota.
-  const method =
-    args.forceMethod ?? (await resolveUserCategoryMethod(payload, userId))
+  const method = args.forceMethod ?? (await resolveUserCategoryMethod(payload, userId))
   if (method === 'minilm') {
     return runLocalCategorySuggestion(payload, userId, {
       type: args.type,
@@ -621,15 +716,12 @@ export async function processCategorySuggestion(
   const config = await resolveAIConfig(payload, userId)
 
   if (!config.enabled) throw new APIError('AI features are disabled', 403, null, true)
-  if (!config.apiKey) throw new APIError('No Gemini API key configured', 400, null, true)
+  if (!config.apiKey) throw new APIError('No API key configured for the selected AI provider', 400, null, true)
 
-  const { model, error: modelError } = resolveModel(requestedModel, config)
-  if (modelError) throw new APIError(modelError, 400, null, true)
+  const model = config.model
 
-  // Per-user app quota only applies when the app's Gemini key is in use.
-  // Users with their own key manage their own quota.
-  if (config.apiKeyType === 'app') {
-    await checkRateLimits(payload, userId, config.perUserDailyLimit, config.perUserMonthlyLimit)
+  if (config.apiKeyType === 'app' || config.apiKeyType === 'app-hf') {
+    await checkRateLimits(payload, userId, config.perUserDailyTokenLimit, config.perUserMonthlyTokenLimit)
   }
 
   const [categoriesStr, personName] = await Promise.all([
@@ -649,12 +741,10 @@ export async function processCategorySuggestion(
 
   let result
   try {
-    result = await callGeminiText({
-      apiKey: config.apiKey,
-      model,
+    result = await callTextProvider(config, {
       systemPrompt: CATEGORY_SUGGESTION_SYSTEM,
       userPrompt,
-      responseSchema: CATEGORY_SUGGESTION_RESPONSE_SCHEMA,
+      useCategorySchema: true,
     })
   } catch (e: any) {
     await logUsage(payload, userId, {
@@ -664,7 +754,7 @@ export async function processCategorySuggestion(
       status: 'error',
       error: e.message,
     })
-    throw translateGeminiError(e) ?? e
+    throw translateProviderError(config, e) ?? e
   }
 
   await logUsage(payload, userId, {
@@ -691,7 +781,6 @@ export async function processCategorySuggestion(
       })) as Category
       const hasParent = !!fetched.parent
       const typeMatches = fetched.type === args.type
-      // Owner-or-system validation: owner matches user, or owner is a system user
       const ownerId = typeof fetched.user === 'string' ? fetched.user : (fetched.user as any)?.id
       let ownerOk = String(ownerId) === String(userId)
       if (!ownerOk) {

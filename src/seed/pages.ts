@@ -215,6 +215,58 @@ const PAGES: PageSeed[] = [
       },
     ],
   },
+  {
+    title: 'Get Your HuggingFace API Key',
+    slug: 'hf-api-key',
+    description: 'How to generate a personal HuggingFace API key for Pika AI features.',
+    layout: [
+      {
+        blockType: 'richText',
+        content: {
+          root: {
+            type: 'root',
+            children: [
+              { type: 'heading', tag: 'h2', children: [{ type: 'text', text: 'Get Your HuggingFace API Key' }] },
+              { type: 'paragraph', children: [{ type: 'text', text: 'Pika supports HuggingFace Inference API for vision-capable models like Qwen3-VL. You can use a personal HuggingFace token to use your own quota and access gated models.' }] },
+              { type: 'heading', tag: 'h3', children: [{ type: 'text', text: 'Step 1: Sign in to HuggingFace' }] },
+              { type: 'paragraph', children: [{ type: 'text', text: 'Go to huggingface.co and sign in (or create a free account).' }] },
+            ],
+            direction: 'ltr',
+            format: '',
+            indent: 0,
+            version: 1,
+          },
+        },
+      },
+      {
+        blockType: 'banner',
+        style: 'info',
+        content: 'HuggingFace Access Tokens: https://huggingface.co/settings/tokens — this is where you create and manage your API tokens.',
+      },
+      {
+        blockType: 'richText',
+        content: {
+          root: {
+            type: 'root',
+            children: [
+              { type: 'heading', tag: 'h3', children: [{ type: 'text', text: 'Step 2: Create an Access Token' }] },
+              { type: 'paragraph', children: [{ type: 'text', text: 'Click "New token", give it a name (e.g. "Pika"), select "Read" or "Inference" scope, and click "Create". Copy the token — it starts with "hf_...".' }] },
+              { type: 'heading', tag: 'h3', children: [{ type: 'text', text: 'Step 3: Paste the key into Pika' }] },
+              { type: 'paragraph', children: [{ type: 'text', text: 'Open Pika → Settings → AI and paste your token into the HuggingFace API Key field, then tap Save. Your token is stored securely on your account.' }] },
+              { type: 'heading', tag: 'h3', children: [{ type: 'text', text: 'Pricing & Rate Limits' }] },
+              { type: 'paragraph', children: [{ type: 'text', text: 'HuggingFace Inference API pricing is per-token and varies by model. Check the model page on huggingface.co for the latest rates. Usage under your personal token counts toward your own HuggingFace billing.' }] },
+              { type: 'heading', tag: 'h3', children: [{ type: 'text', text: 'Revoking your token' }] },
+              { type: 'paragraph', children: [{ type: 'text', text: 'You can revoke the token at any time from HuggingFace Settings → Access Tokens. After revoking, create a new one and update it in Pika Settings.' }] },
+            ],
+            direction: 'ltr',
+            format: '',
+            indent: 0,
+            version: 1,
+          },
+        },
+      },
+    ],
+  },
 ]
 
 export const seedPages = async (payload: Payload): Promise<void> => {

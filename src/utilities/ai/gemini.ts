@@ -33,10 +33,9 @@ export const TRANSACTION_RESPONSE_SCHEMA = {
 
 export const CATEGORY_SUGGESTION_RESPONSE_SCHEMA = {
   type: Type.OBJECT,
-  required: ['categoryId', 'reason'],
+  required: ['categoryId'],
   properties: {
     categoryId: { type: Type.STRING, description: 'Chosen child category ID from the provided list, or empty string if no match' },
-    reason:     { type: Type.STRING, description: 'Short 1-sentence reason for the choice' },
   },
 }
 

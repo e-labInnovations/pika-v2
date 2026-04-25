@@ -270,6 +270,9 @@ export const mcp = mcpPlugin({
                 geminiApiKey: userSetting.geminiApiKey
                   ? maskApiKey(userSetting.geminiApiKey)
                   : null,
+                hfApiKey: (userSetting as any).hfApiKey
+                  ? maskApiKey((userSetting as any).hfApiKey)
+                  : null,
               }
             : null
           const result = {
