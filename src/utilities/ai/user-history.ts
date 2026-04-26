@@ -219,106 +219,113 @@ async function loadHistoryVectors(
 // ─── Backfill ────────────────────────────────────────────────────────────────
 
 /**
- * Back-fill up to BACKFILL_BATCH_SIZE missing embeddings in a single background
- * pass. Designed to be chained: when one pass completes, if there are still
- * rows to embed, schedule another.
+ * Back-fill missing embeddings in the background. Pages through all transactions
+ * for the given user+type, finds those without embeddings, and generates them.
  */
 async function runBackfillPass(
   payload: Payload,
   userId: string,
   txType: TxType,
-): Promise<{ embedded: number; remaining: number }> {
-  // Fetch a batch of candidate transactions (active, categorised, for this user+type).
-  const txRes = await payload.find({
-    collection: 'transactions',
-    where: {
-      and: [
-        { user: { equals: userId } },
-        { type: { equals: txType } },
-        { isActive: { equals: true } },
-        { category: { exists: true } },
-      ],
-    },
-    sort: '-date',
-    limit: BACKFILL_BATCH_SIZE * 5,
-    depth: 0,
-    overrideAccess: true,
-  })
+): Promise<void> {
+  let hasNextPage = true
+  let page = 1
 
-  if (!txRes.docs.length) return { embedded: 0, remaining: 0 }
+  while (hasNextPage) {
+    const txRes = await payload.find({
+      collection: 'transactions',
+      where: {
+        and: [
+          { user: { equals: userId } },
+          { type: { equals: txType } },
+          { isActive: { equals: true } },
+          { category: { exists: true } },
+        ],
+      },
+      sort: '-date',
+      limit: 100,
+      page,
+      depth: 0,
+      overrideAccess: true,
+    })
 
-  const txIds = (txRes.docs as Transaction[]).map((d) => d.id)
+    hasNextPage = txRes.hasNextPage ?? false
+    page++
 
-  // Which of these already have a current-model embedding?
-  const currentEmbRes = await payload.find({
-    collection: 'transaction-embeddings',
-    where: {
-      and: [
-        { transaction: { in: txIds } },
-        { titleEmbeddingModel: { equals: EMBEDDING_MODEL } },
-      ],
-    },
-    limit: txIds.length,
-    depth: 0,
-    overrideAccess: true,
-  })
-  const embeddedTxIds = new Set((currentEmbRes.docs as any[]).map((d) => extractId(d.transaction)))
+    if (!txRes.docs.length) continue
 
-  const toEmbed = (txRes.docs as Transaction[])
-    .filter((d) => !embeddedTxIds.has(d.id))
-    .slice(0, BACKFILL_BATCH_SIZE)
+    const txIds = (txRes.docs as Transaction[]).map((d) => d.id)
 
-  if (!toEmbed.length) return { embedded: 0, remaining: 0 }
+    // Which of these already have a current-model embedding?
+    const currentEmbRes = await payload.find({
+      collection: 'transaction-embeddings',
+      where: {
+        and: [
+          { transaction: { in: txIds } },
+          { titleEmbeddingModel: { equals: EMBEDDING_MODEL } },
+        ],
+      },
+      limit: txIds.length,
+      depth: 0,
+      overrideAccess: true,
+    })
+    const embeddedTxIds = new Set((currentEmbRes.docs as any[]).map((d) => extractId(d.transaction)))
 
-  // For the rows to embed, find any existing (stale-model) embedding records so we
-  // can update rather than create a duplicate.
-  const staleEmbRes = await payload.find({
-    collection: 'transaction-embeddings',
-    where: { transaction: { in: toEmbed.map((d) => d.id) } },
-    limit: toEmbed.length,
-    depth: 0,
-    overrideAccess: true,
-  })
-  const staleEmbByTxId = new Map(
-    (staleEmbRes.docs as any[]).map((d) => [extractId(d.transaction), d.id as string]),
-  )
+    const toEmbed = (txRes.docs as Transaction[]).filter((d) => !embeddedTxIds.has(d.id))
 
-  let embedded = 0
-  for (const doc of toEmbed) {
-    const title = doc.title?.trim()
-    if (!title) continue
-    try {
-      const vector = await embed(title)
-      const embeddingData = {
-        titleEmbedding: Array.from(vector),
-        titleEmbeddingModel: EMBEDDING_MODEL,
+    if (!toEmbed.length) continue
+
+    // For the rows to embed, find any existing (stale-model) embedding records so we
+    // can update rather than create a duplicate.
+    const staleEmbRes = await payload.find({
+      collection: 'transaction-embeddings',
+      where: { transaction: { in: toEmbed.map((d) => d.id) } },
+      limit: toEmbed.length,
+      depth: 0,
+      overrideAccess: true,
+    })
+    const staleEmbByTxId = new Map(
+      (staleEmbRes.docs as any[]).map((d) => [extractId(d.transaction), d.id as string]),
+    )
+
+    let embedded = 0
+    for (const doc of toEmbed) {
+      const title = doc.title?.trim()
+      if (!title) continue
+      try {
+        const vector = await embed(title)
+        const embeddingData = {
+          titleEmbedding: Array.from(vector),
+          titleEmbeddingModel: EMBEDDING_MODEL,
+        }
+        const existingEmbId = staleEmbByTxId.get(doc.id)
+        if (existingEmbId) {
+          await payload.update({
+            collection: 'transaction-embeddings',
+            id: existingEmbId,
+            data: embeddingData,
+            overrideAccess: true,
+          })
+        } else {
+          await payload.create({
+            collection: 'transaction-embeddings',
+            data: { transaction: doc.id, user: userId, type: txType, ...embeddingData },
+            overrideAccess: true,
+          })
+        }
+        embedded++
+      } catch (e) {
+        console.warn(
+          `[user-history] Backfill skipped ${doc.id}:`,
+          (e as Error)?.message ?? e,
+        )
       }
-      const existingEmbId = staleEmbByTxId.get(doc.id)
-      if (existingEmbId) {
-        await payload.update({
-          collection: 'transaction-embeddings',
-          id: existingEmbId,
-          data: embeddingData,
-          overrideAccess: true,
-        })
-      } else {
-        await payload.create({
-          collection: 'transaction-embeddings',
-          data: { transaction: doc.id, user: userId, type: txType, ...embeddingData },
-          overrideAccess: true,
-        })
-      }
-      embedded++
-    } catch (e) {
-      console.warn(
-        `[user-history] Backfill skipped ${doc.id}:`,
-        (e as Error)?.message ?? e,
-      )
+    }
+
+    if (embedded > 0) {
+      const key = cacheKey(userId, txType)
+      userHistoryCache.delete(key)
     }
   }
-
-  const totalUnembedded = (txRes.totalDocs ?? 0) - ((currentEmbRes.totalDocs ?? 0) + embedded)
-  return { embedded, remaining: Math.max(0, totalUnembedded) }
 }
 
 /**
@@ -379,12 +386,7 @@ function kickOffBackfill(payload: Payload, userId: string, txType: TxType): void
 
   void (async () => {
     try {
-      for (let i = 0; i < 500; i++) {
-        const { embedded, remaining } = await runBackfillPass(payload, userId, txType)
-        if (embedded === 0) break
-        userHistoryCache.delete(key)
-        if (remaining === 0) break
-      }
+      await runBackfillPass(payload, userId, txType)
     } catch (e) {
       console.warn(
         `[user-history] Backfill for ${key} stopped:`,
