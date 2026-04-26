@@ -3,6 +3,7 @@ import {
   processTextToTransaction,
   processImageToTransaction,
   processCategorySuggestion,
+  createAIPromptRecord,
   type TxType,
 } from '../utilities/ai/service'
 import { processCategoryPrediction } from '../utilities/ai/predict-category'
@@ -53,7 +54,14 @@ export const textToTransactionHandler: PayloadHandler = async (req) => {
 
   try {
     const result = await processTextToTransaction(req.payload, String(req.user.id), text, requestedModel)
-    return Response.json(result)
+    const promptId = await createAIPromptRecord(req.payload, String(req.user.id), {
+      inputType: 'text',
+      inputText: text,
+      systemPrompt: result.systemPrompt,
+      userPrompt: result.userPrompt,
+      model: result.model,
+    })
+    return Response.json({ ...result, promptId })
   } catch (e: any) {
     return aiErrorResponse(e)
   }
@@ -88,7 +96,15 @@ export const imageToTransactionHandler: PayloadHandler = async (req) => {
 
   try {
     const result = await processImageToTransaction(req.payload, String(req.user.id), imageBase64, mimeType, requestedModel)
-    return Response.json(result)
+    const promptId = await createAIPromptRecord(req.payload, String(req.user.id), {
+      inputType: 'image',
+      inputImageBase64: imageBase64,
+      inputImageMimeType: mimeType,
+      systemPrompt: result.systemPrompt,
+      userPrompt: result.userPrompt,
+      model: result.model,
+    })
+    return Response.json({ ...result, promptId })
   } catch (e: any) {
     return aiErrorResponse(e)
   }
@@ -236,3 +252,4 @@ export const embeddingsStatusHandler: PayloadHandler = async (req) => {
     return aiErrorResponse(e)
   }
 }
+

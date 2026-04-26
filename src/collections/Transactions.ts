@@ -23,6 +23,30 @@ import { scheduleTitleEmbedding, invalidateUserHistoryCache } from '../utilities
  * and invalidate the user's in-memory history cache so the next prediction
  * picks up the fresh row. Fire-and-forget — never block the write response.
  */
+const extractPromptId: CollectionBeforeChangeHook = ({ data, req, operation }) => {
+  if (operation !== 'create') return data
+  // REST clients: pass promptId in the request body
+  // GraphQL clients: pass promptId via X-Prompt-Id header (GraphQL input types are strict)
+  const promptId = (data as any).promptId ?? req.headers?.get?.('x-prompt-id') ?? (req.headers as any)?.['x-prompt-id']
+  if (promptId) {
+    req.context = { ...req.context, promptId }
+    delete (data as any).promptId
+  }
+  return data
+}
+
+const afterCreateLinkPrompt: CollectionAfterChangeHook = ({ doc, req, operation }) => {
+  if (operation !== 'create') return
+  const promptId = req.context?.promptId
+  if (!promptId) return
+  req.payload.update({
+    collection: 'ai-prompts',
+    id: promptId as string,
+    data: { transaction: doc.id },
+    overrideAccess: true,
+  }).catch(() => {})
+}
+
 const afterChangeEmbedTitle: CollectionAfterChangeHook = ({
   doc,
   previousDoc,
@@ -76,8 +100,8 @@ export const Transactions: CollectionConfig = {
     delete: isAdminOrOwn,
   },
   hooks: {
-    beforeChange: [setUserOnCreate, validateToAccount],
-    afterChange: [afterChangeEmbedTitle],
+    beforeChange: [extractPromptId, setUserOnCreate, validateToAccount],
+    afterChange: [afterCreateLinkPrompt, afterChangeEmbedTitle],
   },
   fields: [
     userField,

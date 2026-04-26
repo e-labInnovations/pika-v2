@@ -25,6 +25,7 @@ import {
   processTextToTransaction,
   processImageToTransaction,
   processCategorySuggestion,
+  createAIPromptRecord,
   type TxType,
 } from '../utilities/ai/service'
 import { processCategoryPrediction } from '../utilities/ai/predict-category'
@@ -47,6 +48,7 @@ const AITransactionResultType = new GraphQLObjectType({
     model:      { type: new GraphQLNonNull(GraphQLString) },
     latencyMs:  { type: new GraphQLNonNull(GraphQLFloat) },
     usage:      { type: new GraphQLNonNull(AIUsageMetaType) },
+    promptId:   { type: GraphQLString, description: 'ID of the saved ai-prompts record for this inference' },
   },
 })
 
@@ -92,7 +94,16 @@ export const aiMutations = () => ({
     ) => {
       const { req } = context
       if (!req.user) throw new Error('Unauthorized')
-      return processTextToTransaction(req.payload, String(req.user.id), args.text, args.model)
+      const userId = String(req.user.id)
+      const result = await processTextToTransaction(req.payload, userId, args.text, args.model)
+      const promptId = await createAIPromptRecord(req.payload, userId, {
+        inputType: 'text',
+        inputText: args.text,
+        systemPrompt: result.systemPrompt,
+        userPrompt: result.userPrompt,
+        model: result.model,
+      })
+      return { ...result, promptId }
     },
   },
 
@@ -123,7 +134,17 @@ export const aiMutations = () => ({
       const allowed = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
       if (!allowed.includes(mimeType)) throw new Error(`Unsupported image type "${mimeType}". Allowed: ${allowed.join(', ')}`)
 
-      return processImageToTransaction(req.payload, String(req.user.id), imageBase64, mimeType, args.model)
+      const userId = String(req.user.id)
+      const result = await processImageToTransaction(req.payload, userId, imageBase64, mimeType, args.model)
+      const promptId = await createAIPromptRecord(req.payload, userId, {
+        inputType: 'image',
+        inputImageBase64: imageBase64,
+        inputImageMimeType: mimeType,
+        systemPrompt: result.systemPrompt,
+        userPrompt: result.userPrompt,
+        model: result.model,
+      })
+      return { ...result, promptId }
     },
   },
 

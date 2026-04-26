@@ -46,6 +46,8 @@ export type AITransactionResult = {
   model: string
   latencyMs: number
   usage: AIUsage
+  systemPrompt: string
+  userPrompt: string
 }
 
 export type AICategorySuggestionResult = {
@@ -346,6 +348,67 @@ function renderCategoryTree(
   return sections.join('\n\n')
 }
 
+async function uploadPromptImage(
+  payload: Payload,
+  userId: string,
+  imageBase64: string,
+  mimeType: string,
+): Promise<string | null> {
+  try {
+    const ext = mimeType.split('/')[1] ?? 'jpg'
+    const buffer = Buffer.from(imageBase64, 'base64')
+    const media = await payload.create({
+      collection: 'media',
+      data: { user: userId, alt: 'AI prompt image', type: 'attachment', entityType: 'transaction' },
+      file: { data: buffer, mimetype: mimeType, name: `prompt-${Date.now()}.${ext}`, size: buffer.length },
+      overrideAccess: true,
+    })
+    return media.id as string
+  } catch (e) {
+    payload.logger.error({ err: e }, 'uploadPromptImage failed')
+    return null
+  }
+}
+
+export async function createAIPromptRecord(
+  payload: Payload,
+  userId: string,
+  data: {
+    inputType: 'text' | 'image'
+    inputText?: string
+    inputImageBase64?: string
+    inputImageMimeType?: string
+    systemPrompt: string
+    userPrompt: string
+    model: string
+  },
+): Promise<string | null> {
+  try {
+    let inputImageId: string | null = null
+    if (data.inputType === 'image' && data.inputImageBase64 && data.inputImageMimeType) {
+      inputImageId = await uploadPromptImage(payload, userId, data.inputImageBase64, data.inputImageMimeType)
+    }
+
+    const doc = await payload.create({
+      collection: 'ai-prompts',
+      data: {
+        user: userId,
+        inputType: data.inputType,
+        inputText: data.inputText ?? null,
+        inputImage: inputImageId ?? undefined,
+        systemPrompt: data.systemPrompt,
+        userPrompt: data.userPrompt,
+        model: data.model,
+      },
+      overrideAccess: true,
+    })
+    return doc.id as string
+  } catch (e) {
+    payload.logger.error({ err: e }, 'createAIPromptRecord failed')
+    return null
+  }
+}
+
 export async function logUsage(
   payload: Payload,
   userId: string,
@@ -549,7 +612,7 @@ export async function processTextToTransaction(
   await logUsage(payload, userId, { promptType: 'text', model, apiKeyType: config.apiKeyType, status: 'success', usage: result.usage, latencyMs: result.latencyMs })
 
   const resolved = await resolveAITransactionData(payload, result.data)
-  return { data: resolved, model, usage: result.usage, latencyMs: result.latencyMs }
+  return { data: resolved, model, usage: result.usage, latencyMs: result.latencyMs, systemPrompt: TEXT_TO_TRANSACTION_SYSTEM, userPrompt }
 }
 
 export async function processImageToTransaction(
@@ -588,7 +651,7 @@ export async function processImageToTransaction(
   await logUsage(payload, userId, { promptType: 'image', model, apiKeyType: config.apiKeyType, status: 'success', usage: result.usage, latencyMs: result.latencyMs })
 
   const resolved = await resolveAITransactionData(payload, result.data)
-  return { data: resolved, model, usage: result.usage, latencyMs: result.latencyMs }
+  return { data: resolved, model, usage: result.usage, latencyMs: result.latencyMs, systemPrompt: IMAGE_TO_TRANSACTION_SYSTEM, userPrompt }
 }
 
 // ─── Category suggestion ──────────────────────────────────────────────────────

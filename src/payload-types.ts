@@ -80,6 +80,7 @@ export interface Config {
     reminders: Reminder;
     'user-settings': UserSetting;
     'ai-usages': AiUsage;
+    'ai-prompts': AiPrompt;
     'oauth-accounts': OauthAccount;
     'payload-mcp-api-keys': PayloadMcpApiKey;
     'oauth-codes': OauthCode;
@@ -110,6 +111,7 @@ export interface Config {
     reminders: RemindersSelect<false> | RemindersSelect<true>;
     'user-settings': UserSettingsSelect<false> | UserSettingsSelect<true>;
     'ai-usages': AiUsagesSelect<false> | AiUsagesSelect<true>;
+    'ai-prompts': AiPromptsSelect<false> | AiPromptsSelect<true>;
     'oauth-accounts': OauthAccountsSelect<false> | OauthAccountsSelect<true>;
     'payload-mcp-api-keys': PayloadMcpApiKeysSelect<false> | PayloadMcpApiKeysSelect<true>;
     'oauth-codes': OauthCodesSelect<false> | OauthCodesSelect<true>;
@@ -544,6 +546,41 @@ export interface AiUsage {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-prompts".
+ */
+export interface AiPrompt {
+  id: string;
+  user: string | User;
+  inputType: 'text' | 'image';
+  /**
+   * The raw text provided by the user
+   */
+  inputText?: string | null;
+  /**
+   * The image uploaded by the user (stored in media)
+   */
+  inputImage?: (string | null) | Media;
+  /**
+   * The system prompt sent to the model
+   */
+  systemPrompt?: string | null;
+  /**
+   * The full user context prompt sent to the model (categories, accounts, etc.)
+   */
+  userPrompt?: string | null;
+  /**
+   * AI model used for this prompt
+   */
+  model?: string | null;
+  /**
+   * Transaction created from this prompt (populated after creation)
+   */
+  transaction?: (string | null) | Transaction;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "oauth-accounts".
  */
 export interface OauthAccount {
@@ -861,6 +898,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ai-usages';
         value: string | AiUsage;
+      } | null)
+    | ({
+        relationTo: 'ai-prompts';
+        value: string | AiPrompt;
       } | null)
     | ({
         relationTo: 'oauth-accounts';
@@ -1185,6 +1226,22 @@ export interface AiUsagesSelect<T extends boolean = true> {
   status?: T;
   apiKeyType?: T;
   error?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-prompts_select".
+ */
+export interface AiPromptsSelect<T extends boolean = true> {
+  user?: T;
+  inputType?: T;
+  inputText?: T;
+  inputImage?: T;
+  systemPrompt?: T;
+  userPrompt?: T;
+  model?: T;
+  transaction?: T;
   updatedAt?: T;
   createdAt?: T;
 }
