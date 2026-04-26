@@ -12,6 +12,7 @@ import { Reminders } from './Reminders'
 import { UserSettings } from './UserSettings'
 import { AIUsages } from './AIUsages'
 import { AIPrompts } from './AIPrompts'
+import { TransactionEmbeddings } from './TransactionEmbeddings'
 import { OAuthAccounts } from './OAuthAccounts'
 import { TransactionLinks } from './TransactionLinks'
 import { Pages } from './Pages'
@@ -30,5 +31,6 @@ export const collections = [
   UserSettings,
   AIUsages,
   AIPrompts,
+  TransactionEmbeddings,
   OAuthAccounts,
 ]

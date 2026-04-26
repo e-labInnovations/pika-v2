@@ -7,16 +7,17 @@
  * spellings) that generic category name embeddings can't.
  *
  * Flow at prediction time:
- *   1. Load up to HISTORY_FETCH_LIMIT of the user's recent, categorised,
- *      active transactions of the requested type.
+ *   1. Load up to HISTORY_FETCH_LIMIT of the user's recent embeddings from
+ *      the `transaction-embeddings` collection (populated with transaction data).
  *   2. Score the query title against each past title (cosine similarity).
  *   3. Top-K weighted vote on categories.
  *   4. Return the winner IF it clears the score bar — else let the caller
  *      fall back to generic category-name embeddings.
  *
  * Durability:
- *   - Embeddings persist in `transactions.titleEmbedding` (see the Transactions
- *     collection). New/edited rows auto-embed via the afterChange hook.
+ *   - Embeddings persist in the `transaction-embeddings` collection (separate
+ *     from transactions to keep transaction rows lean). New/edited rows
+ *     auto-embed via the afterChange hook on Transactions.
  *   - Pre-existing rows get lazily back-filled in the background the first
  *     time a user's history is needed — predictions work immediately (fall
  *     back to category tier) and sharpen as backfill completes.
@@ -71,7 +72,7 @@ type TxVector = {
 
 type CacheEntry = {
   vectors: TxVector[]
-  /** How many rows in the DB query didn't have an embedding yet. */
+  /** How many categorised transactions for this user+type don't have a current embedding yet. */
   missingEmbeddings: number
   loadedAt: number
 }
@@ -96,30 +97,46 @@ export function invalidateUserHistoryCache(userId: string): void {
 // ─── Title embedding (wrapper used by the afterChange hook) ─────────────────
 
 /**
- * Embed a single transaction's title and save it back to the row. Uses the
- * low-level db adapter to BYPASS validation + hooks — embeddings are a
- * derived metadata field, and running full doc validation on every write
- * would fail for legacy rows whose relationship fields (Account, Person,
- * …) no longer pass current validators (e.g. a deleted source account).
+ * Embed a single transaction's title and upsert into `transaction-embeddings`.
  * Fire-and-forget from the caller — errors are swallowed.
  */
 export async function scheduleTitleEmbedding(
   payload: Payload,
   txId: string,
+  userId: string,
+  txType: string,
   title: string,
 ): Promise<void> {
   if (!title?.trim()) return
   try {
     const vector = await embed(title.trim())
-    await payload.db.updateOne({
-      collection: 'transactions',
-      id: txId,
-      data: {
-        titleEmbedding: Array.from(vector),
-        titleEmbeddingModel: EMBEDDING_MODEL,
-      },
-      returning: false,
+    const embeddingData = {
+      titleEmbedding: Array.from(vector),
+      titleEmbeddingModel: EMBEDDING_MODEL,
+    }
+
+    const existing = await payload.find({
+      collection: 'transaction-embeddings',
+      where: { transaction: { equals: txId } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
     })
+
+    if (existing.docs.length > 0) {
+      await payload.update({
+        collection: 'transaction-embeddings',
+        id: existing.docs[0].id,
+        data: embeddingData,
+        overrideAccess: true,
+      })
+    } else {
+      await payload.create({
+        collection: 'transaction-embeddings',
+        data: { transaction: txId, user: userId, type: txType, ...embeddingData },
+        overrideAccess: true,
+      })
+    }
   } catch (e) {
     // Best-effort — the next prediction query will lazy-backfill.
     console.warn(
@@ -129,15 +146,7 @@ export async function scheduleTitleEmbedding(
   }
 }
 
-// ─── History loading + backfill ─────────────────────────────────────────────
-
-type TxRow = {
-  id: string
-  title: string
-  categoryId: string | null
-  titleEmbedding: number[] | null
-  titleEmbeddingModel: string | null
-}
+// ─── History loading ─────────────────────────────────────────────────────────
 
 function extractId(rel: unknown): string | null {
   if (!rel) return null
@@ -148,77 +157,79 @@ function extractId(rel: unknown): string | null {
   return null
 }
 
-async function fetchUserHistory(
-  payload: Payload,
-  userId: string,
-  txType: TxType,
-): Promise<TxRow[]> {
-  const res = await payload.find({
-    collection: 'transactions',
-    where: {
-      and: [
-        { user: { equals: userId } },
-        { type: { equals: txType } },
-        { isActive: { equals: true } },
-        { category: { exists: true } },
-      ],
-    },
-    sort: '-date',
-    limit: HISTORY_FETCH_LIMIT,
-    depth: 0,
-    overrideAccess: true,
-  })
-  return (res.docs as Transaction[]).map((d) => ({
-    id: d.id,
-    title: d.title,
-    categoryId: extractId(d.category),
-    titleEmbedding: (d as any).titleEmbedding ?? null,
-    titleEmbeddingModel: (d as any).titleEmbeddingModel ?? null,
-  }))
-}
-
-function rowToVector(row: TxRow): TxVector | null {
-  if (!row.categoryId || !row.titleEmbedding || row.titleEmbeddingModel !== EMBEDDING_MODEL) {
-    return null
-  }
-  return {
-    txId: row.id,
-    categoryId: row.categoryId,
-    vector: Float32Array.from(row.titleEmbedding),
-  }
-}
-
 async function loadHistoryVectors(
   payload: Payload,
   userId: string,
   txType: TxType,
 ): Promise<CacheEntry> {
-  const rows = await fetchUserHistory(payload, userId, txType)
+  // Fetch current-model embeddings with the transaction populated (for category + isActive).
+  // Run in parallel with a total-transaction count to determine how many are still un-embedded.
+  const [embRes, txCountRes] = await Promise.all([
+    payload.find({
+      collection: 'transaction-embeddings',
+      where: {
+        and: [
+          { user: { equals: userId } },
+          { type: { equals: txType } },
+          { titleEmbeddingModel: { equals: EMBEDDING_MODEL } },
+        ],
+      },
+      sort: '-createdAt',
+      limit: HISTORY_FETCH_LIMIT,
+      depth: 1,
+      overrideAccess: true,
+    }),
+    payload.find({
+      collection: 'transactions',
+      where: {
+        and: [
+          { user: { equals: userId } },
+          { type: { equals: txType } },
+          { isActive: { equals: true } },
+          { category: { exists: true } },
+        ],
+      },
+      limit: 0,
+      depth: 0,
+      overrideAccess: true,
+    }),
+  ])
+
   const vectors: TxVector[] = []
-  let missing = 0
-  for (const r of rows) {
-    const v = rowToVector(r)
-    if (v) vectors.push(v)
-    else missing++
+  for (const d of embRes.docs as any[]) {
+    const tx = d.transaction
+    if (!tx || typeof tx !== 'object') continue
+    if (!tx.isActive || !tx.category) continue
+    const categoryId = extractId(tx.category)
+    if (!categoryId || !d.titleEmbedding) continue
+    vectors.push({
+      txId: tx.id,
+      categoryId,
+      vector: Float32Array.from(d.titleEmbedding as number[]),
+    })
   }
-  return { vectors, missingEmbeddings: missing, loadedAt: Date.now() }
+
+  const totalTx = txCountRes.totalDocs ?? 0
+  const embeddedTx = embRes.totalDocs ?? 0
+  const missingEmbeddings = Math.max(0, totalTx - embeddedTx)
+
+  return { vectors, missingEmbeddings, loadedAt: Date.now() }
 }
+
+// ─── Backfill ────────────────────────────────────────────────────────────────
 
 /**
  * Back-fill up to BACKFILL_BATCH_SIZE missing embeddings in a single background
  * pass. Designed to be chained: when one pass completes, if there are still
- * rows to embed, schedule another. This keeps CPU usage gentle (one title
- * embedding ≈ 30 ms on cold CPU) and avoids hammering the model thread.
+ * rows to embed, schedule another.
  */
 async function runBackfillPass(
   payload: Payload,
   userId: string,
   txType: TxType,
 ): Promise<{ embedded: number; remaining: number }> {
-  // NULL columns don't match `not_equals`, so a plain
-  // `titleEmbeddingModel: { not_equals: CURRENT_MODEL }` filter would skip all
-  // un-embedded rows. Explicitly OR with `exists: false` to catch them.
-  const res = await payload.find({
+  // Fetch a batch of candidate transactions (active, categorised, for this user+type).
+  const txRes = await payload.find({
     collection: 'transactions',
     where: {
       and: [
@@ -226,42 +237,79 @@ async function runBackfillPass(
         { type: { equals: txType } },
         { isActive: { equals: true } },
         { category: { exists: true } },
-        {
-          or: [
-            { titleEmbeddingModel: { exists: false } },
-            { titleEmbeddingModel: { not_equals: EMBEDDING_MODEL } },
-          ],
-        },
       ],
     },
     sort: '-date',
-    limit: BACKFILL_BATCH_SIZE,
+    limit: BACKFILL_BATCH_SIZE * 5,
     depth: 0,
     overrideAccess: true,
   })
 
+  if (!txRes.docs.length) return { embedded: 0, remaining: 0 }
+
+  const txIds = (txRes.docs as Transaction[]).map((d) => d.id)
+
+  // Which of these already have a current-model embedding?
+  const currentEmbRes = await payload.find({
+    collection: 'transaction-embeddings',
+    where: {
+      and: [
+        { transaction: { in: txIds } },
+        { titleEmbeddingModel: { equals: EMBEDDING_MODEL } },
+      ],
+    },
+    limit: txIds.length,
+    depth: 0,
+    overrideAccess: true,
+  })
+  const embeddedTxIds = new Set((currentEmbRes.docs as any[]).map((d) => extractId(d.transaction)))
+
+  const toEmbed = (txRes.docs as Transaction[])
+    .filter((d) => !embeddedTxIds.has(d.id))
+    .slice(0, BACKFILL_BATCH_SIZE)
+
+  if (!toEmbed.length) return { embedded: 0, remaining: 0 }
+
+  // For the rows to embed, find any existing (stale-model) embedding records so we
+  // can update rather than create a duplicate.
+  const staleEmbRes = await payload.find({
+    collection: 'transaction-embeddings',
+    where: { transaction: { in: toEmbed.map((d) => d.id) } },
+    limit: toEmbed.length,
+    depth: 0,
+    overrideAccess: true,
+  })
+  const staleEmbByTxId = new Map(
+    (staleEmbRes.docs as any[]).map((d) => [extractId(d.transaction), d.id as string]),
+  )
+
   let embedded = 0
-  for (const doc of res.docs as Transaction[]) {
+  for (const doc of toEmbed) {
     const title = doc.title?.trim()
     if (!title) continue
     try {
       const vector = await embed(title)
-      // Low-level adapter write — skips validation + hooks. Required because
-      // legacy rows may fail current field validators on unrelated fields
-      // (stale Account references, etc.); we don't want that to block
-      // writing a derived embedding column.
-      await payload.db.updateOne({
-        collection: 'transactions',
-        id: doc.id,
-        data: {
-          titleEmbedding: Array.from(vector),
-          titleEmbeddingModel: EMBEDDING_MODEL,
-        },
-        returning: false,
-      })
+      const embeddingData = {
+        titleEmbedding: Array.from(vector),
+        titleEmbeddingModel: EMBEDDING_MODEL,
+      }
+      const existingEmbId = staleEmbByTxId.get(doc.id)
+      if (existingEmbId) {
+        await payload.update({
+          collection: 'transaction-embeddings',
+          id: existingEmbId,
+          data: embeddingData,
+          overrideAccess: true,
+        })
+      } else {
+        await payload.create({
+          collection: 'transaction-embeddings',
+          data: { transaction: doc.id, user: userId, type: txType, ...embeddingData },
+          overrideAccess: true,
+        })
+      }
       embedded++
     } catch (e) {
-      // Swallow; we'll try the remaining rows and the rest on the next pass.
       console.warn(
         `[user-history] Backfill skipped ${doc.id}:`,
         (e as Error)?.message ?? e,
@@ -269,7 +317,8 @@ async function runBackfillPass(
     }
   }
 
-  return { embedded, remaining: Math.max(0, (res.totalDocs ?? 0) - embedded) }
+  const totalUnembedded = (txRes.totalDocs ?? 0) - ((currentEmbRes.totalDocs ?? 0) + embedded)
+  return { embedded, remaining: Math.max(0, totalUnembedded) }
 }
 
 /**
@@ -290,24 +339,27 @@ export async function getUserEmbeddingStats(
   payload: Payload,
   userId: string,
 ): Promise<{ total: number; embedded: number; pending: number }> {
-  const baseWhere = {
-    user: { equals: userId },
-    isActive: { equals: true },
-    category: { exists: true },
-  }
-
   const [totalRes, embeddedRes] = await Promise.all([
     payload.find({
       collection: 'transactions',
-      where: baseWhere,
+      where: {
+        and: [
+          { user: { equals: userId } },
+          { isActive: { equals: true } },
+          { category: { exists: true } },
+        ],
+      },
       limit: 0,
       depth: 0,
       overrideAccess: true,
     }),
     payload.find({
-      collection: 'transactions',
+      collection: 'transaction-embeddings',
       where: {
-        and: [baseWhere, { titleEmbeddingModel: { equals: EMBEDDING_MODEL } }],
+        and: [
+          { user: { equals: userId } },
+          { titleEmbeddingModel: { equals: EMBEDDING_MODEL } },
+        ],
       },
       limit: 0,
       depth: 0,
@@ -327,12 +379,9 @@ function kickOffBackfill(payload: Payload, userId: string, txType: TxType): void
 
   void (async () => {
     try {
-      // Chain passes until there's nothing left. Gentle on the model thread.
-      // Cap total passes as a safety net so a bug can't loop forever.
       for (let i = 0; i < 500; i++) {
         const { embedded, remaining } = await runBackfillPass(payload, userId, txType)
         if (embedded === 0) break
-        // Drop cache so the next prediction picks up the freshly-embedded rows.
         userHistoryCache.delete(key)
         if (remaining === 0) break
       }
@@ -370,7 +419,6 @@ export async function predictCategoryFromHistory(
 
   const totalHistory = cached.vectors.length + cached.missingEmbeddings
   if (cached.vectors.length < HISTORY_MIN_SAMPLES) {
-    // Not enough signal to be useful. Let caller fall back to category tier.
     return {
       category: null,
       score: 0,
@@ -384,14 +432,12 @@ export async function predictCategoryFromHistory(
 
   const titleVec = await embed(args.title)
 
-  // Cosine-similarity score per past transaction
   const perTx: { categoryId: string; sim: number }[] = []
   for (const v of cached.vectors) {
     perTx.push({ categoryId: v.categoryId, sim: cosine(titleVec, v.vector) })
   }
   perTx.sort((a, b) => b.sim - a.sim)
 
-  // Weighted vote over top-K neighbours — positive contributions only.
   const topK = perTx.slice(0, HISTORY_TOP_K)
   const votes = new Map<string, { weight: number; count: number }>()
   let totalPositiveWeight = 0
@@ -427,9 +473,8 @@ export async function predictCategoryFromHistory(
     }
   }
 
-  const score = winnerWeight / totalPositiveWeight // normalised vote share
+  const score = winnerWeight / totalPositiveWeight
 
-  // Resolve the full Category object so the caller can return it directly.
   let category: Category | null = null
   if (winnerId) {
     try {

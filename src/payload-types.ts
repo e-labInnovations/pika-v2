@@ -81,6 +81,7 @@ export interface Config {
     'user-settings': UserSetting;
     'ai-usages': AiUsage;
     'ai-prompts': AiPrompt;
+    'transaction-embeddings': TransactionEmbedding;
     'oauth-accounts': OauthAccount;
     'payload-mcp-api-keys': PayloadMcpApiKey;
     'oauth-codes': OauthCode;
@@ -112,6 +113,7 @@ export interface Config {
     'user-settings': UserSettingsSelect<false> | UserSettingsSelect<true>;
     'ai-usages': AiUsagesSelect<false> | AiUsagesSelect<true>;
     'ai-prompts': AiPromptsSelect<false> | AiPromptsSelect<true>;
+    'transaction-embeddings': TransactionEmbeddingsSelect<false> | TransactionEmbeddingsSelect<true>;
     'oauth-accounts': OauthAccountsSelect<false> | OauthAccountsSelect<true>;
     'payload-mcp-api-keys': PayloadMcpApiKeysSelect<false> | PayloadMcpApiKeysSelect<true>;
     'oauth-codes': OauthCodesSelect<false> | OauthCodesSelect<true>;
@@ -439,16 +441,6 @@ export interface Transaction {
   attachments?: (string | Media)[] | null;
   note?: string | null;
   isActive?: boolean | null;
-  titleEmbedding?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  titleEmbeddingModel?: string | null;
   /**
    * Links where this transaction is the source (e.g. this repaid another)
    */
@@ -576,6 +568,28 @@ export interface AiPrompt {
    * Transaction created from this prompt (populated after creation)
    */
   transaction?: (string | null) | Transaction;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transaction-embeddings".
+ */
+export interface TransactionEmbedding {
+  id: string;
+  transaction: string | Transaction;
+  user: string | User;
+  type: string;
+  titleEmbedding?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  titleEmbeddingModel?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -904,6 +918,10 @@ export interface PayloadLockedDocument {
         value: string | AiPrompt;
       } | null)
     | ({
+        relationTo: 'transaction-embeddings';
+        value: string | TransactionEmbedding;
+      } | null)
+    | ({
         relationTo: 'oauth-accounts';
         value: string | OauthAccount;
       } | null)
@@ -1142,8 +1160,6 @@ export interface TransactionsSelect<T extends boolean = true> {
   attachments?: T;
   note?: T;
   isActive?: T;
-  titleEmbedding?: T;
-  titleEmbeddingModel?: T;
   outgoingLinks?: T;
   incomingLinks?: T;
   updatedAt?: T;
@@ -1242,6 +1258,19 @@ export interface AiPromptsSelect<T extends boolean = true> {
   userPrompt?: T;
   model?: T;
   transaction?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transaction-embeddings_select".
+ */
+export interface TransactionEmbeddingsSelect<T extends boolean = true> {
+  transaction?: T;
+  user?: T;
+  type?: T;
+  titleEmbedding?: T;
+  titleEmbeddingModel?: T;
   updatedAt?: T;
   createdAt?: T;
 }

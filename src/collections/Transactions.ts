@@ -56,15 +56,13 @@ const afterChangeEmbedTitle: CollectionAfterChangeHook = ({
   const userId = typeof doc.user === 'string' ? doc.user : doc.user?.id
   if (userId) invalidateUserHistoryCache(String(userId))
 
-  // Avoid re-entering this hook when we write the embedding back below.
   if ((context as any)?.skipEmbeddingHook) return
 
   const titleChanged = doc.title !== previousDoc?.title
-  const hasEmbedding = !!doc.titleEmbedding
-  if (!titleChanged && hasEmbedding) return
+  if (!titleChanged) return
 
   // Schedule async — do not await. Errors are swallowed inside.
-  scheduleTitleEmbedding(req.payload, doc.id, doc.title).catch(() => {})
+  scheduleTitleEmbedding(req.payload, doc.id, String(userId), doc.type, doc.title).catch(() => {})
 }
 
 const validateToAccount: CollectionBeforeChangeHook = async ({ data, operation, originalDoc }) => {
@@ -299,19 +297,6 @@ export const Transactions: CollectionConfig = {
       name: 'isActive',
       type: 'checkbox',
       defaultValue: true,
-    },
-    // ── MiniLM title embedding (cached for history-based prediction) ────────
-    // Populated by afterChangeEmbedTitle when the title changes. Nullable on
-    // existing rows — back-filled lazily in the background on first prediction.
-    {
-      name: 'titleEmbedding',
-      type: 'json',
-      admin: { hidden: true, readOnly: true },
-    },
-    {
-      name: 'titleEmbeddingModel',
-      type: 'text',
-      admin: { hidden: true, readOnly: true },
     },
     {
       name: 'outgoingLinks',
