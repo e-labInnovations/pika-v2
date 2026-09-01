@@ -88,10 +88,9 @@ These Next.js route handlers are part of the codebase and require no manual setu
 
 ## 5. Database Migration
 
-The `oauth-codes` collection is new. Run Payload migrations after deploying:
-
-```bash
-npx payload migrate
-```
-
-Or if using the auto-run migration setting, it will apply on first boot.
+The `oauth-codes` collection is new, but there is nothing to run by hand:
+`payload.config.ts` sets `prodMigrations`, so pending migrations execute inside
+Payload's initialisation on the first request after a deploy — and
+`scripts/deploy.sh` sends that request itself, so a failed migration fails the
+deploy. The `payload migrate` CLI is not available on a deployed build at all.
+See [DEPLOYMENT.md](./DEPLOYMENT.md#migrations).

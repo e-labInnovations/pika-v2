@@ -17,8 +17,19 @@ import type { FeatureExtractionPipeline } from '@huggingface/transformers'
 export const EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2'
 export const EMBEDDING_DIM = 384
 
-/** Where downloaded model weights live on disk (reused across restarts). */
-const MODEL_CACHE_DIR = path.resolve(process.cwd(), '.cache', 'transformers-models')
+/**
+ * Where downloaded model weights live on disk (reused across restarts).
+ *
+ * Defaults to `<cwd>/.cache/transformers-models`. In production the cwd is the
+ * release directory, which is replaced on every deploy — so the server sets
+ * TRANSFORMERS_CACHE_DIR to a path under `shared/` and the ~22MB of weights
+ * survive a cutover instead of being re-downloaded on the first suggestion
+ * request. Never derive this from `import.meta.url`: webpack inlines that as
+ * the build machine's absolute path. See docs/DEPLOYMENT.md.
+ */
+const MODEL_CACHE_DIR =
+  process.env.TRANSFORMERS_CACHE_DIR ||
+  path.resolve(process.cwd(), '.cache', 'transformers-models')
 
 let cached: Promise<FeatureExtractionPipeline> | null = null
 

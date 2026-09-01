@@ -62,6 +62,24 @@ Alternatively, you can use [Docker](https://www.docker.com) to spin up this temp
 
 That's it! The Docker instance will help you get up and running quickly while also standardizing the development environment across your teams.
 
+## Deployment
+
+Production runs on a VPS behind nginx. GitHub Actions builds a Next standalone
+artifact on linux/x64 and attaches it to the rolling `deploy-latest`
+prerelease; `scripts/deploy.sh` on the server downloads it, unpacks it into
+`releases/<sha>`, and flips a `current` symlink. The server never builds, and
+never holds a GitHub credential.
+
+```bash
+git push origin main    # CI builds and publishes
+./deploy.sh             # on the VPS: ship the newest build
+./deploy.sh --rollback  # previous release
+```
+
+Read [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) before changing anything about
+deploys, runtime paths, or migrations — migrations run themselves via
+`prodMigrations`, and several non-obvious traps are documented there.
+
 ## Questions
 
 If you have any issues or questions, reach out to us on [Discord](https://discord.com/invite/payload) or start a [GitHub discussion](https://github.com/payloadcms/payload/discussions).

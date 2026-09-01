@@ -8,11 +8,26 @@ import { collections, Users } from './collections'
 import { globals } from './globals'
 import { plugins } from './plugins'
 import { onInit } from './seed/init'
+import { migrations } from './migrations'
 import { endpoints } from './endpoints'
 import { graphQLQueries, graphQLMutations } from './graphql'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
+
+/**
+ * `next build` sets NODE_ENV=production and then initialises Payload while it
+ * collects page data — which is enough to fire `prodMigrations` and migrate
+ * whatever database the *build machine* happens to point at. A build must
+ * never write to a database, so the flag is off for the duration.
+ *
+ * Next sets NEXT_PHASE itself; PAYLOAD_DISABLE_PROD_MIGRATIONS is the manual
+ * escape hatch (CI sets it too, belt and braces, since static-generation
+ * workers are separate processes).
+ */
+const isBuildPhase =
+  process.env.NEXT_PHASE === 'phase-production-build' ||
+  process.env.PAYLOAD_DISABLE_PROD_MIGRATIONS === 'true'
 
 export default buildConfig({
   serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3333',
@@ -120,6 +135,27 @@ export default buildConfig({
       connectionString: process.env.DATABASE_URL || '',
     },
     idType: 'uuid',
+    // Never auto-sync schema in production: changes must arrive via committed
+    // migration files (`payload migrate:create` locally), because push can
+    // silently drop a column when a field is renamed. Left on everywhere else,
+    // which is the adapter's own default — dev and the integration tests rely
+    // on it to keep their database in step with the collections.
+    push: process.env.NODE_ENV !== 'production',
+    migrationDir: path.resolve(dirname, 'migrations'),
+    // Production migrations run themselves. The `payload migrate` CLI cannot
+    // work on a deployed build — Next's standalone output traces only what the
+    // server *imports*, so `payload/bin.js`, `tsx`, and the raw
+    // `src/migrations/*.ts` files are all absent from the artifact. Importing
+    // the array here instead puts the migrations in the module graph, so they
+    // compile into the server bundle and never have to be read off disk.
+    //
+    // Fires at the end of the adapter's `connect()`, gated on
+    // NODE_ENV=production — i.e. on the first request that touches Payload
+    // after a deploy, not at process boot. scripts/deploy.sh sends that
+    // request itself so a failed migration fails the deploy.
+    //
+    // Withheld during `next build`: see isBuildPhase above.
+    prodMigrations: isBuildPhase ? undefined : migrations,
   }),
   sharp,
   onInit: onInit,

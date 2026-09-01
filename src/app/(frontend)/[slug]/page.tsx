@@ -12,6 +12,17 @@ type Args = {
   params: Promise<{ slug: string }>
 }
 
+/**
+ * Rendered per request, never prerendered.
+ *
+ * Two reasons. Editorial: /terms, /privacy-policy and /mcp-setup are edited in
+ * the admin panel, and a statically generated page would keep serving the old
+ * copy until the next deploy. Structural: the production build runs in CI with
+ * no database (see docs/DEPLOYMENT.md), so anything that queries Payload at
+ * build time — this route used to via generateStaticParams — fails there.
+ */
+export const dynamic = 'force-dynamic'
+
 async function getPage(slug: string) {
   const payloadConfig = await config
   const payload = await getPayload({ config: payloadConfig })
@@ -22,13 +33,6 @@ async function getPage(slug: string) {
     depth: 1,
   })
   return result.docs?.[0] ?? null
-}
-
-export async function generateStaticParams() {
-  const payloadConfig = await config
-  const payload = await getPayload({ config: payloadConfig })
-  const pages = await payload.find({ collection: 'pages', limit: 1000, depth: 0 })
-  return pages.docs.map((p) => ({ slug: p.slug }))
 }
 
 export async function generateMetadata({ params }: Args): Promise<Metadata> {
