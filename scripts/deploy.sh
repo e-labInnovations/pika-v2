@@ -233,10 +233,14 @@ ln -sfn "$ROOT/shared/media" "$REL/media"
 mkdir -p "$REL/.cache"
 ln -sfn "$ROOT/shared/model-cache" "$REL/.cache/transformers-models"
 
-PREV_PATH="$(readlink -f "$ROOT/current" 2>/dev/null || true)"
+# Test the symlink itself, not the path: `readlink -f` happily resolves a
+# missing final component, so on the very first deploy — when `current` does
+# not exist yet — it returns "<root>/current" and the basename of that is the
+# literal string "current". That would get written to shared/previous as a
+# rollback target that is not a release.
 PREV=""
-if [ -n "$PREV_PATH" ]; then
-  PREV="$(basename "$PREV_PATH")"
+if [ -L "$ROOT/current" ]; then
+  PREV="$(basename "$(readlink -f "$ROOT/current")")"
 fi
 
 ln -sfn "$REL" "$ROOT/current"
