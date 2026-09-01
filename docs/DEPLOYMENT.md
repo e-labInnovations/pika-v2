@@ -464,3 +464,71 @@ requirement and will fail CI, where no database exists.
 **Use the pinned pnpm.** `packageManager` says `pnpm@10.32.1`; invoke it as
 `npx -y pnpm@10.32.1 <cmd>`. A different major produces lockfile churn that
 only surfaces in CI, where `--frozen-lockfile` is enforced.
+
+## Things that look wrong but aren't
+
+**`app_settings` and `app_settings_ai_models` are empty.** No row exists until
+someone saves App Settings in the admin panel. Until then Payload returns the
+`ai.models` field's `defaultValue` on every read, so the admin panel, the AI
+service, and the category predictor all see the six models anyway. Verify in
+the admin panel, not in the database. Saving App Settings once — which you will
+do to set the Gemini/HuggingFace API keys — materialises the rows.
+
+**`previous -> (none)` right after the first deploy.** There is genuinely no
+release to roll back to yet. The second deploy records one.
+
+**The artifact is ~240MB.** Two copies of sharp (0.34.2 direct, 0.34.5 via
+`@huggingface/transformers`) plus the onnxruntime linux binding account for
+most of it. A `pnpm.overrides` entry pinning one sharp would save ~30MB at the
+cost of lockfile churn; not currently done.
+
+**`Migrated: 20260425_000000_seed_ai_models` in the log, with nothing written.**
+Expected — see the note on that migration in the baselining section above.
+
+## Cutover log
+
+### 2026-09-01 — first deploy
+
+The pipeline replaced a build-on-the-server setup whose checkout lived at
+`/www/wwwroot/pika.elabins.com/pika-v2`.
+
+What was done, in order:
+
+1. **Baselined the database.** It held exactly one `payload_migrations` row,
+   `dev` / `-1`, because the schema had always been pushed. `ai_prompts` and
+   `transaction_embeddings` already existed and `transactions.title_embedding`
+   had already been dropped by push, so three migrations were recorded as
+   applied and the marker deleted. `20260425_000000_seed_ai_models` was left
+   pending deliberately.
+2. **Laid out `app/`** — `releases/`, `shared/{media,model-cache,logs,.env}` —
+   moving uploads and the model cache out of the old checkout and symlinking
+   `media` back into it so the old app kept serving.
+3. **Pushed to `main`**, which built `de634f5` in ~4.5 minutes and published a
+   239MB asset to the `deploy-latest` prerelease.
+4. **Ran `./deploy.sh` on the VPS.** It cut over, the health check passed, and
+   `20260425_000000_seed_ai_models` ran as batch 2 during that first request —
+   writing nothing, as designed.
+
+Two things were fixed as a result:
+
+- **`shared/previous` was set to the literal string `current`** after the first
+  deploy. `readlink -f` resolves a path whose final component does not exist,
+  so before `current` was a symlink it returned `<root>/current`. Fixed in
+  `cd8d11d` by testing `-L` on the symlink instead. The blast radius was
+  limited to `--rollback` refusing with "previous release current is gone" —
+  the auto-rollback path was guarded by the same directory check. If you see
+  that value on a server, `rm -f shared/previous`; the next deploy writes a
+  correct one.
+- **This document claimed six rows should appear in `app_settings_ai_models`.**
+  They do not, for the `defaultValue` reason above. Corrected in `8ee3fde`.
+
+Still to do at the time of writing:
+
+- [ ] Refresh `deploy.sh` on the server so it has the `cd8d11d` fix, and
+      `rm -f shared/previous`.
+- [ ] Exercise the admin panel, an AI action, and a media upload (which proves
+      the `media` symlink resolves to `shared/media`).
+- [ ] Save App Settings once, with the API keys.
+- [ ] Re-run the embedding backfill per user — the pre-push embeddings are gone.
+- [ ] `pm2 delete <old-process>`, `pm2 save`, then
+      `rm -rf /www/wwwroot/pika.elabins.com/pika-v2`.
