@@ -151,11 +151,15 @@ Why each one:
   before dropping the column, and push already dropped that column, so its
   `INSERT INTO ... SELECT t."title_embedding"` would error on a column that no
   longer exists.
-- **`20260425_000000_seed_ai_models`** — deliberately *not* recorded. It writes
-  data, not schema (the default Gemini/HuggingFace model list), and
-  `app_settings_ai_models` is empty. Leaving it pending means it seeds itself
-  on the first request after the deploy. It returns early if models exist, so
-  it is safe either way.
+- **`20260425_000000_seed_ai_models`** — deliberately *not* recorded, so it
+  runs on the first request after the deploy. It writes data, not schema.
+  Note that it is a no-op in practice: the `ai.models` array in
+  [AppSettings.ts](../src/globals/AppSettings.ts) carries the same six models
+  as its `defaultValue`, and Payload applies a field default when reading a
+  global that has never been saved
+  ([afterRead/promise.js:239](../node_modules/payload/dist/fields/hooks/afterRead/promise.js)),
+  so the migration's `if (existing.length > 0) return` guard always fires. It
+  logs `Migrated:` and writes nothing. Harmless either way.
 
 If you are reading this against a different database, work the same way: record
 anything whose effect the schema already has, leave anything genuinely pending,
@@ -187,8 +191,14 @@ SELECT name, batch FROM payload_migrations ORDER BY created_at;
 
 Expect three rows and no `-1`. `20260425_000000_seed_ai_models` should be
 absent — it runs itself on the first request after the deploy and records a
-fourth row as batch 2. Check `app_settings_ai_models` has six rows afterwards
-to confirm it ran.
+fourth row as batch 2.
+
+Do **not** expect rows in `app_settings_ai_models`. That table stays empty
+until someone saves App Settings in the admin panel; until then the six models
+come from the field's `defaultValue` on every read, which is also why the seed
+migration finds a non-empty list and does nothing. The admin panel showing six
+models with `SELECT count(*) FROM app_settings;` returning 0 is the expected
+state, not a fault.
 
 From here on this is a one-time exercise — every future schema change arrives
 as a migration file and records itself.
