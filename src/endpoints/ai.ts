@@ -69,13 +69,13 @@ export const textToTransactionHandler: PayloadHandler = async (req) => {
 
 /**
  * POST /api/ai/image-to-transaction
- * Body: { image: string (base64 or data URL), mimeType?: string, model?: string }
+ * Body: { image: string (base64 or data URL), mimeType?: string, model?: string, text?: string }
  * Query: ?model=gemini-2.5-pro
  */
 export const imageToTransactionHandler: PayloadHandler = async (req) => {
   if (!req.user) return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
 
-  let body: { image?: string; mimeType?: string; model?: string } = {}
+  let body: { image?: string; mimeType?: string; model?: string; text?: string } = {}
   try { body = await req.json?.() } catch {
     return Response.json({ errors: [{ message: 'Invalid JSON body' }] }, { status: 400 })
   }
@@ -95,9 +95,11 @@ export const imageToTransactionHandler: PayloadHandler = async (req) => {
   const requestedModel = body.model ?? (req.url ? new URL(req.url).searchParams.get('model') : null)
 
   try {
-    const result = await processImageToTransaction(req.payload, String(req.user.id), imageBase64, mimeType, requestedModel)
+    const note = typeof body.text === 'string' ? body.text.trim() : ''
+    const result = await processImageToTransaction(req.payload, String(req.user.id), imageBase64, mimeType, requestedModel, note)
     const promptId = await createAIPromptRecord(req.payload, String(req.user.id), {
       inputType: 'image',
+      inputText: note || undefined,
       inputImageBase64: imageBase64,
       inputImageMimeType: mimeType,
       systemPrompt: result.systemPrompt,

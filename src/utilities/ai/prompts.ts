@@ -1,9 +1,44 @@
+// ─── Shared: splits and user-tagged entities ────────────────────────────────────
+
+/** An entity the user tagged in the prompt, e.g. `@[Rony](person:<id>)`. */
+export type TaggedEntity = { type: 'person' | 'account' | 'category' | 'tag'; id: string; name: string }
+
+/** Lists the entities the user tagged; they are authoritative, unlike guesses from the lists. */
+export function renderTaggedEntities(entities: TaggedEntity[]): string {
+  if (entities.length === 0) return ''
+  const lines = entities.map((e) => `- ${e.type} "${e.name}" → id ${e.id}`).join('\n')
+  return `
+USER-TAGGED ENTITIES (AUTHORITATIVE):
+The user tagged these in their text as @[Name](type:id). Use exactly these IDs for them —
+never replace a tagged entity with a different list entry.
+${lines}
+- A tagged account is the transaction's account (source account for a transfer).
+- A tagged category is the category; tagged tags go in "tags".
+- A tagged person next to an amount or the word "split" is a share (see SPLIT RULES);
+  otherwise the tagged person is the transaction's "person".
+`
+}
+
+const SPLIT_RULES = `
+**SPLIT RULES (shared expenses):**
+- When the user paid for a group and friends owe part of it, fill "shares" with one entry per
+  friend: { "person": <person ID>, "amount": <their share> }. The user's own part is NOT a share.
+- "Rs 45 coffee, Rony 25 split" / "Rony 25" → Rony's share is 25 (user's part is 20).
+- "split with Rony" / "shared with Rony and Meera" with no amounts → split EVENLY between the user
+  and those friends: 45 with Rony → Rony 22.50; 60 with Rony and Meera → 20 each.
+- Round each share down to 2 decimals; shares together must not exceed the amount.
+- Shares only on EXPENSE; when shares are present type is "expense".
+- Do not also put a split friend in "person" unless the text says the payment was made to them.
+- No split mentioned → "shares": []
+`
+
 // ─── Text → Transaction ────────────────────────────────────────────────────────
 
 export const TEXT_TO_TRANSACTION_SYSTEM = `You are an expert financial transaction analyzer specializing in SMS, natural language descriptions, and text analysis for a money management application. You must return only valid JSON in the exact format specified. Do not include any explanations or extra text.`
 
 export function buildTextToTransactionPrompt(p: {
   text: string
+  entities?: TaggedEntity[]
   categories: string
   tags: string
   accounts: string
@@ -16,7 +51,7 @@ Analyze the provided text (SMS, natural language descriptions, transaction detai
 
 INPUT TEXT:
 ${p.text}
-
+${renderTaggedEntities(p.entities ?? [])}
 AVAILABLE CATEGORIES (tree — pick a CHILD id from "- <id>: name — desc" lines; "### <type>" and "## <parent>" are context only, never return them):
 ${p.categories}
 
@@ -55,7 +90,7 @@ ANALYSIS RULES:
 - **Person Detection**: Names for lending/borrowing
 - **Route Detection**: "TVM to TIR", "Mumbai to Delhi", "Home to Office"
 - **Payment Method**: "cash", "liquid money", "card", "UPI", "bank transfer"
-
+${SPLIT_RULES}
 **ACCOUNT ID EXTRACTION (CRITICAL):**
 - AVAILABLE ACCOUNTS entries look like: \`<UUID>: Account Name — description\`
 - When you identify an account from context (e.g. "Federal Bank" in an SMS), find the matching entry and return ONLY the UUID part (before the first ":"): never return the account name
@@ -128,10 +163,16 @@ Output: amount=6000, date=2025-08-15 20:41:52, type=expense, category=fitness, t
 Input: "Rs 2000 withdrawn@ POOKIPAR on 03AUG25 17:30"
 Output: amount=2000, date=2025-08-03 17:30:00, type=transfer, title="ATM Withdrawal at POOKIPAR"
 
+Input: "Rs 45 paid for coffee from @[Federal](account:A1) and @[Rony](person:P1) 25 split"
+Output: amount=45, account=A1, type=expense, category=coffee, title="Coffee", shares=[{person:P1, amount:"25.00"}]
+
+Input: "Lunch 300, split with Rony and Meera"
+Output: amount=300, type=expense, title="Lunch", shares=[{person:<Rony id>, amount:"100.00"}, {person:<Meera id>, amount:"100.00"}]
+
 RESPONSE FORMAT (return only this JSON, no extra text):
 {
   "title": "string",
-  "amount": number,
+  "amount": "string",
   "category": "string",
   "tags": ["string"],
   "date": "string",
@@ -139,6 +180,7 @@ RESPONSE FORMAT (return only this JSON, no extra text):
   "person": "string",
   "account": "string",
   "toAccount": "string",
+  "shares": [{ "person": "string", "amount": "string" }],
   "note": "string"
 }
 
@@ -155,7 +197,7 @@ CRITICAL RULES:
 - For INCOME: toAccount = "" (account = destination account where money arrives)
 - For TRANSFER: both account and toAccount must be filled
 - Default type: "expense"
-- Use empty string "" for unknown string fields (except tags which uses [])
+- Use empty string "" for unknown string fields (except tags and shares, which use [])
 `.trim()
 }
 
@@ -164,6 +206,9 @@ CRITICAL RULES:
 export const IMAGE_TO_TRANSACTION_SYSTEM = `You are an expert financial transaction analyzer specializing in receipt analysis for a money management application. You must return only valid JSON in the exact format specified. Do not include any explanations or extra text.`
 
 export function buildImageToTransactionPrompt(p: {
+  /** Optional note typed with the receipt, e.g. "split with @[Rony](person:<id>)" */
+  text?: string
+  entities?: TaggedEntity[]
   categories: string
   tags: string
   accounts: string
@@ -173,7 +218,10 @@ export function buildImageToTransactionPrompt(p: {
 }): string {
   return `
 Analyze the provided receipt image and extract comprehensive transaction details. Return structured JSON data based on the receipt type and content.
-
+${p.text?.trim() ? `
+USER NOTE (typed with the receipt — follow it where it applies, e.g. splits, account, person):
+${p.text.trim()}
+` : ''}${renderTaggedEntities(p.entities ?? [])}
 AVAILABLE CATEGORIES (tree — pick a CHILD id from "- <id>: name — desc" lines; "### <type>" and "## <parent>" are context only, never return them):
 ${p.categories}
 
@@ -229,11 +277,11 @@ RECEIPT ANALYSIS RULES:
 - Look for "TRANSFER" keyword
 - Source account → Destination account
 - type = "transfer"; both account and toAccount must be filled
-
+${SPLIT_RULES}
 RESPONSE FORMAT (return only this JSON, no extra text):
 {
   "title": "string",
-  "amount": number,
+  "amount": "string",
   "category": "string",
   "tags": ["string"],
   "date": "string",
@@ -241,6 +289,7 @@ RESPONSE FORMAT (return only this JSON, no extra text):
   "person": "string",
   "account": "string",
   "toAccount": "string",
+  "shares": [{ "person": "string", "amount": "string" }],
   "note": "string"
 }
 
@@ -256,7 +305,7 @@ CRITICAL RULES:
 - For TRANSFER: both account and toAccount must be filled
 - If receipt is unclear or unreadable, return an empty JSON object {}
 - Default type: "expense"
-- Use empty string "" for unknown string fields (except tags which uses [])
+- Use empty string "" for unknown string fields (except tags and shares, which use [])
 `.trim()
 }
 

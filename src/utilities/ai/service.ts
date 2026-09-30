@@ -16,6 +16,7 @@ import {
   buildImageToTransactionPrompt,
   buildCategorySuggestionPrompt,
 } from './prompts'
+import { applyTaggedEntities, normalizeShares, parseTaggedEntities, verifyTaggedEntities } from './tagged-entities'
 import { translateGeminiError, translateHFError } from './errors'
 import {
   predictCategoryWithEmbeddings,
@@ -468,6 +469,7 @@ async function getUserTimezone(payload: Payload, userId: string): Promise<string
 async function resolveAITransactionData(
   payload: Payload,
   raw: Record<string, unknown>,
+  userId: string,
 ): Promise<Record<string, unknown>> {
   const categoryId = typeof raw.category === 'string' && raw.category ? raw.category : null
   const accountId  = typeof raw.account  === 'string' && raw.account  ? raw.account  : null
@@ -510,13 +512,37 @@ async function resolveAITransactionData(
     return hasParent && typeMatches ? cat : null
   })()
 
+  // Shares: only the user's own people, cleaned so that saving them passes validateShares
+  const sharePersonIds = Array.isArray(raw.shares)
+    ? [...new Set((raw.shares as { person?: unknown }[]).map((s) => s?.person).filter((p): p is string => typeof p === 'string' && !!p))]
+    : []
+  const sharePeople = sharePersonIds.length
+    ? (
+        await payload.find({
+          collection: 'people',
+          where: { and: [{ id: { in: sharePersonIds } }, { user: { equals: userId } }] },
+          limit: sharePersonIds.length,
+          ...accessOpts,
+        })
+      ).docs
+    : []
+  const personById = new Map(sharePeople.map((p) => [String(p.id), p]))
+  const shares = normalizeShares(raw.shares, raw.amount, new Set(personById.keys())).map((s) => ({
+    person: personById.get(s.person),
+    amount: s.amount,
+  }))
+  const split = shares.length > 0
+
   return {
     ...raw,
+    // A split is always an expense, so the form and validateShares accept it
+    ...(split ? { type: 'expense' } : {}),
     category: category ?? null,
     account:  account  ?? null,
-    toAccount: toAccount ?? null,
+    toAccount: split ? null : (toAccount ?? null),
     person:   person   ?? null,
     tags,
+    shares,
   }
 }
 
@@ -599,7 +625,8 @@ export async function processTextToTransaction(
     buildUserContext(payload, userId),
   ])
 
-  const userPrompt = buildTextToTransactionPrompt({ text, ...context, timezone, currentDatetime: getLocalDatetime(timezone) })
+  const entities = await verifyTaggedEntities(payload, userId, parseTaggedEntities(text))
+  const userPrompt = buildTextToTransactionPrompt({ text, entities, ...context, timezone, currentDatetime: getLocalDatetime(timezone) })
 
   let result
   try {
@@ -611,7 +638,7 @@ export async function processTextToTransaction(
 
   await logUsage(payload, userId, { promptType: 'text', model, apiKeyType: config.apiKeyType, status: 'success', usage: result.usage, latencyMs: result.latencyMs })
 
-  const resolved = await resolveAITransactionData(payload, result.data)
+  const resolved = await resolveAITransactionData(payload, applyTaggedEntities(result.data, entities), userId)
   return { data: resolved, model, usage: result.usage, latencyMs: result.latencyMs, systemPrompt: TEXT_TO_TRANSACTION_SYSTEM, userPrompt }
 }
 
@@ -621,6 +648,8 @@ export async function processImageToTransaction(
   imageBase64: string,
   mimeType: string,
   _requestedModel?: string | null,
+  /** Optional note typed with the receipt, may contain tagged entities */
+  text?: string | null,
 ): Promise<AITransactionResult> {
   const config = await resolveAIConfig(payload, userId)
 
@@ -638,7 +667,9 @@ export async function processImageToTransaction(
     buildUserContext(payload, userId),
   ])
 
-  const userPrompt = buildImageToTransactionPrompt({ ...context, timezone, currentDatetime: getLocalDatetime(timezone) })
+  const note = text?.trim() || ''
+  const entities = note ? await verifyTaggedEntities(payload, userId, parseTaggedEntities(note)) : []
+  const userPrompt = buildImageToTransactionPrompt({ text: note, entities, ...context, timezone, currentDatetime: getLocalDatetime(timezone) })
 
   let result
   try {
@@ -650,7 +681,7 @@ export async function processImageToTransaction(
 
   await logUsage(payload, userId, { promptType: 'image', model, apiKeyType: config.apiKeyType, status: 'success', usage: result.usage, latencyMs: result.latencyMs })
 
-  const resolved = await resolveAITransactionData(payload, result.data)
+  const resolved = await resolveAITransactionData(payload, applyTaggedEntities(result.data, entities), userId)
   return { data: resolved, model, usage: result.usage, latencyMs: result.latencyMs, systemPrompt: IMAGE_TO_TRANSACTION_SYSTEM, userPrompt }
 }
 

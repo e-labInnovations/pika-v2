@@ -13,6 +13,7 @@ const TRANSACTION_JSON_SCHEMA = {
     'category',
     'tags',
     'person',
+    'shares',
     'note',
   ],
   properties: {
@@ -57,6 +58,20 @@ const TRANSACTION_JSON_SCHEMA = {
     note: {
       type: 'string',
       description: 'Any extra context not captured by other fields. Empty string if none.',
+    },
+    shares: {
+      type: 'array',
+      description:
+        "Friends' shares when the user paid for a group (expense only). Empty array if not split.",
+      items: {
+        type: 'object',
+        required: ['person', 'amount'],
+        properties: {
+          person: { type: 'string', description: 'Exact person ID from the provided list.' },
+          amount: { type: 'string', description: 'That person\'s share, e.g. "22.50".' },
+        },
+        additionalProperties: false,
+      },
     },
   },
   additionalProperties: false,

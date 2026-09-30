@@ -16,7 +16,7 @@ export type GeminiResult = {
 // amount is STRING to match Transactions collection which stores decimals as text
 export const TRANSACTION_RESPONSE_SCHEMA = {
   type: Type.OBJECT,
-  required: ['title', 'amount', 'type', 'date', 'account', 'toAccount', 'category', 'tags', 'person', 'note'],
+  required: ['title', 'amount', 'type', 'date', 'account', 'toAccount', 'category', 'tags', 'person', 'shares', 'note'],
   properties: {
     title:     { type: Type.STRING, description: 'Short descriptive title for the transaction' },
     amount:    { type: Type.STRING, description: 'Positive numeric string, e.g. "500.00". No currency symbols.' },
@@ -28,6 +28,18 @@ export const TRANSACTION_RESPONSE_SCHEMA = {
     account:   { type: Type.STRING, description: 'Account ID. For expense/income: the primary account. For transfer: the source account.' },
     toAccount: { type: Type.STRING, description: 'Account ID for transfer destination. Empty string for income/expense.' },
     note:      { type: Type.STRING, description: 'Optional extra context or note' },
+    shares: {
+      type: Type.ARRAY,
+      description: "Friends' shares when the user paid for a group (expense only). Empty array if not split.",
+      items: {
+        type: Type.OBJECT,
+        required: ['person', 'amount'],
+        properties: {
+          person: { type: Type.STRING, description: 'Person ID from the provided list' },
+          amount: { type: Type.STRING, description: 'That person\'s share, positive numeric string, e.g. "22.50"' },
+        },
+      },
+    },
   },
 }
 

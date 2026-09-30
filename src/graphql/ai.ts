@@ -116,10 +116,11 @@ export const aiMutations = () => ({
       image:    { type: new GraphQLNonNull(GraphQLString), description: 'Base64-encoded image or data URL' },
       mimeType: { type: GraphQLString, description: 'MIME type (default: image/jpeg)' },
       model:    { type: GraphQLString },
+      text:     { type: GraphQLString, description: 'Optional note typed with the receipt, may contain tagged entities' },
     },
     resolve: async (
       _: unknown,
-      args: { image: string; mimeType?: string; model?: string },
+      args: { image: string; mimeType?: string; model?: string; text?: string },
       context: { req: any },
     ) => {
       const { req } = context
@@ -135,9 +136,10 @@ export const aiMutations = () => ({
       if (!allowed.includes(mimeType)) throw new Error(`Unsupported image type "${mimeType}". Allowed: ${allowed.join(', ')}`)
 
       const userId = String(req.user.id)
-      const result = await processImageToTransaction(req.payload, userId, imageBase64, mimeType, args.model)
+      const result = await processImageToTransaction(req.payload, userId, imageBase64, mimeType, args.model, args.text)
       const promptId = await createAIPromptRecord(req.payload, userId, {
         inputType: 'image',
+        inputText: args.text?.trim() || undefined,
         inputImageBase64: imageBase64,
         inputImageMimeType: mimeType,
         systemPrompt: result.systemPrompt,
