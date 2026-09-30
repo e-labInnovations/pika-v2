@@ -7,12 +7,14 @@
  * That's deliberate: a running process should be pinned to an identifiable
  * release, and `pm2 describe pika` should tell you which one.
  *
- * Deploys drive it via the symlink:
+ * Because of that pin, a deploy must not `pm2 reload`/`startOrReload` a running
+ * app: pm2 keeps the cwd and script the process was started with, so it would
+ * restart the old release. deploy.sh deletes the app and starts it again:
  *
- *   pm2 startOrReload /www/wwwroot/pika.elabins.com/app/current/ecosystem.config.cjs --update-env
+ *   pm2 delete pika
+ *   pm2 start /www/wwwroot/pika.elabins.com/app/current/ecosystem.config.cjs --update-env
  *
- * `startOrReload` starts the app if it isn't running and does a graceful
- * zero-downtime reload if it is. See docs/DEPLOYMENT.md.
+ * See docs/DEPLOYMENT.md.
  */
 const path = require('path')
 

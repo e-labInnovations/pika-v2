@@ -23,8 +23,9 @@ GitHub Actions (ubuntu-x64)          /www/wwwroot/pika.elabins.com/app/
      unpack to releases/<sha>
      symlink shared/ into it
      ln -sfn current
-     pm2 startOrReload
+     pm2 delete + pm2 start   (a reload would keep the old release, see below)
      health check ──► migrations run here, or the deploy fails
+     check pm2 runs releases/<sha>
      prune to 5 releases
 ```
 
@@ -508,6 +509,18 @@ What was done, in order:
 4. **Ran `./deploy.sh` on the VPS.** It cut over, the health check passed, and
    `20260425_000000_seed_ai_models` ran as batch 2 during that first request —
    writing nothing, as designed.
+
+**Later (2026-09-30): every deploy after the first kept running the first
+release.** `pm2 describe pika` showed `exec cwd` in `releases/cd8d11d…` while
+`current` pointed at `releases/2f38567…`, and the API had none of the new
+fields. `ecosystem.config.cjs` sets `cwd: __dirname`, which Node resolves to the
+real release directory, and `pm2 startOrReload` on a running app keeps the cwd
+and script it was started with — so each deploy flipped the symlink, reloaded
+the old process, and the health check passed against it. `deploy.sh` now runs
+`pm2 delete` + `pm2 start` from `current/ecosystem.config.cjs`, and fails the
+deploy if `pm2 jlist` shows a cwd other than the new release. To recover a
+server in that state: `pm2 delete pika && pm2 start current/ecosystem.config.cjs
+&& pm2 save`.
 
 Two things were fixed as a result:
 

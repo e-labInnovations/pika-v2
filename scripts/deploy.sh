@@ -120,6 +120,22 @@ for a in sorted(assets, key=lambda a: a["created_at"], reverse=True):
 set -euo pipefail
 ROOT="$1"; APP="$2"; PORT="$3"; HEALTH_PATH="$4"
 
+# pm2 pins a running app to the cwd and script it was first started with, and
+# `startOrReload` keeps them: after the symlink flip a reload would restart the
+# *old* release (ecosystem.config.cjs sets cwd to its real release directory).
+# So stop it and start it again from the release `current` points at. In fork
+# mode a reload is a restart anyway, so this costs no extra downtime.
+restart_current() {
+  pm2 delete "$APP" >/dev/null 2>&1 || true
+  pm2 start "$ROOT/current/ecosystem.config.cjs" --update-env
+}
+# Release directory the running process was started from, e.g. <sha>
+live_release() {
+  pm2 jlist 2>/dev/null | python3 -c "import json,os,sys
+for a in json.load(sys.stdin):
+    if a.get('name') == sys.argv[1]: print(os.path.basename(a['pm2_env'].get('pm_cwd', '')))" "$APP"
+}
+
 PREV="$(cat "$ROOT/shared/previous" 2>/dev/null || true)"
 [ -n "$PREV" ] || { echo "no previous release recorded" >&2; exit 1; }
 [ -d "$ROOT/releases/$PREV" ] || { echo "previous release $PREV is gone" >&2; exit 1; }
@@ -128,7 +144,7 @@ CURRENT="$(basename "$(readlink -f "$ROOT/current")")"
 ln -sfn "$ROOT/releases/$PREV" "$ROOT/current"
 echo "$CURRENT" > "$ROOT/shared/previous"
 
-pm2 startOrReload "$ROOT/current/ecosystem.config.cjs" --update-env
+restart_current
 sleep 3
 curl -fsS -m 60 -o /dev/null "http://127.0.0.1:${PORT}${HEALTH_PATH}"
 echo "rolled back to $PREV"
@@ -210,6 +226,22 @@ remote "$ROOT" "$APP" "$PORT" "$HEALTH_PATH" "$SHA" "$KEEP" <<'EOF'
 set -euo pipefail
 ROOT="$1"; APP="$2"; PORT="$3"; HEALTH_PATH="$4"; SHA="$5"; KEEP="$6"
 
+# pm2 pins a running app to the cwd and script it was first started with, and
+# `startOrReload` keeps them: after the symlink flip a reload would restart the
+# *old* release (ecosystem.config.cjs sets cwd to its real release directory).
+# So stop it and start it again from the release `current` points at. In fork
+# mode a reload is a restart anyway, so this costs no extra downtime.
+restart_current() {
+  pm2 delete "$APP" >/dev/null 2>&1 || true
+  pm2 start "$ROOT/current/ecosystem.config.cjs" --update-env
+}
+# Release directory the running process was started from, e.g. <sha>
+live_release() {
+  pm2 jlist 2>/dev/null | python3 -c "import json,os,sys
+for a in json.load(sys.stdin):
+    if a.get('name') == sys.argv[1]: print(os.path.basename(a['pm2_env'].get('pm_cwd', '')))" "$APP"
+}
+
 REL="$ROOT/releases/$SHA"
 TARBALL="/tmp/pika-${SHA}.tar.gz"
 
@@ -244,7 +276,7 @@ if [ -L "$ROOT/current" ]; then
 fi
 
 ln -sfn "$REL" "$ROOT/current"
-pm2 startOrReload "$ROOT/current/ecosystem.config.cjs" --update-env
+restart_current
 
 # Payload initialises lazily — on the first request that touches it, which is
 # also when prodMigrations run and when onInit checks the seed data. Poll until
@@ -265,12 +297,20 @@ if [ "$OK" -ne 1 ]; then
   if [ -n "$PREV" ] && [ -d "$ROOT/releases/$PREV" ]; then
     echo "rolling back to $PREV" >&2
     ln -sfn "$ROOT/releases/$PREV" "$ROOT/current"
-    pm2 startOrReload "$ROOT/current/ecosystem.config.cjs" --update-env
+    restart_current
   else
     echo "no previous release to roll back to" >&2
   fi
   echo "--- recent logs ---" >&2
   pm2 logs "$APP" --lines 40 --nostream >&2 || true
+  exit 1
+fi
+
+# The health check proves something answers on the port; make sure it is the
+# release we just installed, not a process left running from an older one.
+LIVE="$(live_release)"
+if [ "$LIVE" != "$(basename "$REL")" ]; then
+  echo "pm2 is running release '${LIVE:-none}', expected $(basename "$REL")" >&2
   exit 1
 fi
 
