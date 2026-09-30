@@ -96,10 +96,9 @@ export async function calculatePersonBalance(
     pagination: false,
   })
 
-  const splitPaybackIds = await findSplitPaybacks(
+  const splitPaybackIds = await findSplitPaybackIds(
     payload,
-    personId,
-    result.docs.filter((tx) => tx.type === 'income').map((tx) => String(tx.id)),
+    result.docs.filter((tx) => tx.type === 'income').map((tx) => ({ id: String(tx.id), person: personId })),
   )
 
   return {
@@ -108,13 +107,18 @@ export async function calculatePersonBalance(
   }
 }
 
-/** Incomes from this person linked as `repaid`/`returned` to a payment that is not tagged with them. */
-async function findSplitPaybacks(
+/**
+ * Of the given incomes (each with the person it came from), returns the ids of those
+ * linked as `repaid`/`returned` to a payment that is not tagged with that person.
+ * Shared by the per-person balance and the monthly people analytics.
+ */
+export async function findSplitPaybackIds(
   payload: Payload,
-  personId: string,
-  incomeIds: string[],
+  incomes: { id: string; person: string }[],
 ): Promise<Set<string>> {
-  if (incomeIds.length === 0) return new Set()
+  if (incomes.length === 0) return new Set()
+  const personOf = new Map(incomes.map((i) => [i.id, i.person]))
+  const incomeIds = [...personOf.keys()]
 
   const links = await payload.find({
     collection: 'transaction-links',
@@ -141,7 +145,7 @@ async function findSplitPaybacks(
   return new Set(
     links.docs
       // A deleted target settles nothing, so the income keeps counting.
-      .filter((l) => targetPerson.has(idOf(l.to)) && targetPerson.get(idOf(l.to)) !== personId)
+      .filter((l) => targetPerson.has(idOf(l.to)) && targetPerson.get(idOf(l.to)) !== personOf.get(idOf(l.from)))
       .map((l) => idOf(l.from)),
   )
 }

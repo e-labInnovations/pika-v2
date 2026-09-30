@@ -1,4 +1,5 @@
 import type { Payload } from 'payload'
+import { findSplitPaybackIds } from './calculatePersonBalance'
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -87,18 +88,27 @@ export async function calculateMonthlyPeople(
     }),
   ])
 
-  // All-time balance per person
+  // All-time balance per person, with the same split-payback rule as Person.balance
   const allTimeBalance: Record<string, number> = {}
   const lastTxAt: Record<string, string> = {}
+  const personOf = (tx: (typeof allTimeTxResult.docs)[number]) =>
+    typeof tx.person === 'string' ? tx.person : (tx.person as any)?.id
+  const splitPaybackIds = await findSplitPaybackIds(
+    payload,
+    allTimeTxResult.docs
+      .filter((tx) => tx.type === 'income' && personOf(tx))
+      .map((tx) => ({ id: String(tx.id), person: String(personOf(tx)) })),
+  )
 
   for (const tx of allTimeTxResult.docs) {
-    const personId =
-      typeof tx.person === 'string' ? tx.person : (tx.person as any)?.id
+    const personId = personOf(tx)
     if (!personId) continue
 
     const amount = parseFloat((tx.amount as string) || '0')
     if (!allTimeBalance[personId]) allTimeBalance[personId] = 0
-    if (tx.type === 'income') allTimeBalance[personId] += amount
+    if (tx.type === 'income') {
+      if (!splitPaybackIds.has(String(tx.id))) allTimeBalance[personId] += amount
+    }
     else if (tx.type === 'expense') allTimeBalance[personId] -= amount
 
     const date = tx.date as string
