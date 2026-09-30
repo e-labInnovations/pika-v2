@@ -1,6 +1,7 @@
 import type {
   CollectionAfterChangeHook,
   CollectionBeforeChangeHook,
+  CollectionBeforeDeleteHook,
   CollectionConfig,
   RelationshipFieldSingleValidation,
   Where,
@@ -83,6 +84,24 @@ const validateToAccount: CollectionBeforeChangeHook = async ({ data, operation, 
   return data
 }
 
+/**
+ * Links and the title embedding point at the transaction with required columns that
+ * are set to NULL on delete, so Postgres refuses to delete a transaction that still
+ * has any. Remove them first, in the same database transaction.
+ */
+const deleteDependents: CollectionBeforeDeleteHook = async ({ req, id }) => {
+  await req.payload.delete({
+    collection: 'transaction-embeddings',
+    where: { transaction: { equals: id } },
+    req,
+  })
+  await req.payload.delete({
+    collection: 'transaction-links',
+    where: { or: [{ from: { equals: id } }, { to: { equals: id } }] },
+    req,
+  })
+}
+
 // Stored as text to preserve decimal precision (e.g. "1234.5600")
 const validateAmount = (value: string | null | undefined) => {
   if (!value) return 'Amount is required'
@@ -139,6 +158,7 @@ export const Transactions: CollectionConfig = {
   hooks: {
     beforeChange: [extractPromptId, setUserOnCreate, validateToAccount, validateShares],
     afterChange: [afterCreateLinkPrompt, afterChangeEmbedTitle],
+    beforeDelete: [deleteDependents],
   },
   fields: [
     userField,
