@@ -56,3 +56,5 @@ node_modules/
 
 .claude/
 .cache/
+# local working data: statements, backups, DB dumps (never commit)
+.scratch/
