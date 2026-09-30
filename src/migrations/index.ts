@@ -2,6 +2,7 @@ import * as migration_20260404_060059 from './20260404_060059';
 import * as migration_20260425_000000_seed_ai_models from './20260425_000000_seed_ai_models';
 import * as migration_20260426_000000_add_ai_prompts from './20260426_000000_add_ai_prompts';
 import * as migration_20260426_200000_move_title_embeddings from './20260426_200000_move_title_embeddings';
+import * as migration_20260930_000000_add_transaction_shares from './20260930_000000_add_transaction_shares';
 
 export const migrations = [
   {
@@ -23,5 +24,10 @@ export const migrations = [
     up: migration_20260426_200000_move_title_embeddings.up,
     down: migration_20260426_200000_move_title_embeddings.down,
     name: '20260426_200000_move_title_embeddings',
+  },
+  {
+    up: migration_20260930_000000_add_transaction_shares.up,
+    down: migration_20260930_000000_add_transaction_shares.down,
+    name: '20260930_000000_add_transaction_shares',
   },
 ];

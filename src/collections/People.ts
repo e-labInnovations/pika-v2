@@ -77,5 +77,12 @@ export const People: CollectionConfig = {
       virtual: true,
       admin: { readOnly: true },
     },
+    {
+      // Shared payments this person has not fully paid back: { transaction, title, date, share, paid, remaining }[]
+      name: 'openShares',
+      type: 'json',
+      virtual: true,
+      admin: { readOnly: true },
+    },
   ],
 }

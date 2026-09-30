@@ -382,6 +382,15 @@ export interface Person {
     | number
     | boolean
     | null;
+  openShares?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -437,6 +446,17 @@ export interface Transaction {
    */
   toAccount?: (string | null) | Account;
   person?: (string | null) | Person;
+  /**
+   * Friends' shares of this payment. Each share is money that person owes you until they pay it back.
+   */
+  shares?:
+    | {
+        person: string | Person;
+        amount: string;
+        id?: string | null;
+      }[]
+    | null;
+  myShare?: number | null;
   tags?: (string | Tag)[] | null;
   attachments?: (string | Media)[] | null;
   note?: string | null;
@@ -1107,6 +1127,7 @@ export interface PeopleSelect<T extends boolean = true> {
   totalTransactions?: T;
   lastTransactionAt?: T;
   totalSummary?: T;
+  openShares?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1156,6 +1177,14 @@ export interface TransactionsSelect<T extends boolean = true> {
   account?: T;
   toAccount?: T;
   person?: T;
+  shares?:
+    | T
+    | {
+        person?: T;
+        amount?: T;
+        id?: T;
+      };
+  myShare?: T;
   tags?: T;
   attachments?: T;
   note?: T;

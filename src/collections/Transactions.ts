@@ -83,6 +83,45 @@ const validateToAccount: CollectionBeforeChangeHook = async ({ data, operation, 
   return data
 }
 
+// Stored as text to preserve decimal precision (e.g. "1234.5600")
+const validateAmount = (value: string | null | undefined) => {
+  if (!value) return 'Amount is required'
+  if (!/^\d+(\.\d{1,4})?$/.test(value))
+    return 'Amount must be a positive number with up to 4 decimal places'
+  return true
+}
+
+// Whole ten-thousandths, so share sums compare exactly
+const toUnits = (v: unknown) => Math.round((parseFloat(String(v ?? '')) || 0) * 10000)
+
+/**
+ * Shares split an expense with friends: each entry is money that person owes you until
+ * they pay it back. Only expenses can have shares, each person once, and together they
+ * cannot exceed the amount (what is left is your own share).
+ */
+const validateShares: CollectionBeforeChangeHook = async ({ data, operation, originalDoc }) => {
+  const shares = (data?.shares ?? (operation === 'update' ? originalDoc?.shares : undefined)) as
+    | { person?: unknown; amount?: string }[]
+    | undefined
+  if (!shares?.length) return data
+
+  const type = data?.type ?? originalDoc?.type
+  const amount = data?.amount ?? originalDoc?.amount
+  const errors: { message: string; path: string }[] = []
+  if (type !== 'expense') errors.push({ message: 'Only expenses can be split into shares.', path: 'shares' })
+
+  const people = shares.map((s) => String(typeof s.person === 'object' && s.person ? (s.person as { id: string }).id : s.person))
+  if (new Set(people).size !== people.length)
+    errors.push({ message: 'Each person can have only one share.', path: 'shares' })
+
+  const total = shares.reduce((sum, s) => sum + toUnits(s.amount), 0)
+  if (total > toUnits(amount))
+    errors.push({ message: 'Shares add up to more than the amount.', path: 'shares' })
+
+  if (errors.length) throw new ValidationError({ errors })
+  return data
+}
+
 export const Transactions: CollectionConfig = {
   slug: 'transactions',
   trash: true,
@@ -98,7 +137,7 @@ export const Transactions: CollectionConfig = {
     delete: isAdminOrOwn,
   },
   hooks: {
-    beforeChange: [extractPromptId, setUserOnCreate, validateToAccount],
+    beforeChange: [extractPromptId, setUserOnCreate, validateToAccount, validateShares],
     afterChange: [afterCreateLinkPrompt, afterChangeEmbedTitle],
   },
   fields: [
@@ -118,16 +157,10 @@ export const Transactions: CollectionConfig = {
       required: true,
     },
     {
-      // Stored as text to preserve decimal precision (e.g. "1234.5600")
       name: 'amount',
       type: 'text',
       required: true,
-      validate: (value: string | null | undefined) => {
-        if (!value) return 'Amount is required'
-        if (!/^\d+(\.\d{1,4})?$/.test(value))
-          return 'Amount must be a positive number with up to 4 decimal places'
-        return true
-      },
+      validate: validateAmount,
     },
     {
       name: 'date',
@@ -251,6 +284,49 @@ export const Transactions: CollectionConfig = {
       },
       admin: {
         condition: (data) => data?.type !== 'transfer',
+      },
+    },
+    {
+      name: 'shares',
+      type: 'array',
+      admin: {
+        condition: (data) => data?.type === 'expense',
+        description:
+          "Friends' shares of this payment. Each share is money that person owes you until they pay it back.",
+      },
+      fields: [
+        {
+          name: 'person',
+          type: 'relationship',
+          relationTo: 'people',
+          required: true,
+          filterOptions: ({ user }) => {
+            if (!user) return false
+            return { user: { equals: user.id } }
+          },
+        },
+        {
+          name: 'amount',
+          type: 'text',
+          required: true,
+          validate: validateAmount,
+        },
+      ],
+    },
+    {
+      // Your own part of the payment: the amount minus friends' shares
+      name: 'myShare',
+      type: 'number',
+      virtual: true,
+      admin: { readOnly: true, hidden: true },
+      hooks: {
+        afterRead: [
+          ({ siblingData }) => {
+            const shares = (siblingData?.shares ?? []) as { amount?: string }[]
+            const left = toUnits(siblingData?.amount) - shares.reduce((s, x) => s + toUnits(x.amount), 0)
+            return left / 10000
+          },
+        ],
       },
     },
     {

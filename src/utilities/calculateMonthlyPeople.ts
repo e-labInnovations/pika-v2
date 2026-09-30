@@ -117,6 +117,18 @@ export async function calculateMonthlyPeople(
     }
   }
 
+  // Friends' shares of shared expenses: each share is money that person owes you
+  for (const tx of allTimeTxResult.docs) {
+    if (tx.type !== 'expense') continue
+    for (const s of (tx.shares ?? []) as { person?: unknown; amount?: string }[]) {
+      const sp = typeof s.person === 'string' ? s.person : (s.person as any)?.id
+      if (!sp) continue
+      allTimeBalance[sp] = (allTimeBalance[sp] ?? 0) - parseFloat(s.amount || '0')
+      const date = tx.date as string
+      if (date && (!lastTxAt[sp] || date > lastTxAt[sp])) lastTxAt[sp] = date
+    }
+  }
+
   // Monthly stats per person
   type MonthStats = {
     expenseSum: number; expenseCount: number
@@ -124,25 +136,39 @@ export async function calculateMonthlyPeople(
     hi: number; lo: number
   }
   const monthly: Record<string, MonthStats> = {}
+  const stat = (id: string) =>
+    (monthly[id] ??= { expenseSum: 0, expenseCount: 0, incomeSum: 0, incomeCount: 0, hi: 0, lo: Infinity })
+  const record = (s: MonthStats, amount: number) => {
+    if (amount > s.hi) s.hi = amount
+    if (amount < s.lo) s.lo = amount
+  }
 
   for (const tx of monthlyTxResult.docs) {
     const localDate = localFmt.format(new Date(tx.date as string))
     const [y, m] = localDate.split('-').map(Number)
     if (y !== year || m !== month) continue
 
+    // A share counts as spent on that person, like an expense tagged with them
+    if (tx.type === 'expense') {
+      for (const sh of (tx.shares ?? []) as { person?: unknown; amount?: string }[]) {
+        const sp = typeof sh.person === 'string' ? sh.person : (sh.person as any)?.id
+        if (!sp) continue
+        const amt = parseFloat(sh.amount || '0')
+        const s = stat(sp)
+        s.expenseSum += amt; s.expenseCount++
+        record(s, amt)
+      }
+    }
+
     const personId =
       typeof tx.person === 'string' ? tx.person : (tx.person as any)?.id
     if (!personId) continue
 
     const amount = parseFloat((tx.amount as string) || '0')
-    if (!monthly[personId]) {
-      monthly[personId] = { expenseSum: 0, expenseCount: 0, incomeSum: 0, incomeCount: 0, hi: 0, lo: Infinity }
-    }
-    const s = monthly[personId]
+    const s = stat(personId)
     if (tx.type === 'expense') { s.expenseSum += amount; s.expenseCount++ }
     else if (tx.type === 'income') { s.incomeSum += amount; s.incomeCount++ }
-    if (amount > s.hi) s.hi = amount
-    if (amount < s.lo) s.lo = amount
+    record(s, amount)
   }
 
   const data: PersonActivity[] = peopleResult.docs.map((person) => {
