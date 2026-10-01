@@ -3,6 +3,7 @@ import * as migration_20260425_000000_seed_ai_models from './20260425_000000_see
 import * as migration_20260426_000000_add_ai_prompts from './20260426_000000_add_ai_prompts';
 import * as migration_20260426_200000_move_title_embeddings from './20260426_200000_move_title_embeddings';
 import * as migration_20260930_000000_add_transaction_shares from './20260930_000000_add_transaction_shares';
+import * as migration_20261001_000000_encrypt_api_keys from './20261001_000000_encrypt_api_keys';
 
 export const migrations = [
   {
@@ -29,5 +30,10 @@ export const migrations = [
     up: migration_20260930_000000_add_transaction_shares.up,
     down: migration_20260930_000000_add_transaction_shares.down,
     name: '20260930_000000_add_transaction_shares',
+  },
+  {
+    up: migration_20261001_000000_encrypt_api_keys.up,
+    down: migration_20261001_000000_encrypt_api_keys.down,
+    name: '20261001_000000_encrypt_api_keys',
   },
 ];

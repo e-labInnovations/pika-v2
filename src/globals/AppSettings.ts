@@ -1,5 +1,6 @@
 import type { GlobalConfig } from 'payload'
 import { maskApiKey, isMaskedKey } from '../utilities/maskApiKey'
+import { encryptedFieldHooks } from '../utilities/secretBox'
 import { isAdmin, isAdminField } from '@/access/isAdmin'
 import { isAuthenticated } from '@/access/isAuthenticated'
 
@@ -53,6 +54,7 @@ export const AppSettings: GlobalConfig = {
         {
           name: 'geminiApiKey',
           type: 'text',
+          hooks: encryptedFieldHooks,
           label: 'Gemini API Key',
           access: { read: isAdminField },
           admin: {
@@ -66,6 +68,7 @@ export const AppSettings: GlobalConfig = {
         {
           name: 'hfApiKey',
           type: 'text',
+          hooks: encryptedFieldHooks,
           label: 'HuggingFace API Key',
           access: { read: isAdminField },
           admin: {

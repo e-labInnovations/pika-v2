@@ -413,6 +413,46 @@ database on the first request after cutover, and rollback won't undo it:
 pg_dump "$DATABASE_URL" | gzip > /root/pre-deploy-$(date +%F).sql.gz
 ```
 
+## Backups
+
+`scripts/backup-db.sh` takes a nightly `pg_dump` (custom format) into
+`shared/backups/`, checks it with `pg_restore --list` before keeping it, and
+keeps the newest 14 (`BACKUP_KEEP`). Install it next to deploy.sh and add a
+cron entry:
+
+```bash
+scp scripts/backup-db.sh <vps>:/www/wwwroot/pika.elabins.com/app/backup-db.sh
+chmod +x /www/wwwroot/pika.elabins.com/app/backup-db.sh
+/www/wwwroot/pika.elabins.com/app/backup-db.sh        # run once by hand
+crontab -e
+# 30 2 * * * /www/wwwroot/pika.elabins.com/app/backup-db.sh >> /www/wwwroot/pika.elabins.com/app/shared/logs/backup.log 2>&1
+```
+
+`pg_dump` must be the same major version as the server or newer.
+
+Copies on the VPS don't survive losing the VPS. For an off-box copy, create
+`shared/backup.env` (`chmod 600`) with `BACKUP_TELEGRAM_TOKEN`,
+`BACKUP_TELEGRAM_CHAT`, optionally `BACKUP_TELEGRAM_THREAD`, and
+`BACKUP_PASSPHRASE`. The dump is encrypted with that passphrase before upload;
+without a passphrase the script refuses to upload. Keep the passphrase
+somewhere other than the VPS.
+
+Restore:
+
+```bash
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in pika-<ts>.dump.enc -out pika-<ts>.dump   # Telegram copy only
+pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" pika-<ts>.dump
+```
+
+## Secrets at rest
+
+Users' and the app's AI API keys are stored AES-256-GCM encrypted
+(`src/utilities/secretBox.ts`, values prefixed `enc:v1:`), with a key derived
+from `PAYLOAD_SECRET`. A dump, or a copy like the Neon analytics database, no
+longer holds working keys. **Changing `PAYLOAD_SECRET` makes the stored keys
+unreadable**: they read as empty and have to be entered again. Migration
+`20261001_000000_encrypt_api_keys` encrypted the keys that were stored before.
+
 ## Caveats
 
 **Rollback does not undo a migration.** Reverting code to a release built

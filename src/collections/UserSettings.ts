@@ -5,6 +5,7 @@ import { setUserOnCreate } from '../hooks/setUserOnCreate'
 import { userField } from '../fields/userField'
 import { currencies } from '../data/currencies'
 import { maskApiKey, isMaskedKey } from '../utilities/maskApiKey'
+import { encryptedFieldHooks } from '../utilities/secretBox'
 import { validateTimezone } from '../utilities/validateTimezone'
 
 
@@ -121,6 +122,7 @@ export const UserSettings: CollectionConfig = {
     {
       name: 'geminiApiKey',
       type: 'text',
+      hooks: encryptedFieldHooks,
       label: 'Gemini API Key',
       admin: {
         description:
@@ -133,6 +135,7 @@ export const UserSettings: CollectionConfig = {
     {
       name: 'hfApiKey',
       type: 'text',
+      hooks: encryptedFieldHooks,
       label: 'HuggingFace API Key',
       admin: {
         description:
