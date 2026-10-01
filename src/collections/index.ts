@@ -16,6 +16,7 @@ import { TransactionEmbeddings } from './TransactionEmbeddings'
 import { OAuthAccounts } from './OAuthAccounts'
 import { TransactionLinks } from './TransactionLinks'
 import { Pages } from './Pages'
+import { CapturedSms } from './CapturedSms'
 
 export const collections = [
   Users,
@@ -27,6 +28,7 @@ export const collections = [
   Tags,
   Transactions,
   TransactionLinks,
+  CapturedSms,
   Reminders,
   UserSettings,
   AIUsages,

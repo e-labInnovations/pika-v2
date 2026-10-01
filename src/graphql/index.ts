@@ -2,6 +2,7 @@ import { currencyQueries } from './currencies'
 import { timezoneQueries } from './timezones'
 import { analyticsQueries } from './analytics'
 import { aiMutations } from './ai'
+import { smsMutations } from './sms'
 
 export const graphQLQueries = () => ({
   ...currencyQueries(),
@@ -11,4 +12,5 @@ export const graphQLQueries = () => ({
 
 export const graphQLMutations = () => ({
   ...aiMutations(),
+  ...smsMutations(),
 })

@@ -77,6 +77,7 @@ export interface Config {
     tags: Tag;
     transactions: Transaction;
     'transaction-links': TransactionLink;
+    'captured-sms': CapturedSm;
     reminders: Reminder;
     'user-settings': UserSetting;
     'ai-usages': AiUsage;
@@ -109,6 +110,7 @@ export interface Config {
     tags: TagsSelect<false> | TagsSelect<true>;
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     'transaction-links': TransactionLinksSelect<false> | TransactionLinksSelect<true>;
+    'captured-sms': CapturedSmsSelect<false> | CapturedSmsSelect<true>;
     reminders: RemindersSelect<false> | RemindersSelect<true>;
     'user-settings': UserSettingsSelect<false> | UserSettingsSelect<true>;
     'ai-usages': AiUsagesSelect<false> | AiUsagesSelect<true>;
@@ -288,6 +290,10 @@ export interface Account {
   color?: string | null;
   avatar?: (string | null) | Media;
   description?: string | null;
+  /**
+   * How bank SMS refer to this account, comma separated: account/card number endings (X7497, xx7618) and keywords (pluxee-meal, pluxee-reward).
+   */
+  smsIdentifiers?: string | null;
   isActive?: boolean | null;
   balance?: number | null;
   totalTransactions?: number | null;
@@ -462,6 +468,14 @@ export interface Transaction {
   note?: string | null;
   isActive?: boolean | null;
   /**
+   * How this transaction was created. Empty for older entries.
+   */
+  source?: ('manual' | 'sms' | 'ai' | 'import') | null;
+  /**
+   * Bank reference (UPI/IMPS ref) from the SMS or statement. Used to avoid adding the same payment twice.
+   */
+  externalRef?: string | null;
+  /**
    * Links where this transaction is the source (e.g. this repaid another)
    */
   outgoingLinks?: {
@@ -501,6 +515,54 @@ export interface TransactionLink {
    * Additional context for this link
    */
   note?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "captured-sms".
+ */
+export interface CapturedSm {
+  id: string;
+  user: string | User;
+  sender: string;
+  body: string;
+  receivedAt: string;
+  hash: string;
+  status: 'pending' | 'confirmed' | 'dismissed' | 'duplicate' | 'unparsed';
+  /**
+   * What the parser read from the SMS.
+   */
+  parsed?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Normalised merchant, used to learn from confirmed SMS.
+   */
+  merchantKey?: string | null;
+  /**
+   * Prefill (title, category, tags, person) from your history.
+   */
+  suggestion?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  account?: (string | null) | Account;
+  /**
+   * The confirmed transaction, or the existing one this SMS duplicates.
+   */
+  transaction?: (string | null) | Transaction;
   updatedAt: string;
   createdAt: string;
 }
@@ -922,6 +984,10 @@ export interface PayloadLockedDocument {
         value: string | TransactionLink;
       } | null)
     | ({
+        relationTo: 'captured-sms';
+        value: string | CapturedSm;
+      } | null)
+    | ({
         relationTo: 'reminders';
         value: string | Reminder;
       } | null)
@@ -1104,6 +1170,7 @@ export interface AccountsSelect<T extends boolean = true> {
   color?: T;
   avatar?: T;
   description?: T;
+  smsIdentifiers?: T;
   isActive?: T;
   balance?: T;
   totalTransactions?: T;
@@ -1189,6 +1256,8 @@ export interface TransactionsSelect<T extends boolean = true> {
   attachments?: T;
   note?: T;
   isActive?: T;
+  source?: T;
+  externalRef?: T;
   outgoingLinks?: T;
   incomingLinks?: T;
   updatedAt?: T;
@@ -1205,6 +1274,25 @@ export interface TransactionLinksSelect<T extends boolean = true> {
   to?: T;
   type?: T;
   note?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "captured-sms_select".
+ */
+export interface CapturedSmsSelect<T extends boolean = true> {
+  user?: T;
+  sender?: T;
+  body?: T;
+  receivedAt?: T;
+  hash?: T;
+  status?: T;
+  parsed?: T;
+  merchantKey?: T;
+  suggestion?: T;
+  account?: T;
+  transaction?: T;
   updatedAt?: T;
   createdAt?: T;
 }

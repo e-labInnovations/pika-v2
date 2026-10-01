@@ -13,6 +13,7 @@ import {
 } from './ai'
 import { migrateConnectHandler, migrateFetchHandler, migrateRunHandler } from './migrate'
 import { seedPagesHandler } from './seedPages'
+import { smsSendersHandler, smsIngestHandler, smsConfirmHandler, smsDismissHandler } from './sms'
 
 export const endpoints = [
   {
@@ -125,4 +126,8 @@ export const endpoints = [
     method: 'post' as const,
     handler: migrateRunHandler,
   },
+  { path: '/sms/senders', method: 'get' as const, handler: smsSendersHandler },
+  { path: '/sms/ingest', method: 'post' as const, handler: smsIngestHandler },
+  { path: '/sms/:id/confirm', method: 'post' as const, handler: smsConfirmHandler },
+  { path: '/sms/:id/dismiss', method: 'post' as const, handler: smsDismissHandler },
 ]

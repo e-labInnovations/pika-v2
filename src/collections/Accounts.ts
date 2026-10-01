@@ -51,6 +51,15 @@ export const Accounts: CollectionConfig = {
       relationTo: 'media',
     },
     descriptionField,
+    {
+      name: 'smsIdentifiers',
+      type: 'text',
+      label: 'SMS identifiers',
+      admin: {
+        description:
+          'How bank SMS refer to this account, comma separated: account/card number endings (X7497, xx7618) and keywords (pluxee-meal, pluxee-reward).',
+      },
+    },
     isActiveField,
     // Virtual fields — computed in afterRead, never stored in the database
     {

@@ -395,6 +395,26 @@ export const Transactions: CollectionConfig = {
       defaultValue: true,
     },
     {
+      name: 'source',
+      type: 'select',
+      options: [
+        { label: 'Manual', value: 'manual' },
+        { label: 'SMS', value: 'sms' },
+        { label: 'AI', value: 'ai' },
+        { label: 'Import', value: 'import' },
+      ],
+      admin: { position: 'sidebar', description: 'How this transaction was created. Empty for older entries.' },
+    },
+    {
+      name: 'externalRef',
+      type: 'text',
+      index: true,
+      admin: {
+        position: 'sidebar',
+        description: 'Bank reference (UPI/IMPS ref) from the SMS or statement. Used to avoid adding the same payment twice.',
+      },
+    },
+    {
       name: 'outgoingLinks',
       type: 'join',
       collection: 'transaction-links',
