@@ -275,6 +275,13 @@ if [ -L "$ROOT/current" ]; then
   PREV="$(basename "$(readlink -f "$ROOT/current")")"
 fi
 
+# Payload logs a failed migration and keeps serving, so the health check alone
+# passes over it. Remember where the logs end now and scan only what this
+# release writes.
+LOGS=("$ROOT/shared/logs/pm2-out.log" "$ROOT/shared/logs/pm2-error.log")
+declare -A LOG_START
+for f in "${LOGS[@]}"; do LOG_START[$f]=$( [ -f "$f" ] && wc -c <"$f" || echo 0 ); done
+
 ln -sfn "$REL" "$ROOT/current"
 restart_current
 
@@ -303,6 +310,24 @@ if [ "$OK" -ne 1 ]; then
   fi
   echo "--- recent logs ---" >&2
   pm2 logs "$APP" --lines 40 --nostream >&2 || true
+  exit 1
+fi
+
+# A migration error means the database is behind the code. Don't roll back on
+# our own: earlier migrations in the batch may already have run, and the old
+# release may not work with them (encrypted API keys, for one). Stop loudly.
+MIGRATION_ERRORS=""
+for f in "${LOGS[@]}"; do
+  [ -f "$f" ] || continue
+  NEW="$(tail -c +"$(( ${LOG_START[$f]} + 1 ))" "$f")"
+  if grep -q "Error running migration" <<<"$NEW"; then
+    MIGRATION_ERRORS+="$(grep -E "Error running migration|caused by:" <<<"$NEW")"$'\n'
+  fi
+done
+if [ -n "$MIGRATION_ERRORS" ]; then
+  echo "a migration failed; $APP is up but the database is behind the code:" >&2
+  echo "$MIGRATION_ERRORS" >&2
+  echo "fix the cause, then 'pm2 restart $APP' and request $HEALTH_PATH to retry (migrations are idempotent)" >&2
   exit 1
 fi
 

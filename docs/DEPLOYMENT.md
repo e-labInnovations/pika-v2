@@ -415,34 +415,18 @@ pg_dump "$DATABASE_URL" | gzip > /root/pre-deploy-$(date +%F).sql.gz
 
 ## Backups
 
-`scripts/backup-db.sh` takes a nightly `pg_dump` (custom format) into
-`shared/backups/`, checks it with `pg_restore --list` before keeping it, and
-keeps the newest 14 (`BACKUP_KEEP`). Install it next to deploy.sh and add a
-cron entry:
+The VPS runs `/usr/local/bin/backup-to-telegram` from cron for each app: it
+zips `shared/` (minus `backups/` and `logs/`) together with a `pg_dump` of the
+database named in `shared/.env`, and sends it to the private Telegram group.
+Restore the dump with:
 
 ```bash
-scp scripts/backup-db.sh <vps>:/www/wwwroot/pika.elabins.com/app/backup-db.sh
-chmod +x /www/wwwroot/pika.elabins.com/app/backup-db.sh
-/www/wwwroot/pika.elabins.com/app/backup-db.sh        # run once by hand
-crontab -e
-# 30 2 * * * /www/wwwroot/pika.elabins.com/app/backup-db.sh >> /www/wwwroot/pika.elabins.com/app/shared/logs/backup.log 2>&1
+pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" db.dump
 ```
 
-`pg_dump` must be the same major version as the server or newer.
-
-Copies on the VPS don't survive losing the VPS. For an off-box copy, create
-`shared/backup.env` (`chmod 600`) with `BACKUP_TELEGRAM_TOKEN`,
-`BACKUP_TELEGRAM_CHAT`, optionally `BACKUP_TELEGRAM_THREAD`, and
-`BACKUP_PASSPHRASE`. The dump is encrypted with that passphrase before upload;
-without a passphrase the script refuses to upload. Keep the passphrase
-somewhere other than the VPS.
-
-Restore:
-
-```bash
-openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in pika-<ts>.dump.enc -out pika-<ts>.dump   # Telegram copy only
-pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" pika-<ts>.dump
-```
+The zip holds `shared/.env` next to the dump, so it also holds
+`PAYLOAD_SECRET`, the key the stored AI API keys are encrypted with (below).
+Treat every backup zip as a secret.
 
 ## Secrets at rest
 
@@ -454,6 +438,23 @@ unreadable**: they read as empty and have to be entered again. Migration
 `20261001_000000_encrypt_api_keys` encrypted the keys that were stored before.
 
 ## Caveats
+
+**The app's database role must own the tables.** A migration that alters an
+existing table (`ALTER TABLE … ADD COLUMN`) fails with `must be owner of table`
+otherwise. On 2026-10-01 every table and enum was still owned by `postgres`
+(from the original setup), and `20261002_000000_add_sms_capture` failed until
+ownership was handed over. aaPanel's Postgres listens on `/tmp`, so:
+
+```bash
+P="sudo -u postgres /www/server/pgsql/bin/psql -h /tmp -d pika-v2"
+$P -Atc "select format('ALTER TABLE public.%I OWNER TO %I;', tablename, 'pika-v2') from pg_tables where schemaname='public' and tableowner <> 'pika-v2'" | $P
+$P -Atc "select format('ALTER TYPE public.%I OWNER TO %I;', t.typname, 'pika-v2') from pg_type t join pg_namespace n on n.oid=t.typnamespace where n.nspname='public' and t.typtype='e' and pg_get_userbyid(t.typowner) <> 'pika-v2'" | $P
+```
+
+Payload logs a failed migration and keeps serving, so `/api/access` still
+answers. deploy.sh now scans the logs written since the restart and fails the
+deploy on `Error running migration` (without rolling back: the old release may
+not work with the migrations that did run).
 
 **Rollback does not undo a migration.** Reverting code to a release built
 against the previous schema leaves it running against the new one. Additive
