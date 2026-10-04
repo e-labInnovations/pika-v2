@@ -2,7 +2,7 @@ import { createHash } from 'crypto'
 import type { Payload } from 'payload'
 import { looksFinancial, parseSms, providerForSender, type ParsedSms } from './parse'
 import type { User } from '@/payload-types'
-import { predictCategoryFromHistory } from '../ai/user-history'
+import { isConfidentPrediction, predictCategoryFromHistory } from '../ai/user-history'
 import { eligible, isTrusted, loadAutoConfirmSettings, type AutoConfirmSettings } from './autoConfirm'
 import { confirmCapturedSms } from './confirm'
 
@@ -282,7 +282,7 @@ export async function suggest(
   let tags: string[] = []
   try {
     const pred = await predictCategoryFromHistory(payload, userId, { type: p.type, title })
-    if (pred?.category && pred.score >= 0.5) {
+    if (pred?.category && isConfidentPrediction(pred)) {
       category = String(pred.category.id)
       tags = pred.tags
     }

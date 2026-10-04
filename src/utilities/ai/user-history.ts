@@ -43,6 +43,13 @@ export const HISTORY_TOP_K = 10
 const TAG_MAJORITY = 0.5
 /** Score above which history-tier wins outright (weighted-sum, already normalised by K). */
 export const HISTORY_STRONG_THRESHOLD = 0.5
+/**
+ * Best-neighbour similarity a suggestion needs before it's filled in without the
+ * user asking (bank SMS). On production history (scripts/eval-history.ts) a vote
+ * share ≥ 0.5 alone was right 81% of the time; with this added, 89% while still
+ * covering 70% of transactions.
+ */
+export const HISTORY_CONFIDENT_SIM = 0.7
 /** How many recent transactions to consider for a single prediction. */
 export const HISTORY_FETCH_LIMIT = 500
 /** How many rows we back-fill in a single background batch. */
@@ -60,6 +67,8 @@ export type HistoryPrediction = {
   support: number
   /** Tags carried by most of the winning category's neighbours (by similarity weight). */
   tags: string[]
+  /** Similarity of the closest past transaction. */
+  topSim: number
   model: string
   latencyMs: number
   /** Total history rows scanned (including those without embeddings yet). */
@@ -78,7 +87,7 @@ type TxVector = {
 
 type CacheEntry = {
   vectors: TxVector[]
-  /** How many categorised transactions for this user+type don't have a current embedding yet. */
+  /** Transactions in the history window that don't have a current embedding yet. */
   missingEmbeddings: number
   loadedAt: number
 }
@@ -168,60 +177,63 @@ async function loadHistoryVectors(
   userId: string,
   txType: TxType,
 ): Promise<CacheEntry> {
-  // Fetch current-model embeddings with the transaction populated (for category + isActive).
-  // Run in parallel with a total-transaction count to determine how many are still un-embedded.
-  const [embRes, txCountRes] = await Promise.all([
-    payload.find({
-      collection: 'transaction-embeddings',
-      where: {
-        and: [
-          { user: { equals: userId } },
-          { type: { equals: txType } },
-          { titleEmbeddingModel: { equals: EMBEDDING_MODEL } },
-        ],
-      },
-      sort: '-createdAt',
-      limit: HISTORY_FETCH_LIMIT,
-      depth: 1,
-      overrideAccess: true,
-    }),
-    payload.find({
-      collection: 'transactions',
-      where: {
-        and: [
-          { user: { equals: userId } },
-          { type: { equals: txType } },
-          { isActive: { equals: true } },
-          { category: { exists: true } },
-        ],
-      },
-      limit: 0,
-      depth: 0,
-      overrideAccess: true,
-    }),
-  ])
+  // The latest transactions by their own date — not by embedding creation, which
+  // follows imports and backfills rather than when things happened.
+  const txRes = await payload.find({
+    collection: 'transactions',
+    where: {
+      and: [
+        { user: { equals: userId } },
+        { type: { equals: txType } },
+        { isActive: { equals: true } },
+        { category: { exists: true } },
+      ],
+    },
+    sort: '-date',
+    limit: HISTORY_FETCH_LIMIT,
+    depth: 0,
+    select: { category: true, tags: true, person: true },
+    overrideAccess: true,
+  })
+  const txs = txRes.docs as Pick<Transaction, 'id' | 'category' | 'tags' | 'person'>[]
+
+  const embRes = txs.length
+    ? await payload.find({
+        collection: 'transaction-embeddings',
+        where: {
+          and: [
+            { transaction: { in: txs.map((t) => t.id) } },
+            { titleEmbeddingModel: { equals: EMBEDDING_MODEL } },
+          ],
+        },
+        limit: txs.length,
+        pagination: false,
+        depth: 0,
+        select: { transaction: true, titleEmbedding: true },
+        overrideAccess: true,
+      })
+    : { docs: [] }
+  const vectorByTx = new Map<string, number[]>()
+  for (const d of embRes.docs as any[]) {
+    const txId = extractId(d.transaction)
+    if (txId && Array.isArray(d.titleEmbedding)) vectorByTx.set(txId, d.titleEmbedding)
+  }
 
   const vectors: TxVector[] = []
-  for (const d of embRes.docs as any[]) {
-    const tx = d.transaction
-    if (!tx || typeof tx !== 'object') continue
-    if (!tx.isActive || !tx.category) continue
+  for (const tx of txs) {
     const categoryId = extractId(tx.category)
-    if (!categoryId || !d.titleEmbedding) continue
+    const vector = vectorByTx.get(tx.id)
+    if (!categoryId || !vector) continue
     vectors.push({
       txId: tx.id,
       categoryId,
-      tagIds: Array.isArray(tx.tags) ? tx.tags.map(extractId).filter(Boolean) : [],
+      tagIds: Array.isArray(tx.tags) ? (tx.tags.map(extractId).filter(Boolean) as string[]) : [],
       personId: extractId(tx.person),
-      vector: Float32Array.from(d.titleEmbedding as number[]),
+      vector: Float32Array.from(vector),
     })
   }
 
-  const totalTx = txCountRes.totalDocs ?? 0
-  const embeddedTx = embRes.totalDocs ?? 0
-  const missingEmbeddings = Math.max(0, totalTx - embeddedTx)
-
-  return { vectors, missingEmbeddings, loadedAt: Date.now() }
+  return { vectors, missingEmbeddings: txs.length - vectorByTx.size, loadedAt: Date.now() }
 }
 
 // ─── Backfill ────────────────────────────────────────────────────────────────
@@ -439,6 +451,64 @@ export async function nearestHistory(payload: Payload, userId: string, text: str
 
 // ─── Prediction (k-NN weighted vote) ────────────────────────────────────────
 
+export type NeighbourVote = {
+  categoryId: string
+  /** Winner's share of the top-K similarity weight, in [0, 1]. */
+  score: number
+  /** Neighbours that voted for the winner. */
+  support: number
+  /** Tags carried by most of the winner's neighbours (by similarity weight). */
+  tags: string[]
+  /** Similarity of the closest neighbour. */
+  topSim: number
+}
+
+/**
+ * The weighted vote behind history predictions: the top-K most similar past
+ * transactions vote for their category with their similarity. Pure, so the
+ * offline evaluation (scripts/eval-history.ts) replays exactly this.
+ */
+export function voteOnNeighbours(neighbours: HistoryNeighbour[], k = HISTORY_TOP_K): NeighbourVote | null {
+  const topK = [...neighbours].sort((a, b) => b.sim - a.sim).slice(0, k).filter((n) => n.sim > 0)
+  const votes = new Map<string, { weight: number; count: number }>()
+  let total = 0
+  for (const n of topK) {
+    const acc = votes.get(n.categoryId) ?? { weight: 0, count: 0 }
+    acc.weight += n.sim
+    acc.count += 1
+    votes.set(n.categoryId, acc)
+    total += n.sim
+  }
+  if (!votes.size || total === 0) return null
+
+  let winnerId = ''
+  let winner = { weight: 0, count: 0 }
+  for (const [id, v] of votes) {
+    if (v.weight > winner.weight) {
+      winnerId = id
+      winner = v
+    }
+  }
+
+  const tagWeights = new Map<string, number>()
+  for (const n of topK) {
+    if (n.categoryId !== winnerId) continue
+    for (const t of n.tagIds) tagWeights.set(t, (tagWeights.get(t) ?? 0) + n.sim)
+  }
+  const tags = [...tagWeights]
+    .filter(([, w]) => w / winner.weight >= TAG_MAJORITY)
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => id)
+
+  return { categoryId: winnerId, score: winner.weight / total, support: winner.count, tags, topSim: topK[0].sim }
+}
+
+
+/** Good enough to fill in unasked: a clear majority among close neighbours. */
+export function isConfidentPrediction(p: Pick<HistoryPrediction, 'score' | 'topSim'>): boolean {
+  return p.score >= HISTORY_STRONG_THRESHOLD && p.topSim >= HISTORY_CONFIDENT_SIM
+}
+
 export async function predictCategoryFromHistory(
   payload: Payload,
   userId: string,
@@ -459,74 +529,26 @@ export async function predictCategoryFromHistory(
   }
 
   const totalHistory = cached.vectors.length + cached.missingEmbeddings
-  if (cached.vectors.length < HISTORY_MIN_SAMPLES) {
-    return {
-      category: null,
-      score: 0,
-      support: 0,
-      tags: [],
-      model: EMBEDDING_MODEL,
-      latencyMs: Date.now() - start,
-      totalHistory,
-      scored: cached.vectors.length,
-    }
-  }
+  const vectors = cached.vectors
+  const empty = (): HistoryPrediction => ({
+    category: null,
+    score: 0,
+    support: 0,
+    tags: [],
+    topSim: 0,
+    model: EMBEDDING_MODEL,
+    latencyMs: Date.now() - start,
+    totalHistory,
+    scored: vectors.length,
+  })
+  if (vectors.length < HISTORY_MIN_SAMPLES) return empty()
 
   const titleVec = await embed(args.title)
-
-  const perTx: { categoryId: string; tagIds: string[]; sim: number }[] = []
-  for (const v of cached.vectors) {
-    perTx.push({ categoryId: v.categoryId, tagIds: v.tagIds, sim: cosine(titleVec, v.vector) })
-  }
-  perTx.sort((a, b) => b.sim - a.sim)
-
-  const topK = perTx.slice(0, HISTORY_TOP_K)
-  const votes = new Map<string, { weight: number; count: number }>()
-  let totalPositiveWeight = 0
-  for (const n of topK) {
-    if (n.sim <= 0) continue
-    const acc = votes.get(n.categoryId) ?? { weight: 0, count: 0 }
-    acc.weight += n.sim
-    acc.count += 1
-    votes.set(n.categoryId, acc)
-    totalPositiveWeight += n.sim
-  }
-
-  if (votes.size === 0 || totalPositiveWeight === 0) {
-    return {
-      category: null,
-      score: 0,
-      support: 0,
-      tags: [],
-      model: EMBEDDING_MODEL,
-      latencyMs: Date.now() - start,
-      totalHistory,
-      scored: cached.vectors.length,
-    }
-  }
-
-  let winnerId: string | null = null
-  let winnerWeight = 0
-  let winnerCount = 0
-  for (const [id, v] of votes) {
-    if (v.weight > winnerWeight) {
-      winnerId = id
-      winnerWeight = v.weight
-      winnerCount = v.count
-    }
-  }
-
-  const score = winnerWeight / totalPositiveWeight
-
-  const tagWeights = new Map<string, number>()
-  for (const n of topK) {
-    if (n.sim <= 0 || n.categoryId !== winnerId) continue
-    for (const t of n.tagIds) tagWeights.set(t, (tagWeights.get(t) ?? 0) + n.sim)
-  }
-  const tags = [...tagWeights]
-    .filter(([, w]) => w / winnerWeight >= TAG_MAJORITY)
-    .sort((a, b) => b[1] - a[1])
-    .map(([id]) => id)
+  const vote = voteOnNeighbours(
+    vectors.map((v) => ({ categoryId: v.categoryId, tagIds: v.tagIds, personId: v.personId, sim: cosine(titleVec, v.vector) })),
+  )
+  if (!vote) return empty()
+  const { categoryId: winnerId, score, support: winnerCount, tags, topSim } = vote
 
   let category: Category | null = null
   if (winnerId) {
@@ -547,6 +569,7 @@ export async function predictCategoryFromHistory(
     score,
     support: winnerCount,
     tags,
+    topSim,
     model: EMBEDDING_MODEL,
     latencyMs: Date.now() - start,
     totalHistory,
