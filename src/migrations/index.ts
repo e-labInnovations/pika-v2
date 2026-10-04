@@ -5,6 +5,7 @@ import * as migration_20260426_200000_move_title_embeddings from './20260426_200
 import * as migration_20260930_000000_add_transaction_shares from './20260930_000000_add_transaction_shares';
 import * as migration_20261001_000000_encrypt_api_keys from './20261001_000000_encrypt_api_keys';
 import * as migration_20261002_000000_add_sms_capture from './20261002_000000_add_sms_capture';
+import * as migration_20261004_000000_add_person_upi_ids from './20261004_000000_add_person_upi_ids';
 
 export const migrations = [
   {
@@ -41,5 +42,10 @@ export const migrations = [
     up: migration_20261002_000000_add_sms_capture.up,
     down: migration_20261002_000000_add_sms_capture.down,
     name: '20261002_000000_add_sms_capture',
+  },
+  {
+    up: migration_20261004_000000_add_person_upi_ids.up,
+    down: migration_20261004_000000_add_person_upi_ids.down,
+    name: '20261004_000000_add_person_upi_ids',
   },
 ];

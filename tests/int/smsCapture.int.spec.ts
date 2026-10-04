@@ -3,7 +3,7 @@ import config from '@/payload.config'
 import { describe, it, beforeAll, afterAll, expect } from 'vitest'
 import type { User } from '@/payload-types'
 import { ingestSms } from '@/utilities/sms/ingest'
-import { confirmCapturedSms, dismissCapturedSms } from '@/utilities/sms/confirm'
+import { confirmCapturedSms, dismissCapturedSms, payeeBelongsTo } from '@/utilities/sms/confirm'
 
 const F = 'AD-FEDBNK-S'
 const P = 'JM-Pluxee-S'
@@ -43,6 +43,7 @@ describe('SMS capture flow', () => {
       await payload.delete({ collection: 'transaction-links', where })
       await payload.delete({ collection: 'transactions', where, trash: true } as any)
       await payload.delete({ collection: 'accounts', where })
+      await payload.delete({ collection: 'people', where })
       await payload.delete({ collection: 'user-settings', where })
       await payload.delete({ collection: 'users', id: u.id })
     }
@@ -134,5 +135,41 @@ describe('SMS capture flow', () => {
     await expect(dismissCapturedSms(payload, other, r.id!)).rejects.toThrow()
     const own = await payload.find({ collection: 'captured-sms', user: other, overrideAccess: false })
     expect(own.totalDocs).toBe(0)
+  })
+
+  it('fills in the person from their UPI IDs / SMS names, and learns new ones on confirm', async () => {
+    const mkPerson = (name: string, upiIds?: string) =>
+      payload.create({ collection: 'people', user, overrideAccess: false, data: { name, upiIds } as any })
+    const eliz = await mkPerson('Elizebeth Shaji', 'eliz@okaxis')
+    const ashar = await mkPerson('Ashar Mathew')
+
+    const [r1] = await ingestSms(payload, String(user.id), [
+      { sender: F, body: upi('500.00', 'ELIZ@OKAXIS', '627100000201', '01Oct26 10:00'), receivedAt: '2026-10-01T04:30:30Z' },
+    ])
+    const s1 = await payload.findByID({ collection: 'captured-sms', id: r1.id!, depth: 0 })
+    expect(s1.suggestion).toMatchObject({ person: eliz.id, title: 'Paid Elizebeth Shaji' })
+
+    // Picking Ashar for a payment to "ASHAR M" teaches that name; a shop paid for him does not.
+    const [r2, r3] = await ingestSms(payload, String(user.id), [
+      { sender: F, body: upi('300.00', 'ASHAR M', '627100000202', '01Oct26 11:00'), receivedAt: '2026-10-01T05:30:30Z' },
+      { sender: F, body: upi('80.00', 'HOTEL AKSHAY', '627100000203', '01Oct26 12:00'), receivedAt: '2026-10-01T06:30:30Z' },
+    ])
+    await confirmCapturedSms(payload, user, r2.id!, { category: expenseCat, person: String(ashar.id) })
+    await confirmCapturedSms(payload, user, r3.id!, { category: expenseCat, person: String(ashar.id) })
+    const learned = await payload.findByID({ collection: 'people', id: ashar.id, depth: 0 })
+    expect(learned.upiIds).toBe('ASHAR M')
+
+    const [r4] = await ingestSms(payload, String(user.id), [
+      { sender: F, body: upi('200.00', 'ASHAR M', '627100000204', '02Oct26 11:00'), receivedAt: '2026-10-02T05:30:30Z' },
+    ])
+    const s4 = await payload.findByID({ collection: 'captured-sms', id: r4.id!, depth: 0 })
+    expect((s4.suggestion as any).person).toBe(ashar.id)
+  })
+
+  it('only remembers payees that look like the person', () => {
+    expect(payeeBelongsTo('x123@ybl', 'Anyone')).toBe(true)
+    expect(payeeBelongsTo('ELIZEBETH S', 'Elizebeth Shaji')).toBe(true)
+    expect(payeeBelongsTo('HOTEL AKSHAY', 'Ashar Mathew')).toBe(false)
+    expect(payeeBelongsTo('AB', 'Ab Cd')).toBe(false)
   })
 })

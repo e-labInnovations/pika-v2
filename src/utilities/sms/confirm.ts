@@ -1,7 +1,7 @@
 import { APIError, type Payload } from 'payload'
 import type { User } from '@/payload-types'
 import type { ParsedSms } from './parse'
-import { defaultNote, type SmsSuggestion } from './ingest'
+import { defaultNote, normPayee, payeeTokens, type SmsSuggestion } from './ingest'
 
 /** Fields the user may change before confirming. Anything omitted comes from the suggestion. */
 export type ConfirmOverrides = Partial<{
@@ -22,6 +22,29 @@ export type ConfirmOverrides = Partial<{
 
 const idOf = (v: unknown): string | null =>
   v == null ? null : String(typeof v === 'object' ? (v as { id: string }).id : v)
+
+const words = (s: string) => new Set(normPayee(s).split(/[^a-z]+/).filter((w) => w.length >= 3))
+
+/**
+ * Whether an SMS payee can safely be remembered as this person: a UPI ID, or a name
+ * sharing a word with theirs. A shop paid on someone's behalf ("HOTEL AKSHAY" with
+ * person Ashar) is not.
+ */
+export function payeeBelongsTo(merchant: string, personName: string): boolean {
+  if (merchant.includes('@')) return true
+  const theirs = words(personName)
+  return [...words(merchant)].some((w) => theirs.has(w))
+}
+
+/** Adds the SMS payee to the person's UPI IDs / SMS names, so the next SMS finds them. */
+async function learnPayee(payload: Payload, user: User, personId: string, merchant: string | null) {
+  if (!merchant) return
+  const person = await payload.findByID({ collection: 'people', id: personId, depth: 0, user, overrideAccess: false })
+  const tokens = payeeTokens(person.upiIds)
+  if (tokens.includes(normPayee(merchant)) || !payeeBelongsTo(merchant, person.name)) return
+  const upiIds = [person.upiIds?.trim(), merchant.trim()].filter(Boolean).join(', ')
+  await payload.update({ collection: 'people', id: personId, data: { upiIds }, user, overrideAccess: false })
+}
 
 async function loadOwn(payload: Payload, user: User, id: string) {
   // Access control applies: a user can only act on their own captured SMS.
@@ -53,6 +76,8 @@ export async function confirmCapturedSms(
   if (!account) throw new APIError('Pick the account this SMS belongs to.', 400, { code: 'account_required' })
   if (type === 'transfer' && !toAccount) throw new APIError('Pick the account the money went to.', 400, { code: 'to_account_required' })
 
+  const person = type === 'transfer' ? null : overrides.person !== undefined ? overrides.person : s.person ?? null
+
   const tx = await payload.create({
     collection: 'transactions',
     user,
@@ -66,7 +91,7 @@ export async function confirmCapturedSms(
       category,
       account,
       toAccount,
-      person: type === 'transfer' ? null : (overrides.person !== undefined ? overrides.person : s.person ?? null),
+      person,
       tags: overrides.tags ?? s.tags ?? [],
       shares: type === 'expense' ? overrides.shares ?? [] : [],
       note: overrides.note ?? defaultNote(parsed),
@@ -103,6 +128,8 @@ export async function confirmCapturedSms(
       })
     }
   }
+
+  if (person) await learnPayee(payload, user, person, parsed.merchant)
 
   await payload.update({
     collection: 'captured-sms',

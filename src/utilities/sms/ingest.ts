@@ -103,6 +103,33 @@ export function defaultNote(p: ParsedSms): string {
   return `From SMS (${p.provider} ${p.kind.replace(/_/g, ' ')}). ${parts.join(' · ')}`.trim()
 }
 
+/** Payee as people's UPI IDs / SMS names store it: case, spacing and trailing dots don't matter. */
+export const normPayee = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').replace(/[\s.]+$/, '').trim()
+
+export function payeeTokens(raw: string | null | undefined): string[] {
+  return String(raw ?? '').split(',').map(normPayee).filter(Boolean)
+}
+
+export type PersonRow = { id: string; name: string; tokens: string[] }
+
+export async function loadPeople(payload: Payload, userId: string): Promise<PersonRow[]> {
+  const res = await payload.find({
+    collection: 'people',
+    where: { and: [{ user: { equals: userId } }, { upiIds: { exists: true } }] },
+    pagination: false,
+    depth: 0,
+    select: { name: true, upiIds: true },
+  })
+  return res.docs.map((d) => ({ id: String(d.id), name: d.name as string, tokens: payeeTokens(d.upiIds as string) }))
+}
+
+/** The person whose UPI IDs / SMS names include this SMS payee. */
+export function matchPerson(people: PersonRow[], merchant: string | null): PersonRow | null {
+  if (!merchant) return null
+  const m = normPayee(merchant)
+  return people.find((p) => p.tokens.includes(m)) ?? null
+}
+
 type AccountRow = { id: string; tokens: Set<string> }
 
 async function loadAccounts(payload: Payload, userId: string): Promise<AccountRow[]> {
@@ -191,8 +218,16 @@ const fromTx = (t: TxLike, from: SmsSuggestion['from']): SmsSuggestion => ({
  *     added by hand or imported before SMS capture existed)
  *  3. else just a category, from the MiniLM k-NN over past titles
  */
-export async function suggest(payload: Payload, userId: string, p: ParsedSms): Promise<SmsSuggestion> {
+export async function suggest(
+  payload: Payload,
+  userId: string,
+  p: ParsedSms,
+  people: PersonRow[] = [],
+): Promise<SmsSuggestion> {
   const key = merchantKey(p.merchant)
+  // A payee saved on a person fills in the person, whichever way the rest is suggested.
+  const payee = matchPerson(people, p.merchant)
+  const withPerson = (s: SmsSuggestion): SmsSuggestion => (payee && !s.person ? { ...s, person: payee.id } : s)
 
   if (key) {
     const learned = await payload.find({
@@ -206,7 +241,7 @@ export async function suggest(payload: Payload, userId: string, p: ParsedSms): P
     })
     for (const c of learned.docs) {
       const tx = c.transaction as TxLike | null
-      if (tx && typeof tx === 'object' && tx.type === p.type) return fromTx(tx, 'sms')
+      if (tx && typeof tx === 'object' && tx.type === p.type) return withPerson(fromTx(tx, 'sms'))
     }
 
     if (p.merchant && p.merchant.length >= 4) {
@@ -221,12 +256,12 @@ export async function suggest(payload: Payload, userId: string, p: ParsedSms): P
       })
       if (noted.docs[0]) {
         const s = fromTx(noted.docs[0] as TxLike, 'note')
-        return { ...s, title: aggregatorTitle(p.merchant) ?? s.title }
+        return withPerson({ ...s, title: aggregatorTitle(p.merchant) ?? s.title })
       }
     }
   }
 
-  const title = defaultTitle(p)
+  const title = payee && p.type === 'expense' ? `Paid ${payee.name}` : payee ? `From ${payee.name}` : defaultTitle(p)
   let category: string | null = null
   let tags: string[] = []
   try {
@@ -238,12 +273,13 @@ export async function suggest(payload: Payload, userId: string, p: ParsedSms): P
   } catch {
     // The embedding model may be unavailable; the user picks a category on confirm.
   }
-  return { title, type: p.type, category, tags, person: null, toAccount: null, from: category ? 'model' : 'default' }
+  return { title, type: p.type, category, tags, person: payee?.id ?? null, toAccount: null, from: category ? 'model' : 'default' }
 }
 
 /** Stores new SMS as pending items (or duplicates / unparsed). Re-sending the same SMS is a no-op. */
 export async function ingestSms(payload: Payload, userId: string, messages: IncomingSms[]): Promise<IngestResult[]> {
   let accounts: AccountRow[] | null = null
+  let people: PersonRow[] | null = null
   const results: IngestResult[] = []
 
   for (const msg of messages) {
@@ -272,7 +308,10 @@ export async function ingestSms(payload: Payload, userId: string, messages: Inco
       accounts ??= await loadAccounts(payload, userId)
       account = resolveAccount(accounts, parsed.accountHints)
       duplicateOf = await findDuplicate(payload, userId, parsed, account, msg.receivedAt)
-      if (!duplicateOf) suggestion = await suggest(payload, userId, parsed)
+      if (!duplicateOf) {
+        people ??= await loadPeople(payload, userId)
+        suggestion = await suggest(payload, userId, parsed, people)
+      }
     }
 
     const status: IngestResult['status'] = !parsed ? 'unparsed' : duplicateOf ? 'duplicate' : 'pending'

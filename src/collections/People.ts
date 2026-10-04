@@ -51,6 +51,15 @@ export const People: CollectionConfig = {
       relationTo: 'media',
     },
     descriptionField,
+    {
+      name: 'upiIds',
+      type: 'text',
+      label: 'UPI IDs / SMS names',
+      admin: {
+        description:
+          'How bank SMS name this person, comma separated: UPI IDs (name@okaxis) or the payee name as the SMS writes it (ELIZEBETH S). Used to fill in the person on captured SMS; confirming an SMS with this person adds new ones.',
+      },
+    },
     isActiveField,
     // Virtual fields — computed in afterRead, never stored in the database
     {

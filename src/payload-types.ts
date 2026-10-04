@@ -375,6 +375,10 @@ export interface Person {
   phone?: string | null;
   avatar?: (string | null) | Media;
   description?: string | null;
+  /**
+   * How bank SMS name this person, comma separated: UPI IDs (name@okaxis) or the payee name as the SMS writes it (ELIZEBETH S). Used to fill in the person on captured SMS; confirming an SMS with this person adds new ones.
+   */
+  upiIds?: string | null;
   isActive?: boolean | null;
   balance?: number | null;
   totalTransactions?: number | null;
@@ -1189,6 +1193,7 @@ export interface PeopleSelect<T extends boolean = true> {
   phone?: T;
   avatar?: T;
   description?: T;
+  upiIds?: T;
   isActive?: T;
   balance?: T;
   totalTransactions?: T;
