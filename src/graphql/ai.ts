@@ -29,6 +29,7 @@ import {
   type TxType,
 } from '../utilities/ai/service'
 import { processCategoryPrediction } from '../utilities/ai/predict-category'
+import { pdfPages } from '../utilities/pdf'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -113,8 +114,8 @@ export const aiMutations = () => ({
   imageToTransaction: {
     type: AITransactionResultType,
     args: {
-      image:    { type: new GraphQLNonNull(GraphQLString), description: 'Base64-encoded image or data URL' },
-      mimeType: { type: GraphQLString, description: 'MIME type (default: image/jpeg)' },
+      image:    { type: new GraphQLNonNull(GraphQLString), description: 'Base64-encoded image or PDF, or a data URL' },
+      mimeType: { type: GraphQLString, description: 'MIME type (default: image/jpeg); application/pdf reads the PDF text' },
       model:    { type: GraphQLString },
       text:     { type: GraphQLString, description: 'Optional note typed with the receipt, may contain tagged entities' },
     },
@@ -132,10 +133,27 @@ export const aiMutations = () => ({
       const dataUrlMatch = imageBase64.match(/^data:([^;]+);base64,(.+)$/)
       if (dataUrlMatch) { mimeType = dataUrlMatch[1]; imageBase64 = dataUrlMatch[2] }
 
-      const allowed = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
-      if (!allowed.includes(mimeType)) throw new Error(`Unsupported image type "${mimeType}". Allowed: ${allowed.join(', ')}`)
-
       const userId = String(req.user.id)
+
+      // A PDF receipt (FedMobile, PhonePe…): its text goes through text-to-transaction.
+      if (mimeType === 'application/pdf') {
+        const text = (await pdfPages(imageBase64)).join('\n').replace(/[ \t]+/g, ' ').trim()
+        if (text.length < 10) throw new Error('This PDF has no text to read. Share a screenshot of it instead.')
+        const input = [args.text?.trim(), text.slice(0, 4000)].filter(Boolean).join('\n\n')
+        const result = await processTextToTransaction(req.payload, userId, input, args.model)
+        const promptId = await createAIPromptRecord(req.payload, userId, {
+          inputType: 'text',
+          inputText: input,
+          systemPrompt: result.systemPrompt,
+          userPrompt: result.userPrompt,
+          model: result.model,
+        })
+        return { ...result, promptId }
+      }
+
+      const allowed = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
+      if (!allowed.includes(mimeType)) throw new Error(`Unsupported file type "${mimeType}". Allowed: ${[...allowed, 'application/pdf'].join(', ')}`)
+
       const result = await processImageToTransaction(req.payload, userId, imageBase64, mimeType, args.model, args.text)
       const promptId = await createAIPromptRecord(req.payload, userId, {
         inputType: 'image',
