@@ -7,6 +7,11 @@ import type { TaggedEntity } from './prompts'
  */
 const TOKEN = /@\[([^\]\n]{1,80})\]\((person|account|category|tag):([0-9a-fA-F-]{36})\)/g
 
+/** The text with @[Name](type:id) tokens reduced to their names. */
+export function stripTags(text: string): string {
+  return text.replace(TOKEN, '$1')
+}
+
 export function parseTaggedEntities(text: string): TaggedEntity[] {
   const seen = new Set<string>()
   const out: TaggedEntity[] = []

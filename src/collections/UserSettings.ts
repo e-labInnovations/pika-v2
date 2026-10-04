@@ -180,6 +180,16 @@ export const UserSettings: CollectionConfig = {
       },
     },
     {
+      name: 'aiNarrowPrompt',
+      type: 'checkbox',
+      label: 'Send only likely categories, tags and people to the AI',
+      defaultValue: true,
+      admin: {
+        description:
+          'Text-to-transaction lists only the entries your similar past transactions used, your most used ones and any named in the text. Smaller prompts: cheaper, faster, fine for smaller models.',
+      },
+    },
+    {
       name: 'smsAutoConfirm',
       type: 'checkbox',
       label: 'Auto-add trusted merchants',

@@ -16,7 +16,8 @@ import {
   buildImageToTransactionPrompt,
   buildCategorySuggestionPrompt,
 } from './prompts'
-import { applyTaggedEntities, normalizeShares, parseTaggedEntities, verifyTaggedEntities } from './tagged-entities'
+import { applyTaggedEntities, normalizeShares, parseTaggedEntities, stripTags, verifyTaggedEntities } from './tagged-entities'
+import { narrowLists, relevantEntities } from './narrow-context'
 import { translateGeminiError, translateHFError } from './errors'
 import {
   predictCategoryWithEmbeddings,
@@ -221,6 +222,8 @@ export async function checkRateLimits(
 export async function buildUserContext(
   payload: Payload,
   userId: string,
+  /** With text, only the categories/tags/people likely for it are listed (user setting aiNarrowPrompt). */
+  narrow?: { text: string; taggedIds: string[] },
 ): Promise<{ categories: string; tags: string; accounts: string; people: string }> {
   const sysResult = await payload.find({ collection: 'users', where: { role: { equals: 'system' } }, limit: 100, depth: 0 })
   const sysIds = sysResult.docs.map((u) => u.id)
@@ -236,14 +239,32 @@ export async function buildUserContext(
   const fmt = (docs: any[], fields: string[]) =>
     docs.map((d) => `${d.id}: ${fields.map((f) => d[f]).filter(Boolean).join(' — ')}`).join('\n') || 'none'
 
-  const categoriesStr = renderCategoryTree(cats.docs as Category[], { includeType: true }) || 'none'
+  let lists = { categories: cats.docs as Category[], tags: tags.docs as any[], people: people.docs as any[] }
+  if (narrow?.text.trim() && (await narrowingEnabled(payload, userId))) {
+    const relevant = await relevantEntities(payload, userId, narrow.text, lists, narrow.taggedIds).catch(() => null)
+    if (relevant) lists = narrowLists(lists, relevant)
+  }
+
+  const categoriesStr = renderCategoryTree(lists.categories, { includeType: true }) || 'none'
 
   return {
     categories: categoriesStr,
-    tags: fmt(tags.docs, ['name', 'description']),
+    tags: fmt(lists.tags, ['name', 'description']),
     accounts: fmt(accounts.docs, ['name', 'description']),
-    people: fmt(people.docs, ['name', 'email', 'phone', 'description']),
+    people: fmt(lists.people, ['name', 'email', 'phone', 'description']),
   }
+}
+
+async function narrowingEnabled(payload: Payload, userId: string): Promise<boolean> {
+  const res = await payload.find({
+    collection: 'user-settings',
+    where: { user: { equals: userId } },
+    limit: 1,
+    depth: 0,
+    context: { internal: true },
+    select: { aiNarrowPrompt: true },
+  })
+  return res.docs[0]?.aiNarrowPrompt !== false
 }
 
 /**
@@ -620,12 +641,12 @@ export async function processTextToTransaction(
     await checkRateLimits(payload, userId, config.perUserDailyTokenLimit, config.perUserMonthlyTokenLimit)
   }
 
+  const entities = await verifyTaggedEntities(payload, userId, parseTaggedEntities(text))
   const [timezone, context] = await Promise.all([
     getUserTimezone(payload, userId),
-    buildUserContext(payload, userId),
+    buildUserContext(payload, userId, { text: stripTags(text), taggedIds: entities.map((e) => e.id) }),
   ])
 
-  const entities = await verifyTaggedEntities(payload, userId, parseTaggedEntities(text))
   const userPrompt = buildTextToTransactionPrompt({ text, entities, ...context, timezone, currentDatetime: getLocalDatetime(timezone) })
 
   let result

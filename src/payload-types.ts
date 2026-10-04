@@ -275,6 +275,10 @@ export interface UserSetting {
    */
   categoryAiMethod?: ('minilm' | 'cloud') | null;
   /**
+   * Text-to-transaction lists only the entries your similar past transactions used, your most used ones and any named in the text. Smaller prompts: cheaper, faster, fine for smaller models.
+   */
+  aiNarrowPrompt?: boolean | null;
+  /**
    * Confirm a bank SMS automatically when its merchant was confirmed the same way (title, category, tags, person) the last 3 times. Transfers and refunds always wait for review.
    */
   smsAutoConfirm?: boolean | null;
@@ -1368,6 +1372,7 @@ export interface UserSettingsSelect<T extends boolean = true> {
   preferredModel?: T;
   allowFallback?: T;
   categoryAiMethod?: T;
+  aiNarrowPrompt?: T;
   smsAutoConfirm?: T;
   smsAutoConfirmMaxAmount?: T;
   smsReplyAction?: T;

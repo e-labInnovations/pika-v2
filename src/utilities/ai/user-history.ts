@@ -72,6 +72,7 @@ type TxVector = {
   txId: string
   categoryId: string
   tagIds: string[]
+  personId: string | null
   vector: Float32Array
 }
 
@@ -211,6 +212,7 @@ async function loadHistoryVectors(
       txId: tx.id,
       categoryId,
       tagIds: Array.isArray(tx.tags) ? tx.tags.map(extractId).filter(Boolean) : [],
+      personId: extractId(tx.person),
       vector: Float32Array.from(d.titleEmbedding as number[]),
     })
   }
@@ -402,6 +404,37 @@ function kickOffBackfill(payload: Payload, userId: string, txType: TxType): void
       backfillInProgress.delete(key)
     }
   })()
+}
+
+// ─── Nearest past transactions (prompt narrowing) ────────────────────────────
+
+export type HistoryNeighbour = { categoryId: string; tagIds: string[]; personId: string | null; sim: number }
+
+async function cachedVectors(payload: Payload, userId: string, txType: TxType): Promise<CacheEntry> {
+  const key = cacheKey(userId, txType)
+  let cached = userHistoryCache.get(key)
+  if (!cached || Date.now() - cached.loadedAt > CACHE_TTL_MS) {
+    cached = await loadHistoryVectors(payload, userId, txType)
+    userHistoryCache.set(key, cached)
+  }
+  if (cached.missingEmbeddings > 0) kickOffBackfill(payload, userId, txType)
+  return cached
+}
+
+/**
+ * The user's past transactions (any type) whose titles are closest to `text`, best
+ * first. Null when there isn't enough embedded history to say anything.
+ */
+export async function nearestHistory(payload: Payload, userId: string, text: string, k = 30): Promise<HistoryNeighbour[] | null> {
+  const entries = await Promise.all((['expense', 'income', 'transfer'] as TxType[]).map((t) => cachedVectors(payload, userId, t)))
+  const vectors = entries.flatMap((e) => e.vectors)
+  if (vectors.length < HISTORY_MIN_SAMPLES) return null
+  const q = await embed(text)
+  return vectors
+    .map((v) => ({ categoryId: v.categoryId, tagIds: v.tagIds, personId: v.personId, sim: cosine(q, v.vector) }))
+    .filter((n) => n.sim > 0.2)
+    .sort((a, b) => b.sim - a.sim)
+    .slice(0, k)
 }
 
 // ─── Prediction (k-NN weighted vote) ────────────────────────────────────────
