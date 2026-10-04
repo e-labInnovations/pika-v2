@@ -280,16 +280,18 @@ export async function suggest(
     payee && p.type === 'expense' ? `Paid ${payee.name}` : payee ? `From ${payee.name}` : titleHint || defaultTitle(p)
   let category: string | null = null
   let tags: string[] = []
+  let person: string | null = payee?.id ?? null
   try {
     const pred = await predictCategoryFromHistory(payload, userId, { type: p.type, title })
     if (pred?.category && isConfidentPrediction(pred)) {
       category = String(pred.category.id)
       tags = pred.tags
     }
+    person ??= pred?.person ?? null
   } catch {
     // The embedding model may be unavailable; the user picks a category on confirm.
   }
-  return { title, type: p.type, category, tags, person: payee?.id ?? null, toAccount: null, from: category ? 'model' : 'default' }
+  return { title, type: p.type, category, tags, person, toAccount: null, from: category ? 'model' : 'default' }
 }
 
 /** Stores new SMS as pending items (or duplicates / unparsed). Re-sending the same SMS is a no-op. */

@@ -68,6 +68,7 @@ const AICategoryPredictionResultType = new GraphQLObjectType({
   name: 'AICategoryPredictionResult',
   fields: {
     category:  { type: GraphQLJSON, description: 'Resolved child Category object, or null when no candidate clears the score threshold' },
+    person:    { type: GraphQLJSON, description: 'Person object most similar past transactions had, or null' },
     score:     { type: new GraphQLNonNull(GraphQLFloat), description: 'Best cosine similarity in [0, 1]' },
     model:     { type: new GraphQLNonNull(GraphQLString) },
     latencyMs: { type: new GraphQLNonNull(GraphQLFloat) },

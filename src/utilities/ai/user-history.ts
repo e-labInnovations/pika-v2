@@ -31,6 +31,7 @@
 import type { Payload } from 'payload'
 import type { Category, Transaction } from '../../payload-types'
 import { cosine, embed, EMBEDDING_MODEL } from './embeddings'
+import { mentioned } from './names'
 import type { TxType } from './service'
 
 // ─── Tunables ───────────────────────────────────────────────────────────────
@@ -41,6 +42,13 @@ export const HISTORY_MIN_SAMPLES = 10
 export const HISTORY_TOP_K = 10
 /** Share of the winning category's neighbour weight a tag needs to be suggested. */
 const TAG_MAJORITY = 0.5
+/**
+ * Share of the close neighbours' weight one person needs to be suggested. People are
+ * costlier to get wrong than categories (balances), so this is strict; on production
+ * history since April it found 45% of people, all right, plus 2 on transactions
+ * that had none.
+ */
+export const PERSON_MAJORITY = 0.7
 /** Score above which history-tier wins outright (weighted-sum, already normalised by K). */
 export const HISTORY_STRONG_THRESHOLD = 0.5
 /**
@@ -69,6 +77,8 @@ export type HistoryPrediction = {
   tags: string[]
   /** Similarity of the closest past transaction. */
   topSim: number
+  /** Person most similar past transactions had, when confident (see isConfidentPerson). */
+  person: string | null
   model: string
   latencyMs: number
   /** Total history rows scanned (including those without embeddings yet). */
@@ -461,6 +471,8 @@ export type NeighbourVote = {
   tags: string[]
   /** Similarity of the closest neighbour. */
   topSim: number
+  /** Person with the most weight among close top-K neighbours, and their share of it. */
+  person: { id: string; share: number } | null
 }
 
 /**
@@ -500,13 +512,52 @@ export function voteOnNeighbours(neighbours: HistoryNeighbour[], k = HISTORY_TOP
     .sort((a, b) => b[1] - a[1])
     .map(([id]) => id)
 
-  return { categoryId: winnerId, score: winner.weight / total, support: winner.count, tags, topSim: topK[0].sim }
+  // People vote among close neighbours only: a few distant ones ("Payment to Azeez"
+  // for "Payment to Shamil") shouldn't outweigh exact matches.
+  const close = topK.filter((n) => n.sim >= HISTORY_CONFIDENT_SIM)
+  const closeTotal = close.reduce((sum, n) => sum + n.sim, 0)
+  const personWeights = new Map<string, number>()
+  for (const n of close) if (n.personId) personWeights.set(n.personId, (personWeights.get(n.personId) ?? 0) + n.sim)
+  const [personId, personWeight] = [...personWeights].sort((a, b) => b[1] - a[1])[0] ?? []
+  const person = personId ? { id: personId, share: personWeight! / closeTotal } : null
+
+  return { categoryId: winnerId, score: winner.weight / total, support: winner.count, tags, topSim: topK[0].sim, person }
 }
 
 
 /** Good enough to fill in unasked: a clear majority among close neighbours. */
 export function isConfidentPrediction(p: Pick<HistoryPrediction, 'score' | 'topSim'>): boolean {
   return p.score >= HISTORY_STRONG_THRESHOLD && p.topSim >= HISTORY_CONFIDENT_SIM
+}
+
+async function loadPeopleNames(payload: Payload, userId: string): Promise<{ id: string; name: string }[]> {
+  const res = await payload.find({
+    collection: 'people',
+    where: { user: { equals: userId } },
+    limit: 0,
+    pagination: false,
+    depth: 0,
+    select: { name: true },
+    overrideAccess: true,
+  })
+  return res.docs.map((p) => ({ id: String(p.id), name: p.name ?? '' }))
+}
+
+/**
+ * The person to suggest for a title: the one most close neighbours share, unless the
+ * title names someone else ("Lent to Aama" next to many "Lent" rows for Rabeeh). A
+ * name alone isn't enough: on an expense a person means they owe you, and titles
+ * often name a shop's or payee's owner ("Coffee - MEERA SREEKUMA").
+ */
+export function pickPerson(
+  title: string,
+  vote: Pick<NeighbourVote, 'person'> | null,
+  people: { id: string; name: string }[],
+): string | null {
+  const voted = vote?.person && vote.person.share >= PERSON_MAJORITY ? vote.person.id : null
+  if (!voted) return null
+  const named = mentioned(people, title)
+  return named.length === 0 || named.includes(voted) ? voted : null
 }
 
 export async function predictCategoryFromHistory(
@@ -536,6 +587,7 @@ export async function predictCategoryFromHistory(
     support: 0,
     tags: [],
     topSim: 0,
+    person: null,
     model: EMBEDDING_MODEL,
     latencyMs: Date.now() - start,
     totalHistory,
@@ -570,6 +622,7 @@ export async function predictCategoryFromHistory(
     support: winnerCount,
     tags,
     topSim,
+    person: pickPerson(args.title, vote, await loadPeopleNames(payload, userId)),
     model: EMBEDDING_MODEL,
     latencyMs: Date.now() - start,
     totalHistory,

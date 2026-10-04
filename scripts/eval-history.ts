@@ -20,7 +20,8 @@ import { cosine, embed } from '../src/utilities/ai/embeddings'
 import {
   HISTORY_FETCH_LIMIT,
   HISTORY_MIN_SAMPLES,
-  type HistoryNeighbour,
+  type NeighbourVote,
+  pickPerson,
   voteOnNeighbours,
 } from '../src/utilities/ai/user-history'
 
@@ -65,7 +66,7 @@ type Row = {
   topSim: number
   correct: boolean
   predictedTags: string[]
-  neighbours: HistoryNeighbour[]
+  person: NeighbourVote['person']
 }
 
 async function main() {
@@ -100,10 +101,10 @@ async function main() {
           tx,
           predicted: vote.categoryId,
           score: vote.score,
-          topSim: Math.max(...neighbours.map((n) => n.sim)),
+          topSim: vote.topSim,
           correct: vote.categoryId === tx.category,
           predictedTags: vote.tags,
-          neighbours,
+          person: vote.person,
         })
       }
     }
@@ -146,29 +147,20 @@ async function main() {
   }
   console.log(`Tags (where category suggested): precision ${pct(tp, tp + fp)}, recall ${pct(tp, tp + fn)}\n`)
 
-  // ── Person: weighted vote among neighbours that have one (prototype for person suggestions).
-  console.log('Person vote (top-10 neighbours, share of weight among all top-10):')
-  console.log('  ≥ share  suggested  correct   (of transactions that have a person)')
+  // ── Person: the production rule (names in the title, then the close-neighbour vote).
+  const people = read<Named[]>('people.json', []).map((p) => ({ id: p.id, name: p.name }))
   const withPerson = rows.filter((r) => r.tx.person)
-  for (const cut of [0.4, 0.5, 0.6, 0.7]) {
-    let suggested = 0
-    let ok = 0
-    let wrongOnEmpty = 0
-    for (const r of rows) {
-      const top = [...r.neighbours].sort((a, b) => b.sim - a.sim).slice(0, 10).filter((n) => n.sim > 0)
-      const total = top.reduce((s, n) => s + n.sim, 0)
-      const w = new Map<string, number>()
-      for (const n of top) if (n.personId) w.set(n.personId, (w.get(n.personId) ?? 0) + n.sim)
-      const best = [...w].sort((a, b) => b[1] - a[1])[0]
-      if (!best || best[1] / total < cut) continue
-      if (r.tx.person) {
-        suggested++
-        if (best[0] === r.tx.person) ok++
-      } else wrongOnEmpty++
-    }
-    console.log(
-      `  ${cut.toFixed(2)}     ${pct(suggested, withPerson.length).padStart(6)}    ${pct(ok, suggested).padStart(6)}   + ${wrongOnEmpty} on transactions with no person`,
-    )
+  const picked = rows.map((r) => ({ r, id: pickPerson(r.tx.title!, { person: r.person }, people) })).filter((p) => p.id)
+  const onPerson = picked.filter((p) => p.r.tx.person)
+  const okPerson = onPerson.filter((p) => p.id === p.r.tx.person).length
+  console.log(
+    `Person (${withPerson.length} transactions have one): suggested ${pct(onPerson.length, withPerson.length)}, correct ${pct(okPerson, onPerson.length)}, + ${picked.length - onPerson.length} on transactions with no person`,
+  )
+  for (const p of onPerson.filter((x) => x.id !== x.r.tx.person).slice(0, 8)) {
+    console.log(`  wrong: "${p.r.tx.title}" → ${nameOf(p.id)} (was ${nameOf(p.r.tx.person)})`)
+  }
+  for (const p of picked.filter((x) => !x.r.tx.person).slice(0, 8)) {
+    console.log(`  extra: "${p.r.tx.title}" → ${nameOf(p.id)}`)
   }
   console.log()
 

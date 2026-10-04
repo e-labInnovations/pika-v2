@@ -1,5 +1,6 @@
 import type { Payload } from 'payload'
 import type { Category } from '@/payload-types'
+import { mentioned } from './names'
 import { nearestHistory } from './user-history'
 
 /** Below these sizes a list is sent whole; narrowing would save little and risk a miss. */
@@ -9,20 +10,6 @@ const FREQUENT = 12
 type Doc = { id: string | number; name?: string | null }
 
 export type Relevant = { categories: Set<string>; tags: Set<string>; people: Set<string> }
-
-const words = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3)
-
-/** Names that appear in the text: the whole name, or any word of it (first names, "fuel"). */
-function mentioned(docs: Doc[], text: string): string[] {
-  const t = text.toLowerCase()
-  const inText = new Set(words(text))
-  return docs
-    .filter((d) => {
-      const name = (d.name ?? '').toLowerCase().trim()
-      return (name.length >= 3 && t.includes(name)) || words(name).some((w) => inText.has(w))
-    })
-    .map((d) => String(d.id))
-}
 
 const top = (counts: Map<string, number>, n: number) =>
   [...counts].sort((a, b) => b[1] - a[1]).slice(0, n).map(([id]) => id)

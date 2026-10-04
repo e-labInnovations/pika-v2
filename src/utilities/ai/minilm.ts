@@ -19,6 +19,8 @@ export type MinilmCategoryPrediction = {
   category: Category | null
   /** Cosine similarity in [-1, 1]; caller compares against SCORE_THRESHOLD. */
   score: number
+  /** Person id suggested by similar past transactions (history tier only). */
+  person: string | null
   model: string
   latencyMs: number
 }
@@ -152,12 +154,15 @@ export async function predictCategoryWithEmbeddings(
 
   // ─── Tier 1: user history ───────────────────────────────────────────────
   let historyBest: MinilmCategoryPrediction | null = null
+  let person: string | null = null
   try {
     const h = await predictCategoryFromHistory(payload, userId, args)
+    person = h?.person ?? null
     if (h && h.category) {
       historyBest = {
         category: h.category,
         score: h.score,
+        person,
         model: EMBEDDING_MODEL,
         latencyMs: Date.now() - overallStart,
       }
@@ -179,7 +184,7 @@ export async function predictCategoryWithEmbeddings(
 
   // Pick the higher-confidence tier.
   if (historyBest && historyBest.score > categoryBest.score) return historyBest
-  return categoryBest
+  return { ...categoryBest, person }
 }
 
 async function predictFromCategoryEmbeddings(
@@ -193,6 +198,7 @@ async function predictFromCategoryEmbeddings(
     return {
       category: null,
       score: 0,
+      person: null,
       model: EMBEDDING_MODEL,
       latencyMs: Date.now() - start,
     }
@@ -217,6 +223,7 @@ async function predictFromCategoryEmbeddings(
   return {
     category: best?.category ?? null,
     score: best?.score ?? 0,
+    person: null,
     model: EMBEDDING_MODEL,
     latencyMs: Date.now() - start,
   }

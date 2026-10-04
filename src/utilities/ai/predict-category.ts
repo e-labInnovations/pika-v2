@@ -12,7 +12,7 @@
 
 import type { Payload } from 'payload'
 import { APIError } from 'payload'
-import type { Category } from '../../payload-types'
+import type { Category, Person } from '../../payload-types'
 import {
   predictCategoryWithEmbeddings,
   resolveUserCategoryMethod,
@@ -26,6 +26,8 @@ import {
 
 export type AICategoryPredictionResult = {
   category: Category | null
+  /** Person most similar past transactions had (MiniLM only), or null. */
+  person: Person | null
   score: number
   model: string
   latencyMs: number
@@ -61,6 +63,7 @@ export async function processCategoryPrediction(
     })
     return {
       category: result.category,
+      person: null,
       score: result.category ? 1 : 0,
       model: result.model,
       latencyMs: result.latencyMs,
@@ -95,8 +98,14 @@ export async function processCategoryPrediction(
     throw new APIError(errorMessage ?? 'Prediction failed', 500, null, true)
 
   const passes = !!best?.category && best.score >= SCORE_THRESHOLD
+  const person = best?.person
+    ? ((await payload
+        .findByID({ collection: 'people', id: best.person, depth: 1, overrideAccess: true })
+        .catch(() => null)) as Person | null)
+    : null
   return {
     category: passes ? best!.category : null,
+    person,
     score: best?.score ?? 0,
     model: best?.model ?? 'Xenova/all-MiniLM-L6-v2',
     latencyMs: best?.latencyMs ?? 0,
