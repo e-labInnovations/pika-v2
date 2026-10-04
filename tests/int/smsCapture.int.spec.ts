@@ -52,6 +52,7 @@ describe('SMS capture flow', () => {
     const msg = { sender: F, body: upi('45.00', 'HOTEL SAMPLE', '627100000101'), receivedAt: '2026-09-28T03:26:30Z' }
     const [r] = await ingestSms(payload, String(user.id), [msg])
     expect(r.status).toBe('pending')
+    expect(r.summary).toEqual({ amount: '45.00', type: 'expense', title: 'Hotel Sample' })
     const sms = await payload.findByID({ collection: 'captured-sms', id: r.id!, depth: 0 })
     expect(sms.account).toBe(bank)
     expect((sms.suggestion as any).title).toBe('Hotel Sample')

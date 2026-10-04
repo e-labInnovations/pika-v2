@@ -21,6 +21,8 @@ export type IngestResult = {
   receivedAt: string
   status: 'pending' | 'duplicate' | 'unparsed' | 'exists' | 'ignored'
   id?: string
+  /** For new pending items: enough for the phone to show a notification. */
+  summary?: { amount: string; type: ParsedSms['type']; title: string }
 }
 
 const idOf = (v: unknown): string | null =>
@@ -286,7 +288,14 @@ export async function ingestSms(payload: Payload, userId: string, messages: Inco
         transaction: duplicateOf,
       },
     })
-    results.push({ ...base, status, id: String(doc.id) })
+    results.push({
+      ...base,
+      status,
+      id: String(doc.id),
+      ...(status === 'pending' && parsed && suggestion
+        ? { summary: { amount: parsed.amount, type: suggestion.type, title: suggestion.title } }
+        : {}),
+    })
   }
   return results
 }
