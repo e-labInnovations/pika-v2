@@ -137,7 +137,7 @@ export function matchPerson(people: PersonRow[], merchant: string | null): Perso
 
 type AccountRow = { id: string; tokens: Set<string> }
 
-async function loadAccounts(payload: Payload, userId: string): Promise<AccountRow[]> {
+export async function loadAccounts(payload: Payload, userId: string): Promise<AccountRow[]> {
   const res = await payload.find({
     collection: 'accounts',
     where: { user: { equals: userId } },
@@ -228,6 +228,8 @@ export async function suggest(
   userId: string,
   p: ParsedSms,
   people: PersonRow[] = [],
+  /** Better title than the merchant when nothing was learned (e.g. a bank statement's note). */
+  titleHint?: string | null,
 ): Promise<SmsSuggestion> {
   const key = merchantKey(p.merchant)
   // A payee saved on a person fills in the person, whichever way the rest is suggested.
@@ -266,7 +268,8 @@ export async function suggest(
     }
   }
 
-  const title = payee && p.type === 'expense' ? `Paid ${payee.name}` : payee ? `From ${payee.name}` : defaultTitle(p)
+  const title =
+    payee && p.type === 'expense' ? `Paid ${payee.name}` : payee ? `From ${payee.name}` : titleHint || defaultTitle(p)
   let category: string | null = null
   let tags: string[] = []
   try {

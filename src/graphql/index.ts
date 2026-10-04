@@ -4,6 +4,7 @@ import { analyticsQueries } from './analytics'
 import { aiMutations } from './ai'
 import { smsMutations } from './sms'
 import { balanceCheckQueries } from './balanceChecks'
+import { statementMutations } from './statements'
 
 export const graphQLQueries = () => ({
   ...currencyQueries(),
@@ -15,4 +16,5 @@ export const graphQLQueries = () => ({
 export const graphQLMutations = () => ({
   ...aiMutations(),
   ...smsMutations(),
+  ...statementMutations(),
 })
