@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { detectMonthly, nextMonthly, reminderTitle, titleKey, usualDay } from '@/utilities/recurring'
+import { detectMonthly, nextMonthly, reminderTitle, seriesKey, titleKey, usualDay } from '@/utilities/recurring'
 
 let n = 0
 const tx = (title: string, amount: number, date: string, type = 'income', category = 'cat') => ({
@@ -34,6 +34,17 @@ describe('recurring detection', () => {
     const jumpy = [tx('Shop', 100, '2026-07-10', 'expense'), tx('Shop', 900, '2026-08-10', 'expense'), tx('Shop', 120, '2026-09-10', 'expense')]
     const stopped = [tx('Gym', 900, '2026-04-02', 'expense'), tx('Gym', 900, '2026-05-02', 'expense'), tx('Gym', 900, '2026-06-02', 'expense')]
     expect(detectMonthly([...coffee, ...jumpy, ...stopped], now)).toEqual([])
+  })
+
+  it('groups title variants into one series when given a series key', () => {
+    const rent = [
+      tx('Rent - Flat 7A (Jul 2026)', 7000, '2026-07-31', 'expense', 'rent'),
+      tx('Flat rent - ASHER MATHEW', 7000, '2026-08-30', 'expense', 'rent'),
+      tx('Rent - ASHER MATHEW', 7000, '2026-09-30', 'expense', 'rent'),
+    ]
+    expect(detectMonthly(rent, now)).toEqual([]) // three different exact titles
+    const [s] = detectMonthly(rent, now, (t) => (t.category === 'rent' ? 'expense|rent|rent' : seriesKey(t)))
+    expect(s).toMatchObject({ key: 'expense|rent|rent', title: 'Rent - ASHER MATHEW', occurrences: 3, day: 30 })
   })
 })
 

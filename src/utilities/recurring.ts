@@ -1,5 +1,6 @@
 import type { Payload } from 'payload'
 import type { User } from '@/payload-types'
+import { cosine, embed } from './ai/embeddings'
 
 /**
  * Monthly payments (rent, mess, recharges, salary) found in the user's history, and the
@@ -96,14 +97,60 @@ export function nextMonthly(from: Date, day: number): string {
 
 type Tx = { id: string; title: string; type: string; amount: number; date: string; category: string | null; account: string | null }
 
+/** A payment series: same type, category and title (without dates and amounts). */
+export const seriesKey = (t: { type: string; category: string | null; title: string }) =>
+  `${t.type}|${t.category ?? ''}|${titleKey(t.title)}`
+
+/** Titles in one category this similar (single link) are one series: "Rent - Flat 7A" … "Rent - ASHER MATHEW". */
+const SERIES_SIM = 0.5
+
+/**
+ * Maps each series key to its cluster's: within a type and category, title keys
+ * connected by MiniLM similarity ≥ SERIES_SIM (directly or through others) form one
+ * series, named after its most frequent key. The category does the heavy lifting —
+ * names in titles ("Rent - ASHER MATHEW") keep rent variants at 0.44–0.66 similarity,
+ * so a global threshold would either miss them or merge unrelated payments.
+ * Falls back to exact keys when the model is unavailable.
+ */
+export async function clusterSeries(keys: string[]): Promise<Map<string, string>> {
+  const count = new Map<string, number>()
+  for (const k of keys) count.set(k, (count.get(k) ?? 0) + 1)
+  const canon = new Map([...count.keys()].map((k) => [k, k]))
+  const buckets = new Map<string, string[]>()
+  for (const k of count.keys()) {
+    const bucket = k.slice(0, k.lastIndexOf('|'))
+    if (!k.endsWith('|')) buckets.set(bucket, [...(buckets.get(bucket) ?? []), k])
+  }
+  try {
+    for (const members of buckets.values()) {
+      if (members.length < 2) continue
+      const vecs = await Promise.all(members.map((k) => embed(k.slice(k.lastIndexOf('|') + 1))))
+      // Union-find over similar pairs.
+      const parent = members.map((_, i) => i)
+      const root = (i: number): number => (parent[i] === i ? i : (parent[i] = root(parent[i])))
+      for (let i = 0; i < members.length; i++)
+        for (let j = i + 1; j < members.length; j++)
+          if (cosine(vecs[i], vecs[j]) >= SERIES_SIM) parent[root(i)] = root(j)
+      const groups = new Map<number, string[]>()
+      members.forEach((k, i) => groups.set(root(i), [...(groups.get(root(i)) ?? []), k]))
+      for (const g of groups.values()) {
+        const name = g.reduce((a, b) => ((count.get(b) ?? 0) > (count.get(a) ?? 0) ? b : a))
+        for (const k of g) canon.set(k, name)
+      }
+    }
+  } catch {
+    // Model unavailable: exact series only.
+  }
+  return canon
+}
+
 /** Groups of transactions that happened about monthly, in distinct months, for similar amounts. */
-export function detectMonthly(txs: Tx[], now = new Date()): RecurringSuggestion[] {
+export function detectMonthly(txs: Tx[], now = new Date(), keyOf: (t: Tx) => string = seriesKey): RecurringSuggestion[] {
   const groups = new Map<string, Tx[]>()
   for (const t of txs) {
     if (t.type !== 'expense' && t.type !== 'income') continue
-    const k = titleKey(t.title)
-    if (k.length < 3) continue
-    const key = `${t.type}|${t.category ?? ''}|${k}`
+    if (titleKey(t.title).length < 3) continue
+    const key = keyOf(t)
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key)!.push(t)
   }
@@ -194,21 +241,37 @@ export async function recurringOverview(
   ])
   const reminders = remindersRes.docs
 
-  const known = new Set(reminders.map((r) => `${r.type}|${idOf(r.category) ?? ''}|${titleKey(r.title as string)}`))
-  const suggestions = detectMonthly(txs, now).filter((s) => !known.has(s.key))
+  const reminderKey = (r: (typeof reminders)[number]) =>
+    seriesKey({ type: r.type as string, category: idOf(r.category), title: r.title as string })
+  // Reminder titles join the clustering so a tracked series is recognised under any title variant.
+  const canon = await clusterSeries([...txs.map(seriesKey), ...reminders.map(reminderKey)])
+  const series = (key: string) => canon.get(key) ?? key
+  const known = new Set(reminders.map((r) => series(reminderKey(r))))
+  // Exact titles first; similar-title series only where exact found nothing in that type
+  // and category, so two bills in one category (electricity, water) stay apart.
+  const exact = detectMonthly(txs, now)
+  const covered = new Set(exact.map((s) => s.key.slice(0, s.key.lastIndexOf('|'))))
+  const clustered = detectMonthly(txs, now, (t) => series(seriesKey(t))).filter(
+    (s) => !covered.has(s.key.slice(0, s.key.lastIndexOf('|'))),
+  )
+  const suggestions = [...exact, ...clustered]
+    .filter((s) => !known.has(series(s.key)))
+    .sort((a, b) => a.nextDue.localeCompare(b.nextDue))
 
   const due: RecurringDue[] = []
   for (const r of reminders) {
     if (r.archived || !r.isRecurring || r.recurrenceType !== 'monthly' || !r.nextDueDate) continue
     let next = r.nextDueDate as string
     const key = titleKey(r.title as string)
+    const rSeries = series(reminderKey(r))
     const day = istDate(next).getUTCDate()
     const paid = (dueIso: string) =>
       txs.find(
         (t) =>
           t.type === r.type &&
-          (idOf(r.category) ? t.category === idOf(r.category) : true) &&
-          titleKey(t.title) === key &&
+          (idOf(r.category)
+            ? t.category === idOf(r.category) && series(seriesKey(t)) === rSeries
+            : titleKey(t.title) === key) &&
           Math.abs(Date.parse(t.date) - Date.parse(dueIso)) <= MATCH_WINDOW_DAYS * DAY,
       )
     // Advance past every month already paid.
