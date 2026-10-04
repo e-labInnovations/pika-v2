@@ -164,3 +164,25 @@ export async function dismissCapturedSms(payload: Payload, user: User, id: strin
   if (sms.status === 'confirmed') throw new APIError('This SMS is already confirmed.', 409)
   await payload.update({ collection: 'captured-sms', id, user, overrideAccess: false, data: { status: 'dismissed' } })
 }
+
+/**
+ * The SMS describes a transaction already in Pika (added by hand): marks it a
+ * duplicate of that one, and gives the transaction the bank reference if it had none,
+ * so statement import matches it.
+ */
+export async function markCapturedSmsDuplicate(payload: Payload, user: User, id: string, transactionId: string): Promise<void> {
+  const sms = await loadOwn(payload, user, id)
+  if (sms.status !== 'pending') throw new APIError('This SMS is already handled.', 409)
+  const tx = await payload.findByID({ collection: 'transactions', id: transactionId, depth: 0, user, overrideAccess: false })
+  const ref = (sms.parsed as { ref?: string | null } | null)?.ref
+  if (ref && !tx.externalRef) {
+    await payload.update({ collection: 'transactions', id: tx.id, data: { externalRef: ref }, user, overrideAccess: false })
+  }
+  await payload.update({
+    collection: 'captured-sms',
+    id,
+    user,
+    overrideAccess: false,
+    data: { status: 'duplicate', transaction: tx.id },
+  })
+}

@@ -3,7 +3,14 @@ import config from '@/payload.config'
 import { describe, it, beforeAll, afterAll, expect } from 'vitest'
 import type { User } from '@/payload-types'
 import { ingestSms } from '@/utilities/sms/ingest'
-import { confirmCapturedSms, dismissCapturedSms, payeeBelongsTo, undoAutoConfirmedSms } from '@/utilities/sms/confirm'
+import {
+  confirmCapturedSms,
+  dismissCapturedSms,
+  markCapturedSmsDuplicate,
+  payeeBelongsTo,
+  undoAutoConfirmedSms,
+} from '@/utilities/sms/confirm'
+import { findPossibleDuplicates } from '@/utilities/duplicates'
 
 const F = 'AD-FEDBNK-S'
 const P = 'JM-Pluxee-S'
@@ -208,5 +215,40 @@ describe('SMS capture flow', () => {
     const [r6] = await ingestSms(payload, String(user.id), [tea(6)])
     expect(r6.status).toBe('pending')
     await expect(undoAutoConfirmedSms(payload, user, r6.id!)).rejects.toThrow(/not added automatically/)
+  })
+
+  it('flags an SMS for a payment entered by hand a while apart, and marks it duplicate', async () => {
+    const manual = await payload.create({
+      collection: 'transactions', user, overrideAccess: false,
+      data: { title: 'Tea', amount: '25', date: '2026-10-10T09:00:00Z', type: 'expense', category: expenseCat, account: bank } as any,
+    })
+    // 40 minutes later: too far for an automatic duplicate, close enough to ask.
+    const [r] = await ingestSms(payload, String(user.id), [
+      { sender: F, body: upi('25.00', 'KIOSK', '627100000401', '10Oct26 15:10'), receivedAt: '2026-10-10T09:40:30Z' },
+    ])
+    expect(r.status).toBe('pending')
+    expect(r.summary?.complete).toBe(false)
+    const sms = await payload.findByID({ collection: 'captured-sms', id: r.id!, depth: 0 })
+    expect((sms.suggestion as any).possibleDuplicate).toMatchObject({ id: manual.id, title: 'Tea' })
+
+    // Adding it by hand again while the SMS waits: the form hears about the SMS.
+    const dupes = await findPossibleDuplicates(payload, String(user.id), {
+      type: 'expense', amount: '25.00', date: '2026-10-10T09:45:00Z', title: 'Chai', exclude: [String(manual.id)],
+    })
+    expect(dupes).toEqual([expect.objectContaining({ kind: 'sms', id: r.id })])
+
+    await markCapturedSmsDuplicate(payload, user, r.id!, String(manual.id))
+    const marked = await payload.findByID({ collection: 'captured-sms', id: r.id!, depth: 0 })
+    expect(marked).toMatchObject({ status: 'duplicate', transaction: manual.id })
+    const tx = await payload.findByID({ collection: 'transactions', id: manual.id, depth: 0 })
+    expect(tx.externalRef).toBe('627100000401')
+    await expect(markCapturedSmsDuplicate(payload, other, r.id!, String(manual.id))).rejects.toThrow()
+  })
+
+  it('stays quiet for a daily habit a day apart', async () => {
+    const dupes = await findPossibleDuplicates(payload, String(user.id), {
+      type: 'expense', amount: '25', date: '2026-10-11T09:00:00Z', title: 'Tea',
+    })
+    expect(dupes).toEqual([])
   })
 })

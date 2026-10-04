@@ -2,6 +2,7 @@ import { createHash } from 'crypto'
 import type { Payload } from 'payload'
 import { looksFinancial, parseSms, providerForSender, type ParsedSms } from './parse'
 import type { User } from '@/payload-types'
+import { findPossibleDuplicates } from '../duplicates'
 import { isConfidentPrediction, predictCategoryFromHistory } from '../ai/user-history'
 import { eligible, isTrusted, loadAutoConfirmSettings, type AutoConfirmSettings } from './autoConfirm'
 import { confirmCapturedSms } from './confirm'
@@ -19,6 +20,8 @@ export type SmsSuggestion = {
   shares?: { person: string; amount: string }[]
   /** Where the suggestion came from, best first; `reply`: the user's reply to the notification. */
   from: 'sms' | 'note' | 'model' | 'default' | 'reply'
+  /** A transaction that may already record this payment (added by hand, a bit apart in time). */
+  possibleDuplicate?: { id: string; title: string; amount: string; date: string }
 }
 
 export type IngestResult = {
@@ -330,6 +333,14 @@ export async function ingestSms(payload: Payload, userId: string, messages: Inco
       if (!duplicateOf) {
         people ??= await loadPeople(payload, userId)
         suggestion = await suggest(payload, userId, parsed, people)
+        const [dup] = await findPossibleDuplicates(payload, userId, {
+          type: parsed.type,
+          amount: parsed.amount,
+          date: parsed.occurredAt ?? msg.receivedAt,
+          title: suggestion.title,
+          fromSms: true,
+        }).catch(() => [])
+        if (dup) suggestion.possibleDuplicate = { id: dup.id, title: dup.title, amount: dup.amount, date: dup.date }
       }
     }
 
@@ -356,11 +367,16 @@ export async function ingestSms(payload: Payload, userId: string, messages: Inco
             amount: parsed.amount,
             type: suggestion.type,
             title: suggestion.title,
-            complete: !!suggestion.category && !!account && (suggestion.type !== 'transfer' || !!suggestion.toAccount),
+            // A possible duplicate needs a look, not a one-tap Add.
+            complete:
+              !!suggestion.category &&
+              !!account &&
+              (suggestion.type !== 'transfer' || !!suggestion.toAccount) &&
+              !suggestion.possibleDuplicate,
           }
         : null
 
-    if (status === 'pending' && parsed && suggestion) {
+    if (status === 'pending' && parsed && suggestion && !suggestion.possibleDuplicate) {
       auto ??= await loadAutoConfirmSettings(payload, userId)
       const key = merchantKey(parsed.merchant)
       if (key && eligible(auto, parsed, suggestion, account) && (await isTrusted(payload, userId, key, suggestion))) {

@@ -1,5 +1,11 @@
 import { GraphQLBoolean, GraphQLNonNull, GraphQLObjectType, GraphQLScalarType, GraphQLString, Kind } from 'graphql'
-import { confirmCapturedSms, dismissCapturedSms, undoAutoConfirmedSms, type ConfirmOverrides } from '../utilities/sms/confirm'
+import {
+  confirmCapturedSms,
+  dismissCapturedSms,
+  markCapturedSmsDuplicate,
+  undoAutoConfirmedSms,
+  type ConfirmOverrides,
+} from '../utilities/sms/confirm'
 
 const SmsOverridesJSON = new GraphQLScalarType({
   name: 'SmsConfirmOverrides',
@@ -37,6 +43,19 @@ export const smsMutations = () => ({
     resolve: async (_: unknown, args: { id: string }, { req }: { req: any }) => {
       if (!req.user) throw new Error('Unauthorized')
       await dismissCapturedSms(req.payload, req.user, args.id)
+      return true
+    },
+  },
+  /** mutation { markCapturedSmsDuplicate(id: "…", transaction: "…") } — the SMS is already in Pika as that transaction */
+  markCapturedSmsDuplicate: {
+    type: GraphQLBoolean,
+    args: {
+      id: { type: new GraphQLNonNull(GraphQLString) },
+      transaction: { type: new GraphQLNonNull(GraphQLString) },
+    },
+    resolve: async (_: unknown, args: { id: string; transaction: string }, { req }: { req: any }) => {
+      if (!req.user) throw new Error('Unauthorized')
+      await markCapturedSmsDuplicate(req.payload, req.user, args.id, args.transaction)
       return true
     },
   },
