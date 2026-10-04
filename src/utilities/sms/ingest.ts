@@ -60,7 +60,27 @@ const KIND_TITLE: Partial<Record<ParsedSms['kind'], string>> = {
   account_debit: 'Bank transfer',
 }
 
+/**
+ * Merchants that stand for many different purchases (delivery apps, marketplaces).
+ * A past transaction there tells us the category, not what was bought this time, so
+ * the title stays generic.
+ */
+const AGGREGATORS: [RegExp, string][] = [
+  [/ETERNAL|ZOMATO/i, 'Zomato order'],
+  [/SWIGGY ?INST/i, 'Swiggy Instamart'],
+  [/SWIGGY/i, 'Swiggy order'],
+  [/BLINKIT/i, 'Blinkit order'],
+  [/BB ?NOW|BIG ?BASKET/i, 'BigBasket order'],
+  [/AMAZON/i, 'Amazon'],
+  [/FLIPKART/i, 'Flipkart'],
+  [/IRCTC/i, 'Train ticket - IRCTC'],
+]
+const aggregatorTitle = (merchant: string | null) =>
+  merchant ? AGGREGATORS.find(([re]) => re.test(merchant))?.[1] ?? null : null
+
 function defaultTitle(p: ParsedSms): string {
+  const agg = aggregatorTitle(p.merchant)
+  if (agg) return agg
   if (p.kind === 'gift_card') return p.merchant ? `Gift card from ${titleCase(p.merchant)}` : 'Gift card'
   if (KIND_TITLE[p.kind] && !p.merchant) return KIND_TITLE[p.kind]!
   if (p.kind === 'atm_withdrawal') return 'ATM withdrawal'
@@ -197,7 +217,10 @@ export async function suggest(payload: Payload, userId: string, p: ParsedSms): P
         limit: 1,
         depth: 0,
       })
-      if (noted.docs[0]) return fromTx(noted.docs[0] as TxLike, 'note')
+      if (noted.docs[0]) {
+        const s = fromTx(noted.docs[0] as TxLike, 'note')
+        return { ...s, title: aggregatorTitle(p.merchant) ?? s.title }
+      }
     }
   }
 

@@ -112,3 +112,15 @@ describe('account matching', () => {
     expect(merchantKey(null)).toBeNull()
   })
 })
+
+describe('aggregator titles', () => {
+  it('delivery apps get a generic title, plain merchants keep theirs', async () => {
+    const { suggest } = await import('@/utilities/sms/ingest')
+    const p = parseSms('JM-Pluxee-S', 'Rs. 150.00 spent from Pluxee Meal wallet, card no.xx5678 on 04-10-2026 13:00:00 at ETERNAL LIM . Avl bal Rs.100.00. Not you call 18002106919')!
+    // No payload needed: with no merchant history the default title is used.
+    const fakePayload = { find: async () => ({ docs: [] }) } as any
+    expect((await suggest(fakePayload, 'u1', p)).title).toBe('Zomato order')
+    const q = parseSms('AD-FEDBNK-S', 'Debited Rs 45.00 from a/c X1234 on 28Sep26 08:56 via UPI to HOTEL SAMPLE. Ref 627100000003.Bal Rs 1.00. Not you?Call 18004251199 -Federal Bank')!
+    expect((await suggest(fakePayload, 'u1', q)).title).toBe('Hotel Sample')
+  })
+})
