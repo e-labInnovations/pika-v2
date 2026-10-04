@@ -14,6 +14,10 @@ export type ConfirmOverrides = Partial<{
   tags: string[]
   note: string
   shares: { person: string; amount: string }[]
+  /** Normally the bank's amount and time; editable for the rare SMS that gets them wrong. */
+  amount: string
+  date: string
+  attachments: string[]
 }>
 
 const idOf = (v: unknown): string | null =>
@@ -55,8 +59,9 @@ export async function confirmCapturedSms(
     overrideAccess: false,
     data: {
       title: overrides.title ?? s.title ?? 'Transaction',
-      amount: parsed.amount,
-      date: parsed.occurredAt ?? (sms.receivedAt as string),
+      amount: overrides.amount ?? parsed.amount,
+      date: overrides.date ?? parsed.occurredAt ?? (sms.receivedAt as string),
+      attachments: overrides.attachments ?? [],
       type,
       category,
       account,

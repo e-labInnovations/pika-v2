@@ -3,7 +3,7 @@ import { confirmCapturedSms, dismissCapturedSms, type ConfirmOverrides } from '.
 
 const SmsOverridesJSON = new GraphQLScalarType({
   name: 'SmsConfirmOverrides',
-  description: 'Optional fields to change before confirming: title, type, category, account, toAccount, person, tags, note, shares',
+  description: 'Optional fields to change before confirming: title, type, category, account, toAccount, person, tags, note, shares, amount, date, attachments',
   serialize: (v) => v,
   parseValue: (v) => v,
   parseLiteral: (ast) => (ast.kind === Kind.STRING ? JSON.parse(ast.value) : null),
