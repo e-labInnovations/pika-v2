@@ -228,13 +228,17 @@ export async function suggest(payload: Payload, userId: string, p: ParsedSms): P
 
   const title = defaultTitle(p)
   let category: string | null = null
+  let tags: string[] = []
   try {
     const pred = await predictCategoryFromHistory(payload, userId, { type: p.type, title })
-    if (pred?.category && pred.score >= 0.5) category = String(pred.category.id)
+    if (pred?.category && pred.score >= 0.5) {
+      category = String(pred.category.id)
+      tags = pred.tags
+    }
   } catch {
     // The embedding model may be unavailable; the user picks a category on confirm.
   }
-  return { title, type: p.type, category, tags: [], person: null, toAccount: null, from: category ? 'model' : 'default' }
+  return { title, type: p.type, category, tags, person: null, toAccount: null, from: category ? 'model' : 'default' }
 }
 
 /** Stores new SMS as pending items (or duplicates / unparsed). Re-sending the same SMS is a no-op. */

@@ -39,6 +39,8 @@ import type { TxType } from './service'
 export const HISTORY_MIN_SAMPLES = 10
 /** Top-K neighbours to aggregate when voting on a category. */
 export const HISTORY_TOP_K = 10
+/** Share of the winning category's neighbour weight a tag needs to be suggested. */
+const TAG_MAJORITY = 0.5
 /** Score above which history-tier wins outright (weighted-sum, already normalised by K). */
 export const HISTORY_STRONG_THRESHOLD = 0.5
 /** How many recent transactions to consider for a single prediction. */
@@ -56,6 +58,8 @@ export type HistoryPrediction = {
   score: number
   /** Number of past transactions that contributed to the winning category. */
   support: number
+  /** Tags carried by most of the winning category's neighbours (by similarity weight). */
+  tags: string[]
   model: string
   latencyMs: number
   /** Total history rows scanned (including those without embeddings yet). */
@@ -67,6 +71,7 @@ export type HistoryPrediction = {
 type TxVector = {
   txId: string
   categoryId: string
+  tagIds: string[]
   vector: Float32Array
 }
 
@@ -205,6 +210,7 @@ async function loadHistoryVectors(
     vectors.push({
       txId: tx.id,
       categoryId,
+      tagIds: Array.isArray(tx.tags) ? tx.tags.map(extractId).filter(Boolean) : [],
       vector: Float32Array.from(d.titleEmbedding as number[]),
     })
   }
@@ -425,6 +431,7 @@ export async function predictCategoryFromHistory(
       category: null,
       score: 0,
       support: 0,
+      tags: [],
       model: EMBEDDING_MODEL,
       latencyMs: Date.now() - start,
       totalHistory,
@@ -434,9 +441,9 @@ export async function predictCategoryFromHistory(
 
   const titleVec = await embed(args.title)
 
-  const perTx: { categoryId: string; sim: number }[] = []
+  const perTx: { categoryId: string; tagIds: string[]; sim: number }[] = []
   for (const v of cached.vectors) {
-    perTx.push({ categoryId: v.categoryId, sim: cosine(titleVec, v.vector) })
+    perTx.push({ categoryId: v.categoryId, tagIds: v.tagIds, sim: cosine(titleVec, v.vector) })
   }
   perTx.sort((a, b) => b.sim - a.sim)
 
@@ -457,6 +464,7 @@ export async function predictCategoryFromHistory(
       category: null,
       score: 0,
       support: 0,
+      tags: [],
       model: EMBEDDING_MODEL,
       latencyMs: Date.now() - start,
       totalHistory,
@@ -477,6 +485,16 @@ export async function predictCategoryFromHistory(
 
   const score = winnerWeight / totalPositiveWeight
 
+  const tagWeights = new Map<string, number>()
+  for (const n of topK) {
+    if (n.sim <= 0 || n.categoryId !== winnerId) continue
+    for (const t of n.tagIds) tagWeights.set(t, (tagWeights.get(t) ?? 0) + n.sim)
+  }
+  const tags = [...tagWeights]
+    .filter(([, w]) => w / winnerWeight >= TAG_MAJORITY)
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => id)
+
   let category: Category | null = null
   if (winnerId) {
     try {
@@ -495,6 +513,7 @@ export async function predictCategoryFromHistory(
     category,
     score,
     support: winnerCount,
+    tags,
     model: EMBEDDING_MODEL,
     latencyMs: Date.now() - start,
     totalHistory,
