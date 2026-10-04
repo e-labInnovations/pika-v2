@@ -8,6 +8,7 @@ import { statementMutations } from './statements'
 import { recurringQueries } from './recurring'
 import { duplicateQueries } from './duplicates'
 import { searchQueries } from './search'
+import { categoryReviewQueries } from './categoryReview'
 
 export const graphQLQueries = () => ({
   ...currencyQueries(),
@@ -17,6 +18,7 @@ export const graphQLQueries = () => ({
   ...recurringQueries(),
   ...duplicateQueries(),
   ...searchQueries(),
+  ...categoryReviewQueries(),
 })
 
 export const graphQLMutations = () => ({

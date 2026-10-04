@@ -89,6 +89,7 @@ export type HistoryPrediction = {
 
 type TxVector = {
   txId: string
+  date: string
   categoryId: string
   tagIds: string[]
   personId: string | null
@@ -205,10 +206,10 @@ async function loadHistoryVectors(
     sort: '-date',
     limit: HISTORY_FETCH_LIMIT,
     depth: 0,
-    select: { category: true, tags: true, person: true },
+    select: { date: true, category: true, tags: true, person: true },
     overrideAccess: true,
   })
-  const txs = txRes.docs as Pick<Transaction, 'id' | 'category' | 'tags' | 'person'>[]
+  const txs = txRes.docs as Pick<Transaction, 'id' | 'date' | 'category' | 'tags' | 'person'>[]
 
   const embRes = txs.length
     ? await payload.find({
@@ -239,6 +240,7 @@ async function loadHistoryVectors(
     if (!categoryId || !vector) continue
     vectors.push({
       txId: tx.id,
+      date: tx.date,
       categoryId,
       tagIds: Array.isArray(tx.tags) ? (tx.tags.map(extractId).filter(Boolean) as string[]) : [],
       personId: extractId(tx.person),
@@ -460,6 +462,79 @@ export async function nearestHistory(payload: Payload, userId: string, text: str
     .filter((n) => n.sim > 0.2)
     .sort((a, b) => b.sim - a.sim)
     .slice(0, k)
+}
+
+// ─── Category review ─────────────────────────────────────────────────────────
+
+/** How far back the review looks by default: recent enough to remember. */
+const REVIEW_DAYS = 60
+const OTHER_CATEGORY = /^(other|misc|uncategori)/i
+
+export type CategoryReviewItem = {
+  /** Transactions with the same title, current and suggested category, newest first. */
+  transactions: { id: string; title: string; amount: string; date: string; type: string }[]
+  current: string
+  suggested: string
+  score: number
+}
+
+/**
+ * Recent transactions whose category the user's own history disagrees with: anything
+ * left in an "Other"-like category that similar transactions confidently file
+ * elsewhere, and any category where nearly all close look-alikes say otherwise. Each
+ * transaction is voted on by the others (it never votes for itself). On production
+ * history this flagged ~5 in six months, mostly real inconsistencies ("Breakfast -
+ * ETERNAL LIM" — Zomato — under Coffee & Snacks instead of Food Order).
+ */
+export async function categoryReview(
+  payload: Payload,
+  userId: string,
+  { days = REVIEW_DAYS, limit = 5 } = {},
+): Promise<CategoryReviewItem[]> {
+  const since = new Date(Date.now() - days * 86_400_000).toISOString()
+  const [cats, ...entries] = await Promise.all([
+    payload.find({ collection: 'categories', limit: 0, pagination: false, depth: 0, select: { name: true }, overrideAccess: true }),
+    ...(['expense', 'income'] as TxType[]).map((t) => cachedVectors(payload, userId, t)),
+  ])
+  const nameOf = new Map(cats.docs.map((c) => [String(c.id), c.name ?? '']))
+
+  const items: (Omit<CategoryReviewItem, 'transactions'> & { txId: string })[] = []
+  for (const { vectors } of entries) {
+    for (const t of vectors) {
+      if (t.date < since) continue
+      const vote = voteOnNeighbours(
+        vectors.filter((v) => v.txId !== t.txId).map((v) => ({ categoryId: v.categoryId, tagIds: [], personId: null, sim: cosine(t.vector, v.vector) })),
+      )
+      if (!vote || vote.categoryId === t.categoryId || OTHER_CATEGORY.test(nameOf.get(vote.categoryId) ?? '')) continue
+      const inOther = OTHER_CATEGORY.test(nameOf.get(t.categoryId) ?? '')
+      const flagged = inOther
+        ? isConfidentPrediction(vote)
+        : vote.score >= 0.9 && vote.topSim >= 0.9 && vote.support >= 5
+      if (flagged) items.push({ txId: t.txId, current: t.categoryId, suggested: vote.categoryId, score: vote.score })
+    }
+  }
+  if (!items.length) return []
+  const txs = await payload.find({
+    collection: 'transactions',
+    where: { id: { in: items.map((i) => i.txId) } },
+    limit: items.length,
+    depth: 0,
+    sort: '-date',
+    select: { title: true, amount: true, date: true, type: true },
+    overrideAccess: true,
+  })
+  const flagged = new Map(items.map((i) => [i.txId, i]))
+  const groups = new Map<string, CategoryReviewItem>()
+  for (const t of txs.docs) {
+    const i = flagged.get(String(t.id))!
+    const title = t.title ?? ''
+    const key = `${title.trim().toLowerCase()}|${i.current}|${i.suggested}`
+    const g = groups.get(key) ?? { transactions: [], current: i.current, suggested: i.suggested, score: i.score }
+    g.transactions.push({ id: String(t.id), title, amount: String(t.amount), date: String(t.date), type: String(t.type) })
+    g.score = Math.max(g.score, i.score)
+    groups.set(key, g)
+  }
+  return [...groups.values()].sort((a, b) => b.score - a.score).slice(0, limit)
 }
 
 // ─── Search by meaning ───────────────────────────────────────────────────────
