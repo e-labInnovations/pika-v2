@@ -7,6 +7,7 @@ import { balanceCheckQueries } from './balanceChecks'
 import { statementMutations } from './statements'
 import { recurringQueries } from './recurring'
 import { duplicateQueries } from './duplicates'
+import { searchQueries } from './search'
 
 export const graphQLQueries = () => ({
   ...currencyQueries(),
@@ -15,6 +16,7 @@ export const graphQLQueries = () => ({
   ...balanceCheckQueries(),
   ...recurringQueries(),
   ...duplicateQueries(),
+  ...searchQueries(),
 })
 
 export const graphQLMutations = () => ({

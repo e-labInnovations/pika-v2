@@ -114,6 +114,7 @@ function cacheKey(userId: string, txType: TxType): string {
 
 /** Invalidate the history cache for a user (called from afterChange on Transactions). */
 export function invalidateUserHistoryCache(userId: string): void {
+  searchCache.delete(userId)
   for (const key of userHistoryCache.keys()) {
     if (key.startsWith(`${userId}:`)) userHistoryCache.delete(key)
   }
@@ -162,6 +163,8 @@ export async function scheduleTitleEmbedding(
         overrideAccess: true,
       })
     }
+    // The write hook cleared the caches before this vector existed.
+    invalidateUserHistoryCache(userId)
   } catch (e) {
     // Best-effort — the next prediction query will lazy-backfill.
     console.warn(
@@ -457,6 +460,51 @@ export async function nearestHistory(payload: Payload, userId: string, text: str
     .filter((n) => n.sim > 0.2)
     .sort((a, b) => b.sim - a.sim)
     .slice(0, k)
+}
+
+// ─── Search by meaning ───────────────────────────────────────────────────────
+
+/** Titles at least this similar to a search count as a match ("coffee" → "Tea", not "Petrol"). */
+export const SEARCH_MIN_SIM = 0.5
+const SEARCH_LIMIT = 300
+
+type SearchEntry = { vectors: { txId: string; vector: Float32Array }[]; loadedAt: number }
+const searchCache = new Map<string, SearchEntry>()
+
+/**
+ * Ids of the user's transactions whose titles mean something close to `text`, best
+ * first. Covers all history (not the prediction window): an in-memory scan, cheap
+ * at personal-finance scale; cached like the history vectors.
+ */
+export async function similarTransactionIds(payload: Payload, userId: string, text: string): Promise<string[]> {
+  const q = text.trim()
+  if (q.length < 3) return []
+  let cached = searchCache.get(userId)
+  if (!cached || Date.now() - cached.loadedAt > CACHE_TTL_MS) {
+    const res = await payload.find({
+      collection: 'transaction-embeddings',
+      where: { and: [{ user: { equals: userId } }, { titleEmbeddingModel: { equals: EMBEDDING_MODEL } }] },
+      limit: 0,
+      pagination: false,
+      depth: 0,
+      select: { transaction: true, titleEmbedding: true },
+      overrideAccess: true,
+    })
+    const vectors: SearchEntry['vectors'] = []
+    for (const d of res.docs as any[]) {
+      const txId = extractId(d.transaction)
+      if (txId && Array.isArray(d.titleEmbedding)) vectors.push({ txId, vector: Float32Array.from(d.titleEmbedding) })
+    }
+    cached = { vectors, loadedAt: Date.now() }
+    searchCache.set(userId, cached)
+  }
+  const qv = await embed(q)
+  return cached.vectors
+    .map((v) => ({ id: v.txId, sim: cosine(qv, v.vector) }))
+    .filter((r) => r.sim >= SEARCH_MIN_SIM)
+    .sort((a, b) => b.sim - a.sim)
+    .slice(0, SEARCH_LIMIT)
+    .map((r) => r.id)
 }
 
 // ─── Prediction (k-NN weighted vote) ────────────────────────────────────────
