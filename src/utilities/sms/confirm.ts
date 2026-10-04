@@ -136,9 +136,27 @@ export async function confirmCapturedSms(
     id,
     user,
     overrideAccess: false,
-    data: { status: 'confirmed', transaction: tx.id, account },
+    data: { status: 'confirmed', transaction: tx.id, account, autoUndone: false },
   })
   return { transaction: String(tx.id), linked }
+}
+
+/**
+ * Reverses an auto-confirm: deletes the transaction it created and puts the SMS back
+ * in the pending queue. The merchant stops being auto-confirmed until confirmed again.
+ */
+export async function undoAutoConfirmedSms(payload: Payload, user: User, id: string): Promise<void> {
+  const sms = await loadOwn(payload, user, id)
+  if (!sms.autoConfirmed || sms.status !== 'confirmed') throw new APIError('This SMS was not added automatically.', 409)
+  const tx = idOf(sms.transaction)
+  await payload.update({
+    collection: 'captured-sms',
+    id,
+    user,
+    overrideAccess: false,
+    data: { status: 'pending', transaction: null, autoConfirmed: false, autoUndone: true },
+  })
+  if (tx) await payload.delete({ collection: 'transactions', id: tx, user, overrideAccess: false })
 }
 
 export async function dismissCapturedSms(payload: Payload, user: User, id: string): Promise<void> {

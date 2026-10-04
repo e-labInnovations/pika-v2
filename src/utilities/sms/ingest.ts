@@ -1,7 +1,10 @@
 import { createHash } from 'crypto'
 import type { Payload } from 'payload'
 import { looksFinancial, parseSms, providerForSender, type ParsedSms } from './parse'
+import type { User } from '@/payload-types'
 import { predictCategoryFromHistory } from '../ai/user-history'
+import { eligible, isTrusted, loadAutoConfirmSettings, type AutoConfirmSettings } from './autoConfirm'
+import { confirmCapturedSms } from './confirm'
 
 export type IncomingSms = { sender: string; body: string; receivedAt: string }
 
@@ -19,9 +22,11 @@ export type SmsSuggestion = {
 export type IngestResult = {
   sender: string
   receivedAt: string
-  status: 'pending' | 'duplicate' | 'unparsed' | 'exists' | 'ignored'
+  /** `auto`: confirmed on arrival (trusted merchant); `transaction` is set. */
+  status: 'pending' | 'auto' | 'duplicate' | 'unparsed' | 'exists' | 'ignored'
   id?: string
-  /** For new pending items: enough for the phone to show a notification. */
+  transaction?: string
+  /** For new pending and auto items: enough for the phone to show a notification. */
   summary?: { amount: string; type: ParsedSms['type']; title: string }
 }
 
@@ -280,6 +285,7 @@ export async function suggest(
 export async function ingestSms(payload: Payload, userId: string, messages: IncomingSms[]): Promise<IngestResult[]> {
   let accounts: AccountRow[] | null = null
   let people: PersonRow[] | null = null
+  let auto: AutoConfirmSettings | null = null
   const results: IngestResult[] = []
 
   for (const msg of messages) {
@@ -331,13 +337,30 @@ export async function ingestSms(payload: Payload, userId: string, messages: Inco
         transaction: duplicateOf,
       },
     })
+    const summary = parsed && suggestion ? { amount: parsed.amount, type: suggestion.type, title: suggestion.title } : null
+
+    if (status === 'pending' && parsed && suggestion) {
+      auto ??= await loadAutoConfirmSettings(payload, userId)
+      const key = merchantKey(parsed.merchant)
+      if (key && eligible(auto, parsed, suggestion, account) && (await isTrusted(payload, userId, key, suggestion))) {
+        try {
+          const user = (await payload.findByID({ collection: 'users', id: userId, depth: 0 })) as User
+          const { transaction } = await confirmCapturedSms(payload, user, String(doc.id))
+          await payload.update({ collection: 'captured-sms', id: doc.id, data: { autoConfirmed: true } })
+          results.push({ ...base, status: 'auto', id: String(doc.id), transaction, summary: summary! })
+          continue
+        } catch (e) {
+          // Leave it pending for review; the user sees it as usual.
+          payload.logger.warn(`SMS auto-confirm failed for ${doc.id}: ${(e as Error).message}`)
+        }
+      }
+    }
+
     results.push({
       ...base,
       status,
       id: String(doc.id),
-      ...(status === 'pending' && parsed && suggestion
-        ? { summary: { amount: parsed.amount, type: suggestion.type, title: suggestion.title } }
-        : {}),
+      ...(status === 'pending' && summary ? { summary } : {}),
     })
   }
   return results

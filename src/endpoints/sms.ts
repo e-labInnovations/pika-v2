@@ -2,7 +2,7 @@ import type { PayloadHandler } from 'payload'
 import type { User } from '@/payload-types'
 import { SMS_SENDERS } from '../utilities/sms/parse'
 import { ingestSms, type IncomingSms } from '../utilities/sms/ingest'
-import { confirmCapturedSms, dismissCapturedSms, type ConfirmOverrides } from '../utilities/sms/confirm'
+import { confirmCapturedSms, dismissCapturedSms, undoAutoConfirmedSms, type ConfirmOverrides } from '../utilities/sms/confirm'
 
 const MAX_BATCH = 200
 const unauthorized = () => Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
@@ -69,6 +69,17 @@ export const smsDismissHandler: PayloadHandler = async (req) => {
   if (!req.user) return unauthorized()
   try {
     await dismissCapturedSms(req.payload, req.user as User, String(req.routeParams?.id))
+    return Response.json({ ok: true })
+  } catch (e) {
+    return errorResponse(e)
+  }
+}
+
+/** POST /api/sms/:id/undo — reverse an auto-confirm */
+export const smsUndoHandler: PayloadHandler = async (req) => {
+  if (!req.user) return unauthorized()
+  try {
+    await undoAutoConfirmedSms(req.payload, req.user as User, String(req.routeParams?.id))
     return Response.json({ ok: true })
   } catch (e) {
     return errorResponse(e)

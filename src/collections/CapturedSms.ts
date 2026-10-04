@@ -77,5 +77,18 @@ export const CapturedSms: CollectionConfig = {
       relationTo: 'transactions',
       admin: { description: 'The confirmed transaction, or the existing one this SMS duplicates.' },
     },
+    {
+      name: 'autoConfirmed',
+      type: 'checkbox',
+      defaultValue: false,
+      index: true,
+      admin: { description: 'Confirmed on arrival because the merchant is trusted.' },
+    },
+    {
+      name: 'autoUndone',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: { description: 'An auto-confirm the user undid; stops auto-confirming this merchant until confirmed again.' },
+    },
   ],
 }

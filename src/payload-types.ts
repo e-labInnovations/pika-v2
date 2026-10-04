@@ -274,6 +274,14 @@ export interface UserSetting {
    * Which backend powers category suggestions. Local is free and fast; Cloud uses your configured AI model and counts against quota.
    */
   categoryAiMethod?: ('minilm' | 'cloud') | null;
+  /**
+   * Confirm a bank SMS automatically when its merchant was confirmed the same way (title, category, tags, person) the last 3 times. Transfers and refunds always wait for review.
+   */
+  smsAutoConfirm?: boolean | null;
+  /**
+   * Larger SMS amounts always wait for review.
+   */
+  smsAutoConfirmMaxAmount?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -567,6 +575,14 @@ export interface CapturedSm {
    * The confirmed transaction, or the existing one this SMS duplicates.
    */
   transaction?: (string | null) | Transaction;
+  /**
+   * Confirmed on arrival because the merchant is trusted.
+   */
+  autoConfirmed?: boolean | null;
+  /**
+   * An auto-confirm the user undid; stops auto-confirming this merchant until confirmed again.
+   */
+  autoUndone?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1298,6 +1314,8 @@ export interface CapturedSmsSelect<T extends boolean = true> {
   suggestion?: T;
   account?: T;
   transaction?: T;
+  autoConfirmed?: T;
+  autoUndone?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1346,6 +1364,8 @@ export interface UserSettingsSelect<T extends boolean = true> {
   preferredModel?: T;
   allowFallback?: T;
   categoryAiMethod?: T;
+  smsAutoConfirm?: T;
+  smsAutoConfirmMaxAmount?: T;
   updatedAt?: T;
   createdAt?: T;
 }

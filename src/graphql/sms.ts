@@ -1,5 +1,5 @@
 import { GraphQLBoolean, GraphQLNonNull, GraphQLObjectType, GraphQLScalarType, GraphQLString, Kind } from 'graphql'
-import { confirmCapturedSms, dismissCapturedSms, type ConfirmOverrides } from '../utilities/sms/confirm'
+import { confirmCapturedSms, dismissCapturedSms, undoAutoConfirmedSms, type ConfirmOverrides } from '../utilities/sms/confirm'
 
 const SmsOverridesJSON = new GraphQLScalarType({
   name: 'SmsConfirmOverrides',
@@ -37,6 +37,16 @@ export const smsMutations = () => ({
     resolve: async (_: unknown, args: { id: string }, { req }: { req: any }) => {
       if (!req.user) throw new Error('Unauthorized')
       await dismissCapturedSms(req.payload, req.user, args.id)
+      return true
+    },
+  },
+  /** mutation { undoAutoConfirmedSms(id: "…") } — deletes the auto-added transaction, SMS back to pending */
+  undoAutoConfirmedSms: {
+    type: GraphQLBoolean,
+    args: { id: { type: new GraphQLNonNull(GraphQLString) } },
+    resolve: async (_: unknown, args: { id: string }, { req }: { req: any }) => {
+      if (!req.user) throw new Error('Unauthorized')
+      await undoAutoConfirmedSms(req.payload, req.user, args.id)
       return true
     },
   },

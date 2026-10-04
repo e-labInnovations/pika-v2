@@ -179,5 +179,23 @@ export const UserSettings: CollectionConfig = {
           'Which backend powers category suggestions. Local is free and fast; Cloud uses your configured AI model and counts against quota.',
       },
     },
+    {
+      name: 'smsAutoConfirm',
+      type: 'checkbox',
+      label: 'Auto-add trusted merchants',
+      defaultValue: false,
+      admin: {
+        description:
+          'Confirm a bank SMS automatically when its merchant was confirmed the same way (title, category, tags, person) the last 3 times. Transfers and refunds always wait for review.',
+      },
+    },
+    {
+      name: 'smsAutoConfirmMaxAmount',
+      type: 'number',
+      label: 'Auto-add up to',
+      defaultValue: 2000,
+      min: 0,
+      admin: { description: 'Larger SMS amounts always wait for review.' },
+    },
   ],
 }

@@ -3,7 +3,7 @@ import config from '@/payload.config'
 import { describe, it, beforeAll, afterAll, expect } from 'vitest'
 import type { User } from '@/payload-types'
 import { ingestSms } from '@/utilities/sms/ingest'
-import { confirmCapturedSms, dismissCapturedSms, payeeBelongsTo } from '@/utilities/sms/confirm'
+import { confirmCapturedSms, dismissCapturedSms, payeeBelongsTo, undoAutoConfirmedSms } from '@/utilities/sms/confirm'
 
 const F = 'AD-FEDBNK-S'
 const P = 'JM-Pluxee-S'
@@ -171,5 +171,42 @@ describe('SMS capture flow', () => {
     expect(payeeBelongsTo('ELIZEBETH S', 'Elizebeth Shaji')).toBe(true)
     expect(payeeBelongsTo('HOTEL AKSHAY', 'Ashar Mathew')).toBe(false)
     expect(payeeBelongsTo('AB', 'Ab Cd')).toBe(false)
+  })
+
+  it('auto-confirms a merchant confirmed the same way 3 times, and undo stops it', async () => {
+    await payload.update({
+      collection: 'user-settings',
+      where: { user: { equals: user.id } },
+      data: { smsAutoConfirm: true, smsAutoConfirmMaxAmount: 500 } as any,
+    })
+    const tea = (n: number, amt = '20.00') => ({
+      sender: F,
+      body: upi(amt, 'TEA CORNER', `62710000030${n}`, `0${n}Oct26 16:00`),
+      receivedAt: `2026-10-0${n}T10:30:30Z`,
+    })
+    const [first] = await ingestSms(payload, String(user.id), [tea(1)])
+    await confirmCapturedSms(payload, user, first.id!, { title: 'Tea', category: expenseCat })
+    for (const n of [2, 3]) {
+      const [r] = await ingestSms(payload, String(user.id), [tea(n)])
+      expect(r.status).toBe('pending')
+      await confirmCapturedSms(payload, user, r.id!)
+    }
+
+    const [big] = await ingestSms(payload, String(user.id), [tea(4, '900.00')])
+    expect(big.status).toBe('pending') // over the limit
+
+    const [r5] = await ingestSms(payload, String(user.id), [tea(5)])
+    expect(r5).toMatchObject({ status: 'auto', summary: { title: 'Tea', amount: '20.00' } })
+    const tx = await payload.findByID({ collection: 'transactions', id: r5.transaction!, depth: 0 })
+    expect(tx).toMatchObject({ title: 'Tea', category: expenseCat, source: 'sms' })
+
+    await undoAutoConfirmedSms(payload, user, r5.id!)
+    const undone = await payload.findByID({ collection: 'captured-sms', id: r5.id!, depth: 0 })
+    expect(undone).toMatchObject({ status: 'pending', autoConfirmed: false, autoUndone: true, transaction: null })
+    await expect(payload.findByID({ collection: 'transactions', id: r5.transaction!, depth: 0 })).rejects.toThrow()
+
+    const [r6] = await ingestSms(payload, String(user.id), [tea(6)])
+    expect(r6.status).toBe('pending')
+    await expect(undoAutoConfirmedSms(payload, user, r6.id!)).rejects.toThrow(/not added automatically/)
   })
 })
