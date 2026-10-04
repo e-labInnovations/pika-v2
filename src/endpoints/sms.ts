@@ -3,6 +3,7 @@ import type { User } from '@/payload-types'
 import { SMS_SENDERS } from '../utilities/sms/parse'
 import { ingestSms, type IncomingSms } from '../utilities/sms/ingest'
 import { confirmCapturedSms, dismissCapturedSms, undoAutoConfirmedSms, type ConfirmOverrides } from '../utilities/sms/confirm'
+import { replyToSms } from '../utilities/sms/reply'
 
 const MAX_BATCH = 200
 const unauthorized = () => Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
@@ -81,6 +82,18 @@ export const smsUndoHandler: PayloadHandler = async (req) => {
   try {
     await undoAutoConfirmedSms(req.payload, req.user as User, String(req.routeParams?.id))
     return Response.json({ ok: true })
+  } catch (e) {
+    return errorResponse(e)
+  }
+}
+
+/** POST /api/sms/:id/reply {text} — the reply typed into the notification */
+export const smsReplyHandler: PayloadHandler = async (req) => {
+  if (!req.user) return unauthorized()
+  let text = ''
+  try { text = String(((await req.json?.()) ?? {}).text ?? '') } catch { text = '' }
+  try {
+    return Response.json(await replyToSms(req.payload, req.user as User, String(req.routeParams?.id), text))
   } catch (e) {
     return errorResponse(e)
   }

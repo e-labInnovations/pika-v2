@@ -15,8 +15,10 @@ export type SmsSuggestion = {
   tags: string[]
   person: string | null
   toAccount: string | null
-  /** Where the suggestion came from, best first. */
-  from: 'sms' | 'note' | 'model' | 'default'
+  /** Friends' shares, when a reply to the notification described a split. */
+  shares?: { person: string; amount: string }[]
+  /** Where the suggestion came from, best first; `reply`: the user's reply to the notification. */
+  from: 'sms' | 'note' | 'model' | 'default' | 'reply'
 }
 
 export type IngestResult = {
@@ -27,7 +29,13 @@ export type IngestResult = {
   id?: string
   transaction?: string
   /** For new pending and auto items: enough for the phone to show a notification. */
-  summary?: { amount: string; type: ParsedSms['type']; title: string }
+  summary?: {
+    amount: string
+    type: ParsedSms['type']
+    title: string
+    /** Pending only: the suggestion has everything a transaction needs, so one tap can add it. */
+    complete?: boolean
+  }
 }
 
 const idOf = (v: unknown): string | null =>
@@ -340,7 +348,15 @@ export async function ingestSms(payload: Payload, userId: string, messages: Inco
         transaction: duplicateOf,
       },
     })
-    const summary = parsed && suggestion ? { amount: parsed.amount, type: suggestion.type, title: suggestion.title } : null
+    const summary =
+      parsed && suggestion
+        ? {
+            amount: parsed.amount,
+            type: suggestion.type,
+            title: suggestion.title,
+            complete: !!suggestion.category && !!account && (suggestion.type !== 'transfer' || !!suggestion.toAccount),
+          }
+        : null
 
     if (status === 'pending' && parsed && suggestion) {
       auto ??= await loadAutoConfirmSettings(payload, userId)

@@ -282,6 +282,10 @@ export interface UserSetting {
    * Larger SMS amounts always wait for review.
    */
   smsAutoConfirmMaxAmount?: number | null;
+  /**
+   * Your reply and the SMS go to the AI. "Add" confirms straight away when it has a category; otherwise a notification shows the result with an Add button.
+   */
+  smsReplyAction?: ('add' | 'review') | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1366,6 +1370,7 @@ export interface UserSettingsSelect<T extends boolean = true> {
   categoryAiMethod?: T;
   smsAutoConfirm?: T;
   smsAutoConfirmMaxAmount?: T;
+  smsReplyAction?: T;
   updatedAt?: T;
   createdAt?: T;
 }

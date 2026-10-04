@@ -93,7 +93,7 @@ export async function confirmCapturedSms(
       toAccount,
       person,
       tags: overrides.tags ?? s.tags ?? [],
-      shares: type === 'expense' ? overrides.shares ?? [] : [],
+      shares: type === 'expense' ? overrides.shares ?? s.shares ?? [] : [],
       note: overrides.note ?? defaultNote(parsed),
       source: 'sms',
       externalRef: parsed.ref,

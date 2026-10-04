@@ -197,5 +197,19 @@ export const UserSettings: CollectionConfig = {
       min: 0,
       admin: { description: 'Larger SMS amounts always wait for review.' },
     },
+    {
+      name: 'smsReplyAction',
+      type: 'select',
+      label: 'When you reply to an SMS notification',
+      defaultValue: 'add',
+      options: [
+        { label: 'Add the transaction', value: 'add' },
+        { label: 'Update the suggestion and ask', value: 'review' },
+      ],
+      admin: {
+        description:
+          'Your reply and the SMS go to the AI. "Add" confirms straight away when it has a category; otherwise a notification shows the result with an Add button.',
+      },
+    },
   ],
 }
