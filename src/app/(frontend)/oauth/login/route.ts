@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+import { publicUrl } from '@/utilities/publicUrl'
+
 /**
  * GET /oauth/login
  *
@@ -11,13 +13,13 @@ import { NextRequest, NextResponse } from 'next/server'
  * set cookies — only route handlers and server actions can.
  */
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = request.nextUrl
+  const { searchParams } = request.nextUrl
 
   // Preserve all OAuth params through the login flow
   const oauthParams = searchParams.toString()
 
   const response = NextResponse.redirect(
-    new URL('/api/auth/oauth/authorization/google', origin),
+    publicUrl('/api/auth/oauth/authorization/google', request),
   )
 
   response.cookies.set('pending_oauth_params', oauthParams, {

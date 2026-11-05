@@ -3,6 +3,8 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+import { publicUrl } from '@/utilities/publicUrl'
+
 function getExpFromJwt(token: string): number | null {
   try {
     const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())
@@ -29,7 +31,7 @@ export async function GET(request: NextRequest) {
   if (clientCallback) {
     cookieStore.delete('client_auth')
     if (!token) {
-      return NextResponse.redirect(new URL('/admin/login?error=oauth_failed', request.url))
+      return NextResponse.redirect(publicUrl('/admin/login?error=oauth_failed', request))
     }
     const exp = getExpFromJwt(token)
     const code = makeExchangeCode(token, exp)
@@ -42,9 +44,9 @@ export async function GET(request: NextRequest) {
   const pendingOAuth = cookieStore.get('pending_oauth_params')?.value
   if (pendingOAuth && token) {
     cookieStore.delete('pending_oauth_params')
-    return NextResponse.redirect(new URL(`/oauth/consent?${pendingOAuth}`, request.url))
+    return NextResponse.redirect(publicUrl(`/oauth/consent?${pendingOAuth}`, request))
   }
 
   // --- Default: browser login → admin panel ---
-  return NextResponse.redirect(new URL('/admin', request.url))
+  return NextResponse.redirect(publicUrl('/admin', request))
 }
