@@ -3,6 +3,7 @@ import type { Payload } from 'payload'
 import { looksFinancial, parseSms, providerForSender, type ParsedSms } from './parse'
 import type { User } from '@/payload-types'
 import { findPossibleDuplicates } from '../duplicates'
+import { fixMealWord, userTimeZone } from './mealTitle'
 import { isConfidentPrediction, predictCategoryFromHistory } from '../ai/user-history'
 import { eligible, isTrusted, loadAutoConfirmSettings, type AutoConfirmSettings } from './autoConfirm'
 import { confirmCapturedSms } from './confirm'
@@ -241,11 +242,22 @@ export async function suggest(
   people: PersonRow[] = [],
   /** Better title than the merchant when nothing was learned (e.g. a bank statement's note). */
   titleHint?: string | null,
+  /** When the payment happened; a reused title's meal word is matched to it. */
+  at?: Date,
 ): Promise<SmsSuggestion> {
   const key = merchantKey(p.merchant)
   // A payee saved on a person fills in the person, whichever way the rest is suggested.
   const payee = matchPerson(people, p.merchant)
   const withPerson = (s: SmsSuggestion): SmsSuggestion => (payee && !s.person ? { ...s, person: payee.id } : s)
+  // A learned "Dinner - Zomato order" must not label a lunchtime order.
+  // Only with a real time: statement rows have a date but no time of day.
+  const when = at ?? null
+  let tz: string | null = null
+  const learnedTitle = async (title: string) => {
+    if (!when) return title
+    tz ??= await userTimeZone(payload, userId)
+    return fixMealWord(title, when, tz)
+  }
 
   if (key) {
     const learned = await payload.find({
@@ -259,7 +271,10 @@ export async function suggest(
     })
     for (const c of learned.docs) {
       const tx = c.transaction as TxLike | null
-      if (tx && typeof tx === 'object' && tx.type === p.type) return withPerson(fromTx(tx, 'sms'))
+      if (tx && typeof tx === 'object' && tx.type === p.type) {
+        const s = fromTx(tx, 'sms')
+        return withPerson({ ...s, title: await learnedTitle(s.title) })
+      }
     }
 
     if (p.merchant && p.merchant.length >= 4) {
@@ -274,7 +289,7 @@ export async function suggest(
       })
       if (noted.docs[0]) {
         const s = fromTx(noted.docs[0] as TxLike, 'note')
-        return withPerson({ ...s, title: aggregatorTitle(p.merchant) ?? s.title })
+        return withPerson({ ...s, title: aggregatorTitle(p.merchant) ?? (await learnedTitle(s.title)) })
       }
     }
   }
@@ -332,7 +347,7 @@ export async function ingestSms(payload: Payload, userId: string, messages: Inco
       duplicateOf = await findDuplicate(payload, userId, parsed, account, msg.receivedAt)
       if (!duplicateOf) {
         people ??= await loadPeople(payload, userId)
-        suggestion = await suggest(payload, userId, parsed, people)
+        suggestion = await suggest(payload, userId, parsed, people, null, new Date(parsed.occurredAt ?? msg.receivedAt))
         const [dup] = await findPossibleDuplicates(payload, userId, {
           type: parsed.type,
           amount: parsed.amount,

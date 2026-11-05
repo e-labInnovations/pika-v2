@@ -33,6 +33,8 @@ describe('SMS capture flow', () => {
       payload.create({ collection: 'users', data: { email: `sms-${tag}-${stamp}@example.com`, password: 'x-Test-12345', name: `SMS ${tag}` } as any })
     user = (await mk('a')) as User
     other = (await mk('b')) as User
+    // Its SMS times are IST; learned titles' meal words follow the user's timezone.
+    await payload.update({ collection: 'user-settings', where: { user: { equals: user.id } }, data: { timezone: 'Asia/Calcutta' } as any })
     const acct = (name: string, smsIdentifiers: string) =>
       payload.create({ collection: 'accounts', user, overrideAccess: false, data: { name, smsIdentifiers } as any })
     bank = String((await acct('Test Bank', 'X4321')).id)
