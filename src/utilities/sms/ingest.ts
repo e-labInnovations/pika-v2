@@ -20,7 +20,7 @@ export type SmsSuggestion = {
   /** Friends' shares, when a reply to the notification described a split. */
   shares?: { person: string; amount: string }[]
   /** Where the suggestion came from, best first; `reply`: the user's reply to the notification. */
-  from: 'sms' | 'note' | 'model' | 'default' | 'reply'
+  from: 'sms' | 'note' | 'model' | 'default' | 'reply' | 'ai'
   /** A transaction that may already record this payment (added by hand, a bit apart in time). */
   possibleDuplicate?: { id: string; title: string; amount: string; date: string }
 }

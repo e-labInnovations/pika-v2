@@ -6,6 +6,7 @@ import {
   undoAutoConfirmedSms,
   type ConfirmOverrides,
 } from '../utilities/sms/confirm'
+import { refineSms } from '../utilities/sms/refine'
 
 const SmsOverridesJSON = new GraphQLScalarType({
   name: 'SmsConfirmOverrides',
@@ -23,7 +24,40 @@ const ConfirmSmsResultType = new GraphQLObjectType({
   },
 })
 
+const RefineSmsResultType = new GraphQLObjectType({
+  name: 'RefineSmsResult',
+  fields: {
+    suggestion: { type: new GraphQLNonNull(SmsOverridesJSON), description: 'The new suggestion (title, type, category, tags, person, toAccount, shares)' },
+    complete: { type: new GraphQLNonNull(GraphQLBoolean), description: 'Whether one tap (Add) can confirm it' },
+  },
+})
+
 export const smsMutations = () => ({
+  /**
+   * mutation { refineCapturedSms(id: "…", text: "team lunch", image: "<base64>", mimeType: "image/jpeg") { suggestion complete } }
+   * Re-reads a pending SMS with the AI, with optional extra text and/or image; with
+   * neither it simply tries again. Saves the suggestion, never confirms.
+   */
+  refineCapturedSms: {
+    type: RefineSmsResultType,
+    args: {
+      id: { type: new GraphQLNonNull(GraphQLString) },
+      text: { type: GraphQLString },
+      image: { type: GraphQLString, description: 'Base64 or data URL' },
+      mimeType: { type: GraphQLString },
+    },
+    resolve: async (
+      _: unknown,
+      args: { id: string; text?: string | null; image?: string | null; mimeType?: string | null },
+      { req }: { req: any },
+    ) => {
+      if (!req.user) throw new Error('Unauthorized')
+      return refineSms(req.payload, req.user, args.id, {
+        text: args.text,
+        image: args.image ? { base64: args.image, mimeType: args.mimeType ?? 'image/jpeg' } : null,
+      })
+    },
+  },
   /** mutation { confirmCapturedSms(id: "…", overrides: {category: "…"}) { transaction } } */
   confirmCapturedSms: {
     type: ConfirmSmsResultType,

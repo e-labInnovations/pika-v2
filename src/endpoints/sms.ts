@@ -4,6 +4,7 @@ import { SMS_SENDERS } from '../utilities/sms/parse'
 import { ingestSms, type IncomingSms } from '../utilities/sms/ingest'
 import { confirmCapturedSms, dismissCapturedSms, undoAutoConfirmedSms, type ConfirmOverrides } from '../utilities/sms/confirm'
 import { replyToSms } from '../utilities/sms/reply'
+import { refineSms } from '../utilities/sms/refine'
 
 const MAX_BATCH = 200
 const unauthorized = () => Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
@@ -94,6 +95,27 @@ export const smsReplyHandler: PayloadHandler = async (req) => {
   try { text = String(((await req.json?.()) ?? {}).text ?? '') } catch { text = '' }
   try {
     return Response.json(await replyToSms(req.payload, req.user as User, String(req.routeParams?.id), text))
+  } catch (e) {
+    return errorResponse(e)
+  }
+}
+
+/**
+ * POST /api/sms/:id/refine
+ * Body: { text?: string, image?: string (base64 or data URL), mimeType?: string }
+ * Re-reads a pending SMS with the AI and saves the new suggestion (never confirms).
+ */
+export const smsRefineHandler: PayloadHandler = async (req) => {
+  if (!req.user) return unauthorized()
+  let body: { text?: string; image?: string; mimeType?: string } = {}
+  try { body = (await req.json?.()) ?? {} } catch { return bad('Invalid JSON body') }
+  try {
+    return Response.json(
+      await refineSms(req.payload, req.user as User, String(req.routeParams?.id), {
+        text: typeof body.text === 'string' ? body.text : null,
+        image: typeof body.image === 'string' && body.image ? { base64: body.image, mimeType: body.mimeType ?? 'image/jpeg' } : null,
+      }),
+    )
   } catch (e) {
     return errorResponse(e)
   }

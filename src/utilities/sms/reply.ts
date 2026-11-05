@@ -14,8 +14,37 @@ export type ReplyResult = {
   summary: { amount: string; type: ParsedSms['type']; title: string; category: string | null }
 }
 
-const idOf = (v: unknown): string | null =>
+export const idOf = (v: unknown): string | null =>
   v == null ? null : String(typeof v === 'object' ? (v as { id: string }).id : v)
+
+/**
+ * The AI's reading of an SMS as a suggestion. The bank's amount is never taken from
+ * it; missing fields fall back to the current suggestion, then to the parsed SMS.
+ */
+export function suggestionFromAI(
+  d: Record<string, any>,
+  before: Partial<SmsSuggestion>,
+  parsed: ParsedSms,
+  from: SmsSuggestion['from'],
+): SmsSuggestion & { shares: { person: string; amount: string }[] } {
+  const shares = Array.isArray(d.shares)
+    ? (d.shares as { person?: { id: string } | null; amount: string }[])
+        .filter((s) => s.person?.id)
+        .map((s) => ({ person: String(s.person!.id), amount: String(s.amount) }))
+    : []
+  const type: ParsedSms['type'] = shares.length ? 'expense' : (d.type as ParsedSms['type']) ?? before.type ?? parsed.type
+  const suggestion: SmsSuggestion = {
+    title: (d.title as string)?.trim() || before.title || 'Transaction',
+    type,
+    category: idOf(d.category) ?? before.category ?? null,
+    tags: Array.isArray(d.tags) && d.tags.length ? d.tags.map(idOf).filter((t: string | null): t is string => !!t) : before.tags ?? [],
+    person: type === 'transfer' ? null : idOf(d.person) ?? before.person ?? null,
+    toAccount: type === 'transfer' ? idOf(d.toAccount) ?? before.toAccount ?? null : null,
+    shares,
+    from,
+  }
+  return { ...suggestion, shares }
+}
 
 /**
  * The user replied to a "new transaction" notification ("lunch with @Rony, split").
@@ -37,22 +66,8 @@ export async function replyToSms(payload: Payload, user: User, id: string, text:
   const ai = await processTextToTransaction(payload, userId, `${reply}\n\nBank SMS: ${sms.body}`)
   const d = ai.data as Record<string, any>
 
-  const shares = Array.isArray(d.shares)
-    ? (d.shares as { person?: { id: string } | null; amount: string }[])
-        .filter((s) => s.person?.id)
-        .map((s) => ({ person: String(s.person!.id), amount: String(s.amount) }))
-    : []
-  const type: ParsedSms['type'] = shares.length ? 'expense' : (d.type as ParsedSms['type']) ?? before.type ?? parsed.type
-  const suggestion: SmsSuggestion = {
-    title: (d.title as string)?.trim() || before.title || 'Transaction',
-    type,
-    category: idOf(d.category) ?? before.category ?? null,
-    tags: Array.isArray(d.tags) && d.tags.length ? d.tags.map(idOf).filter((t: string | null): t is string => !!t) : before.tags ?? [],
-    person: type === 'transfer' ? null : idOf(d.person) ?? before.person ?? null,
-    toAccount: type === 'transfer' ? idOf(d.toAccount) ?? before.toAccount ?? null : null,
-    shares,
-    from: 'reply',
-  }
+  const suggestion = suggestionFromAI(d, before, parsed, 'reply')
+  const { type, shares } = suggestion
   const account = idOf(sms.account) ?? idOf(d.account)
   const complete = !!suggestion.category && !!account && (type !== 'transfer' || !!suggestion.toAccount)
   const summary = { amount: parsed.amount, type, title: suggestion.title, category: null as string | null }
