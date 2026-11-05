@@ -10,6 +10,7 @@ import * as migration_20261005_000000_add_sms_auto_confirm from './20261005_0000
 import * as migration_20261006_000000_add_sms_reply_action from './20261006_000000_add_sms_reply_action';
 import * as migration_20261007_000000_add_ai_narrow_prompt from './20261007_000000_add_ai_narrow_prompt';
 
+import * as migration_20261105_000000_fix_sms_meal_titles from './20261105_000000_fix_sms_meal_titles';
 export const migrations = [
   {
     up: migration_20260404_060059.up,
@@ -65,5 +66,10 @@ export const migrations = [
     up: migration_20261007_000000_add_ai_narrow_prompt.up,
     down: migration_20261007_000000_add_ai_narrow_prompt.down,
     name: '20261007_000000_add_ai_narrow_prompt',
+  },
+  {
+    up: migration_20261105_000000_fix_sms_meal_titles.up,
+    down: migration_20261105_000000_fix_sms_meal_titles.down,
+    name: '20261105_000000_fix_sms_meal_titles',
   },
 ];
