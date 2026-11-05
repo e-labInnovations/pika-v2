@@ -1,14 +1,21 @@
-import type { Payload } from 'payload'
+import type { Payload, PayloadRequest } from 'payload'
 
 export type Meal = 'Breakfast' | 'Lunch' | 'Evening' | 'Dinner'
 
 const MEAL_WORD = /^(\s*)(breakfast|lunch|dinner|evening|supper)\b/i
 
+/**
+ * Bank SMS are Indian and their times IST. A timezone that was never set is stored as
+ * UTC (the settings default), which would put a 12:30 lunch at 07:00, so read it as IST.
+ */
+const SMS_DEFAULT_ZONE = 'Asia/Kolkata'
+
 /** The meal a local time falls in: 05–10 breakfast, 11–15 lunch, 16–18 evening, else dinner. */
 export function mealFor(date: Date, timeZone: string): Meal {
+  const zone = !timeZone || timeZone === 'UTC' ? SMS_DEFAULT_ZONE : timeZone
   let hour: number
   try {
-    hour = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone }).format(date))
+    hour = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: zone }).format(date))
   } catch {
     hour = date.getUTCHours()
   }
@@ -38,7 +45,7 @@ export function fixMealWord(title: string, date: Date, timeZone: string): string
 }
 
 /** The user's timezone setting, or UTC. */
-export async function userTimeZone(payload: Payload, userId: string): Promise<string> {
+export async function userTimeZone(payload: Payload, userId: string, req?: PayloadRequest): Promise<string> {
   try {
     const s = await payload.find({
       collection: 'user-settings',
@@ -47,6 +54,7 @@ export async function userTimeZone(payload: Payload, userId: string): Promise<st
       depth: 0,
       context: { internal: true },
       select: { timezone: true },
+      req,
     })
     return (s.docs[0]?.timezone as string) || 'UTC'
   } catch {

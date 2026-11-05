@@ -98,6 +98,27 @@ describe('refining a pending SMS with AI', () => {
     expect(res.suggestion.title).toBe('Lunch at Refine Cafe')
   })
 
+  it('keeps the bank\'s direction: a debit stays an expense unless the AI says transfer', async () => {
+    let id = await newSms()
+    aiResult.current = { title: 'Refund?', type: 'income', category: { id: cat }, tags: [] }
+    expect((await refineSms(payload, user, id, { text: 'refund' })).suggestion.type).toBe('expense')
+    id = await newSms()
+    aiResult.current = { title: 'To savings', type: 'transfer', tags: [] }
+    expect((await refineSms(payload, user, id, { text: 'moved to savings' })).suggestion.type).toBe('transfer')
+  })
+
+  it('does not write over an SMS confirmed while the AI was running', async () => {
+    const id = await newSms('133.00')
+    textAI.mockImplementationOnce(async () => {
+      await confirmCapturedSms(payload, user, id, { category: cat, title: 'Confirmed meanwhile' })
+      return { data: aiResult.current, model: 'mock', latencyMs: 1 }
+    })
+    await expect(refineSms(payload, user, id, { text: 'late' })).rejects.toMatchObject({ status: 409 })
+    const sms = await payload.findByID({ collection: 'captured-sms', id, depth: 0 })
+    expect(sms.status).toBe('confirmed')
+    expect((sms.suggestion as { from: string }).from).not.toBe('ai')
+  })
+
   it('rejects an SMS that is no longer pending, and over-long text', async () => {
     const id = await newSms()
     await expect(refineSms(payload, user, id, { text: 'x'.repeat(1001) })).rejects.toThrow(/too long/)

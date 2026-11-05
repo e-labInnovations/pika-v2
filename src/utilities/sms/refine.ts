@@ -57,7 +57,10 @@ export async function refineSms(payload: Payload, user: User, id: string, input:
 
   // "Try again" must not fall back to the learned title it is meant to replace.
   const base = text || image ? before : { ...before, title: undefined }
-  const s = suggestionFromAI(d, base, parsed, 'ai')
+  const ai_ = suggestionFromAI(d, base, parsed, 'ai')
+  // The bank says which way the money went; the AI may only reclassify it as a transfer.
+  const type = ai_.type === 'transfer' ? 'transfer' : parsed.type
+  const s = { ...ai_, type, ...(type === 'transfer' ? {} : { toAccount: null }) }
   const at = new Date(parsed.occurredAt ?? (sms.receivedAt as string))
   const suggestion: SmsSuggestion = {
     ...s,
@@ -69,12 +72,14 @@ export async function refineSms(payload: Payload, user: User, id: string, input:
   const account = idOf(sms.account) ?? idOf(d.account)
   const complete = !!suggestion.category && !!account && (suggestion.type !== 'transfer' || !!suggestion.toAccount)
 
-  await payload.update({
+  // Only while still pending: the user may have confirmed or dismissed it during the AI call.
+  const res = await payload.update({
     collection: 'captured-sms',
-    id,
+    where: { and: [{ id: { equals: id } }, { status: { equals: 'pending' } }] },
     user,
     overrideAccess: false,
     data: { suggestion, ...(account ? { account } : {}) } as any,
   })
+  if (!res.docs.length) throw new APIError('This SMS is no longer pending.', 409, undefined, true)
   return { suggestion, complete }
 }

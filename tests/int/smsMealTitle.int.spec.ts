@@ -26,8 +26,12 @@ describe('meal word for the time of day', () => {
   })
 
   it('uses the given time zone', () => {
-    // 12:07 IST is 06:37 UTC: breakfast for a UTC user.
-    expect(mealFor(ist('12:07'), 'UTC')).toBe('Breakfast')
+    expect(mealFor(ist('12:07'), 'Europe/London')).toBe('Breakfast')
+  })
+
+  it('reads a missing or UTC timezone as India time: bank SMS times are IST', () => {
+    expect(mealFor(ist('12:07'), 'UTC')).toBe('Lunch')
+    expect(mealFor(ist('12:07'), '')).toBe('Lunch')
   })
 
   it('replaces a leading meal word and keeps the rest', () => {
