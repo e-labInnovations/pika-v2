@@ -77,6 +77,17 @@ describe('refining a pending SMS with AI', () => {
     expect((sms.parsed as { amount: string }).amount).toBe('120.00')
   })
 
+  it('passes @-mentions typed in the app through to the AI unchanged', async () => {
+    const id = await newSms()
+    const token = '@[Rony](person:0f8fad5b-d9cb-469f-a165-70867728950e)'
+    await refineSms(payload, user, id, { text: `split with ${token}` })
+    expect(textAI.mock.calls[0][2] as string).toContain(`split with ${token}`)
+
+    textAI.mockClear()
+    await refineSms(payload, user, id, { text: token, image: { base64: 'aGVsbG8=', mimeType: 'image/png' } })
+    expect(imageAI.mock.calls[0][5] as string).toContain(token)
+  })
+
   it('with an image: asks the image AI, passing the text and the SMS as its note', async () => {
     const id = await newSms()
     await refineSms(payload, user, id, { text: 'receipt', image: { base64: 'aGVsbG8=', mimeType: 'image/png' } })
