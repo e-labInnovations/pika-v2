@@ -13,9 +13,15 @@ import {
 } from './ai'
 import { migrateConnectHandler, migrateFetchHandler, migrateRunHandler } from './migrate'
 import { seedPagesHandler } from './seedPages'
+import { exportTransactionsHandler } from './export'
 import { smsSendersHandler, smsIngestHandler, smsConfirmHandler, smsDismissHandler, smsUndoHandler, smsReplyHandler, smsRefineHandler } from './sms'
 
 export const endpoints = [
+  {
+    path: '/export/transactions',
+    method: 'post' as const,
+    handler: exportTransactionsHandler,
+  },
   {
     path: '/currencies',
     method: 'get' as const,
