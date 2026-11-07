@@ -5,6 +5,7 @@ import {
   callGeminiText,
   callGeminiImage,
   CATEGORY_SUGGESTION_RESPONSE_SCHEMA,
+  SPLIT_RESPONSE_SCHEMA,
   type GeminiUsage,
 } from './gemini'
 import { callHFText, callHFImage, type HFUsage } from './huggingface'
@@ -571,7 +572,7 @@ async function resolveAITransactionData(
 
 async function callTextProvider(
   config: AIConfig,
-  params: { systemPrompt: string; userPrompt: string; useCategorySchema?: boolean },
+  params: { systemPrompt: string; userPrompt: string; useCategorySchema?: boolean; useSplitSchema?: boolean },
 ) {
   if (config.provider === 'huggingface') {
     return callHFText({
@@ -580,6 +581,7 @@ async function callTextProvider(
       systemPrompt: params.systemPrompt,
       userPrompt: params.userPrompt,
       useCategorySchema: params.useCategorySchema,
+      useSplitSchema: params.useSplitSchema,
     })
   }
   return callGeminiText({
@@ -587,7 +589,11 @@ async function callTextProvider(
     model: config.model,
     systemPrompt: params.systemPrompt,
     userPrompt: params.userPrompt,
-    responseSchema: params.useCategorySchema ? CATEGORY_SUGGESTION_RESPONSE_SCHEMA : undefined,
+    responseSchema: params.useSplitSchema
+      ? SPLIT_RESPONSE_SCHEMA
+      : params.useCategorySchema
+        ? CATEGORY_SUGGESTION_RESPONSE_SCHEMA
+        : undefined,
   })
 }
 
@@ -661,6 +667,59 @@ export async function processTextToTransaction(
 
   const resolved = await resolveAITransactionData(payload, applyTaggedEntities(result.data, entities), userId)
   return { data: resolved, model, usage: result.usage, latencyMs: result.latencyMs, systemPrompt: TEXT_TO_TRANSACTION_SYSTEM, userPrompt }
+}
+
+const SPLIT_SYSTEM = `You split one bank payment into the separate expenses it paid for.
+Return JSON {"parts":[{"title","amount","category","tags"}]} with at least two parts.
+Rules:
+- The amounts MUST add up exactly to the payment total. If the user says "rest" or "remaining" for a part, give it the total minus the other parts.
+- Use only category IDs from the list (a CHILD line); empty string if none fits. Tags only from the list.
+- Titles are short, like the user's own past titles; include the month and year if they did.
+- Never invent extra parts the user or the history does not suggest.`
+
+/**
+ * Splits one payment into parts with the AI: `text` is what the user typed plus the bank
+ * SMS; `total` the bank amount the parts must add up to. Returns raw parts; the caller
+ * checks the amounts and categories.
+ */
+export async function processTextToSplit(
+  payload: Payload,
+  userId: string,
+  text: string,
+  total: string,
+): Promise<{ data: { parts?: unknown }; model: string; usage?: unknown; latencyMs?: number }> {
+  const config = await resolveAIConfig(payload, userId)
+  if (!config.enabled) throw new APIError('AI features are disabled', 403, null, true)
+  if (!config.apiKey) throw new APIError('No API key configured for the selected AI provider', 400, null, true)
+  if (config.apiKeyType === 'app' || config.apiKeyType === 'app-hf') {
+    await checkRateLimits(payload, userId, config.perUserDailyTokenLimit, config.perUserMonthlyTokenLimit)
+  }
+
+  const entities = await verifyTaggedEntities(payload, userId, parseTaggedEntities(text))
+  const context = await buildUserContext(payload, userId, { text: stripTags(text), taggedIds: entities.map((e) => e.id) })
+  const tagged = entities.length
+    ? `\nTAGGED BY THE USER (use these IDs): ${entities.map((e) => `${e.type} ${e.id}: ${e.name}`).join('; ')}\n`
+    : ''
+  const userPrompt = `PAYMENT TOTAL: ${total}
+
+INPUT:
+${text}
+${tagged}
+AVAILABLE CATEGORIES (tree — pick a CHILD id from "- <id>: name — desc" lines; "### <type>" and "## <parent>" are context only):
+${context.categories}
+
+AVAILABLE TAGS (use ID only):
+${context.tags}`
+
+  let result
+  try {
+    result = await callTextProvider(config, { systemPrompt: SPLIT_SYSTEM, userPrompt, useSplitSchema: true })
+  } catch (e: any) {
+    await logUsage(payload, userId, { promptType: 'text', model: config.model, apiKeyType: config.apiKeyType, status: 'error', error: e.message })
+    throw translateProviderError(config, e) ?? e
+  }
+  await logUsage(payload, userId, { promptType: 'text', model: config.model, apiKeyType: config.apiKeyType, status: 'success', usage: result.usage, latencyMs: result.latencyMs })
+  return { data: result.data as { parts?: unknown }, model: config.model, usage: result.usage, latencyMs: result.latencyMs }
 }
 
 export async function processImageToTransaction(

@@ -2,6 +2,7 @@ import { APIError, type Payload } from 'payload'
 import type { User } from '@/payload-types'
 import type { ParsedSms } from './parse'
 import { defaultNote, normPayee, payeeTokens, type SmsSuggestion } from './ingest'
+import { checkPartsTotal, type SmsPart } from './split'
 
 /** Fields the user may change before confirming. Anything omitted comes from the suggestion. */
 export type ConfirmOverrides = Partial<{
@@ -18,6 +19,8 @@ export type ConfirmOverrides = Partial<{
   amount: string
   date: string
   attachments: string[]
+  /** Confirm as a split, one transaction per part; `[]` confirms a split suggestion as one. */
+  parts: SmsPart[]
 }>
 
 const idOf = (v: unknown): string | null =>
@@ -67,6 +70,9 @@ export async function confirmCapturedSms(
   const parsed = sms.parsed as ParsedSms | null
   if (!parsed) throw new APIError('This SMS could not be parsed.', 422)
   const s = (sms.suggestion ?? {}) as Partial<SmsSuggestion>
+
+  const parts = overrides.parts ?? s.parts ?? []
+  if (parts.length) return confirmSplit(payload, user, id, sms, parsed, s, parts, overrides)
 
   const type = overrides.type ?? s.type ?? parsed.type
   const category = overrides.category ?? s.category ?? null
@@ -139,6 +145,75 @@ export async function confirmCapturedSms(
     data: { status: 'confirmed', transaction: tx.id, account, autoUndone: false },
   })
   return { transaction: String(tx.id), linked }
+}
+
+/**
+ * A split SMS: one transaction per part, all with the bank's date, account and
+ * reference. The parts must add up to the bank amount. If a part fails to save, the
+ * parts already created are deleted again and the SMS stays pending.
+ */
+async function confirmSplit(
+  payload: Payload,
+  user: User,
+  id: string,
+  sms: { receivedAt?: unknown; account?: unknown },
+  parsed: ParsedSms,
+  s: Partial<SmsSuggestion>,
+  parts: SmsPart[],
+  overrides: ConfirmOverrides,
+): Promise<{ transaction: string; linked: string | null }> {
+  const type = overrides.type ?? s.type ?? parsed.type
+  if (type === 'transfer') throw new APIError("A transfer can't be split.", 400, { code: 'split_transfer' })
+  checkPartsTotal(parts, parsed.amount)
+  if (parts.some((p) => !p.category)) {
+    throw new APIError('Pick a category for every part.', 400, { code: 'category_required' })
+  }
+  const account = overrides.account ?? idOf(sms.account)
+  if (!account) throw new APIError('Pick the account this SMS belongs to.', 400, { code: 'account_required' })
+
+  const date = overrides.date ?? parsed.occurredAt ?? (sms.receivedAt as string)
+  const note = overrides.note ?? defaultNote(parsed)
+  const created: string[] = []
+  try {
+    for (const [i, p] of parts.entries()) {
+      const tx = await payload.create({
+        collection: 'transactions',
+        user,
+        overrideAccess: false,
+        data: {
+          title: p.title?.trim() || 'Transaction',
+          amount: p.amount,
+          date,
+          attachments: i === 0 ? overrides.attachments ?? [] : [],
+          type,
+          category: p.category,
+          account,
+          toAccount: null,
+          person: p.person ?? null,
+          tags: p.tags ?? [],
+          shares: [],
+          note: `${note} · part ${i + 1} of ${parts.length}`,
+          source: 'sms',
+          externalRef: parsed.ref,
+        } as any,
+      })
+      created.push(String(tx.id))
+    }
+  } catch (e) {
+    for (const txId of created) {
+      await payload.delete({ collection: 'transactions', id: txId, user, overrideAccess: false }).catch(() => {})
+    }
+    throw e
+  }
+
+  await payload.update({
+    collection: 'captured-sms',
+    id,
+    user,
+    overrideAccess: false,
+    data: { status: 'confirmed', transaction: created[0], parts: created, account, autoUndone: false } as any,
+  })
+  return { transaction: created[0], linked: null }
 }
 
 /**

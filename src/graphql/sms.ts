@@ -7,10 +7,11 @@ import {
   type ConfirmOverrides,
 } from '../utilities/sms/confirm'
 import { refineSms } from '../utilities/sms/refine'
+import { splitSmsWithAI } from '../utilities/sms/split'
 
 const SmsOverridesJSON = new GraphQLScalarType({
   name: 'SmsConfirmOverrides',
-  description: 'Optional fields to change before confirming: title, type, category, account, toAccount, person, tags, note, shares, amount, date, attachments',
+  description: 'Optional fields to change before confirming: title, type, category, account, toAccount, person, tags, note, shares, amount, date, attachments, parts (split: [{title, amount, category, tags, person}], [] = not split)',
   serialize: (v) => v,
   parseValue: (v) => v,
   parseLiteral: (ast) => (ast.kind === Kind.STRING ? JSON.parse(ast.value) : null),
@@ -56,6 +57,23 @@ export const smsMutations = () => ({
         text: args.text,
         image: args.image ? { base64: args.image, mimeType: args.mimeType ?? 'image/jpeg' } : null,
       })
+    },
+  },
+  /**
+   * mutation { splitCapturedSmsWithAI(id: "…", text: "7000 rent, rest electricity") }
+   * Splits a pending SMS into parts with the AI; returns the parts and saves them as the
+   * suggestion. Never confirms. The parts always add up to the bank amount.
+   */
+  splitCapturedSmsWithAI: {
+    type: new GraphQLNonNull(SmsOverridesJSON),
+    args: {
+      id: { type: new GraphQLNonNull(GraphQLString) },
+      text: { type: GraphQLString },
+    },
+    resolve: async (_: unknown, args: { id: string; text?: string | null }, { req }: { req: any }) => {
+      if (!req.user) throw new Error('Unauthorized')
+      const { parts } = await splitSmsWithAI(req.payload, req.user, args.id, args.text ?? '')
+      return parts
     },
   },
   /** mutation { confirmCapturedSms(id: "…", overrides: {category: "…"}) { transaction } } */

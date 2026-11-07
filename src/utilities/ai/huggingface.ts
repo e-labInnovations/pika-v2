@@ -161,21 +161,44 @@ async function callHF(params: {
   return { data, usage, latencyMs }
 }
 
+const SPLIT_JSON_SCHEMA = {
+  type: 'object',
+  required: ['parts'],
+  properties: {
+    parts: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['title', 'amount', 'category', 'tags'],
+        properties: {
+          title: { type: 'string' },
+          amount: { type: 'string', description: 'Positive numeric string, e.g. "7000.00"' },
+          category: { type: 'string', description: 'Child category ID, or empty string' },
+          tags: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
+  },
+}
+
 export async function callHFText(params: {
   apiKey: string
   model: string
   systemPrompt: string
   userPrompt: string
   useCategorySchema?: boolean
+  useSplitSchema?: boolean
 }): Promise<HFResult> {
   return callHF({
     apiKey: params.apiKey,
     model: params.model,
     systemPrompt: params.systemPrompt,
     userContent: [{ type: 'text', text: params.userPrompt }],
-    jsonSchema: params.useCategorySchema
-      ? CATEGORY_SUGGESTION_JSON_SCHEMA
-      : TRANSACTION_JSON_SCHEMA,
+    jsonSchema: params.useSplitSchema
+      ? SPLIT_JSON_SCHEMA
+      : params.useCategorySchema
+        ? CATEGORY_SUGGESTION_JSON_SCHEMA
+        : TRANSACTION_JSON_SCHEMA,
   })
 }
 

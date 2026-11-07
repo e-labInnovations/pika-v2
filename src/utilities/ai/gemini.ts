@@ -51,6 +51,27 @@ export const CATEGORY_SUGGESTION_RESPONSE_SCHEMA = {
   },
 }
 
+/** A payment split into parts (SMS split with AI). */
+export const SPLIT_RESPONSE_SCHEMA = {
+  type: Type.OBJECT,
+  required: ['parts'],
+  properties: {
+    parts: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        required: ['title', 'amount', 'category', 'tags'],
+        properties: {
+          title: { type: Type.STRING, description: 'Short title for this part' },
+          amount: { type: Type.STRING, description: 'Positive numeric string, e.g. "7000.00". No currency symbols.' },
+          category: { type: Type.STRING, description: 'Child category ID from the provided list, or empty string' },
+          tags: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Tag IDs from the provided list' },
+        },
+      },
+    },
+  },
+}
+
 export async function callGeminiText(params: {
   apiKey: string
   model: string

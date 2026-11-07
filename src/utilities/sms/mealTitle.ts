@@ -61,3 +61,33 @@ export async function userTimeZone(payload: Payload, userId: string, req?: Paylo
     return 'UTC'
   }
 }
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const MONTH_YEAR = new RegExp(`\\b(${MONTHS.map((m) => `${m.slice(0, 3)}(?:${m.slice(3)}|t)?`).join('|')})\\.?\\s+'?(\\d{4}|\\d{2})\\b`, 'i')
+
+/**
+ * Titles reused from a past month's payment carry its month ("Rent - Flat 7A (Aug 2026)").
+ * Swap a month-and-year in the title for the payment's own, in the same style (short or
+ * full month name, 2- or 4-digit year). Titles without a month and year are unchanged.
+ */
+export function refreshTitleMonth(title: string, date: Date, timeZone: string): string {
+  const m = MONTH_YEAR.exec(title)
+  if (!m) return title
+  const zone = !timeZone || timeZone === 'UTC' ? SMS_DEFAULT_ZONE : timeZone
+  let month: number
+  let year: number
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', { month: 'numeric', year: 'numeric', timeZone: zone }).formatToParts(date)
+    month = Number(parts.find((p) => p.type === 'month')!.value) - 1
+    year = Number(parts.find((p) => p.type === 'year')!.value)
+  } catch {
+    month = date.getUTCMonth()
+    year = date.getUTCFullYear()
+  }
+  // "May" is both; treat it as short.
+  const full = m[1].length > 3 && MONTHS.some((x) => x.toLowerCase() === m[1].toLowerCase())
+  const name = full ? MONTHS[month] : MONTHS[month].slice(0, 3)
+  const y = m[2].length === 2 ? String(year % 100).padStart(2, '0') : String(year)
+  const word = m[1] === m[1].toUpperCase() ? name.toUpperCase() : name
+  return title.slice(0, m.index) + m[0].replace(m[1], word).replace(m[2], y) + title.slice(m.index + m[0].length)
+}

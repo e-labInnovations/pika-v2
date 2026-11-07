@@ -11,6 +11,7 @@ import * as migration_20261006_000000_add_sms_reply_action from './20261006_0000
 import * as migration_20261007_000000_add_ai_narrow_prompt from './20261007_000000_add_ai_narrow_prompt';
 
 import * as migration_20261105_000000_fix_sms_meal_titles from './20261105_000000_fix_sms_meal_titles';
+import * as migration_20261108_000000_add_sms_split_parts from './20261108_000000_add_sms_split_parts';
 export const migrations = [
   {
     up: migration_20260404_060059.up,
@@ -71,5 +72,10 @@ export const migrations = [
     up: migration_20261105_000000_fix_sms_meal_titles.up,
     down: migration_20261105_000000_fix_sms_meal_titles.down,
     name: '20261105_000000_fix_sms_meal_titles',
+  },
+  {
+    up: migration_20261108_000000_add_sms_split_parts.up,
+    down: migration_20261108_000000_add_sms_split_parts.down,
+    name: '20261108_000000_add_sms_split_parts',
   },
 ];

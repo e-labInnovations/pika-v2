@@ -584,6 +584,10 @@ export interface CapturedSm {
    */
   transaction?: (string | null) | Transaction;
   /**
+   * When confirmed as a split: one transaction per part (the first is also "transaction").
+   */
+  parts?: (string | Transaction)[] | null;
+  /**
    * Confirmed on arrival because the merchant is trusted.
    */
   autoConfirmed?: boolean | null;
@@ -1322,6 +1326,7 @@ export interface CapturedSmsSelect<T extends boolean = true> {
   suggestion?: T;
   account?: T;
   transaction?: T;
+  parts?: T;
   autoConfirmed?: T;
   autoUndone?: T;
   updatedAt?: T;

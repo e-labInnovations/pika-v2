@@ -78,6 +78,13 @@ export const CapturedSms: CollectionConfig = {
       admin: { description: 'The confirmed transaction, or the existing one this SMS duplicates.' },
     },
     {
+      name: 'parts',
+      type: 'relationship',
+      relationTo: 'transactions',
+      hasMany: true,
+      admin: { description: 'When confirmed as a split: one transaction per part (the first is also "transaction").' },
+    },
+    {
       name: 'autoConfirmed',
       type: 'checkbox',
       defaultValue: false,

@@ -3,7 +3,8 @@ import type { Payload } from 'payload'
 import { looksFinancial, parseSms, providerForSender, type ParsedSms } from './parse'
 import type { User } from '@/payload-types'
 import { findPossibleDuplicates } from '../duplicates'
-import { fixMealWord, userTimeZone } from './mealTitle'
+import { fixMealWord, refreshTitleMonth, userTimeZone } from './mealTitle'
+import { historySplit, type SmsPart } from './split'
 import { isConfidentPrediction, predictCategoryFromHistory } from '../ai/user-history'
 import { eligible, isTrusted, loadAutoConfirmSettings, type AutoConfirmSettings } from './autoConfirm'
 import { confirmCapturedSms } from './confirm'
@@ -23,6 +24,10 @@ export type SmsSuggestion = {
   from: 'sms' | 'note' | 'model' | 'default' | 'reply' | 'ai'
   /** A transaction that may already record this payment (added by hand, a bit apart in time). */
   possibleDuplicate?: { id: string; title: string; amount: string; date: string }
+  /** The payment split into parts (2+), confirmed as one transaction each. */
+  parts?: SmsPart[]
+  /** `history`: the payee's last split payment; `ai`: Split with AI. */
+  partsFrom?: 'history' | 'ai'
 }
 
 export type IngestResult = {
@@ -240,6 +245,21 @@ export async function suggest(
   userId: string,
   p: ParsedSms,
   people: PersonRow[] = [],
+  titleHint?: string | null,
+  at?: Date,
+): Promise<SmsSuggestion> {
+  const s = await suggestSingle(payload, userId, p, people, titleHint, at)
+  // Only for SMS (a real time): a payee last paid as a split is suggested split again.
+  if (!at) return s
+  const parts = await historySplit(payload, userId, p, merchantKey(p.merchant), at).catch(() => null)
+  return parts ? { ...s, parts, partsFrom: 'history' } : s
+}
+
+async function suggestSingle(
+  payload: Payload,
+  userId: string,
+  p: ParsedSms,
+  people: PersonRow[] = [],
   /** Better title than the merchant when nothing was learned (e.g. a bank statement's note). */
   titleHint?: string | null,
   /** When the payment happened; a reused title's meal word is matched to it. */
@@ -256,7 +276,7 @@ export async function suggest(
   const learnedTitle = async (title: string) => {
     if (!when) return title
     tz ??= await userTimeZone(payload, userId)
-    return fixMealWord(title, when, tz)
+    return refreshTitleMonth(fixMealWord(title, when, tz), when, tz)
   }
 
   if (key) {

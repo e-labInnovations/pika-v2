@@ -29,6 +29,8 @@ export function eligible(settings: AutoConfirmSettings, p: ParsedSms, s: SmsSugg
   return (
     settings.enabled &&
     s.from === 'sms' &&
+    // A split is always reviewed by hand.
+    !s.parts?.length &&
     !!s.category &&
     !!account &&
     p.type !== 'transfer' &&
