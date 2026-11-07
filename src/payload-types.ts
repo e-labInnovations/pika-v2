@@ -912,7 +912,43 @@ export interface PayloadMcpApiKey {
   };
   'payload-mcp-tool'?: {
     /**
-     * Returns the authenticated user's financial dashboard: total balance across all active accounts, percentage change vs last month's surplus, and current month income/expenses/surplus. Use this to answer questions like 'how am I doing this month?' or 'what is my total balance?'
+     * Call this FIRST. Returns the user's current local date/time and timezone, currency, and every account, category (grouped by type and parent), tag and person with ids. Use these names in other tools; never guess ids.
+     */
+    getContext?: boolean | null;
+    /**
+     * Add 1–50 transactions in one call. Use names for account/category/tags/person and LOCAL dates. Each item is checked against existing transactions; a likely duplicate is not saved unless allow_duplicate is true. Use dry_run to preview. Returns a result per item (created / duplicate / error with the reason).
+     */
+    addTransactions?: boolean | null;
+    /**
+     * Change 1–50 transactions by id (from search_transactions). Only the fields given change. Names and LOCAL dates as in add_transactions; person: "" clears it.
+     */
+    updateTransactions?: boolean | null;
+    /**
+     * Delete 1–50 transactions by id. Confirm with the user first.
+     */
+    deleteTransactions?: boolean | null;
+    /**
+     * Find transactions and total them. 'query' matches title, note, category/tag/person/account names and exact amounts. Filters take names and LOCAL dates. Returns totals over ALL matches (count, spent, received, average), spending by month, and one page of rows (local times, names).
+     */
+    searchTransactions?: boolean | null;
+    /**
+     * This month at a glance: total balance, income, expenses, surplus, insights (what's unusual) and budget progress. Good for 'how am I doing?'.
+     */
+    getOverview?: boolean | null;
+    /**
+     * Balance of every account, and people with money outstanding (owes_you / you_owe).
+     */
+    getBalances?: boolean | null;
+    /**
+     * Bank SMS waiting for review. action 'list': pending SMS with suggestions. 'confirm': save one as a transaction (optionally change title/category/account/tags/person/note by name). 'split': save it as several transactions (parts must add up to the SMS amount). 'dismiss': not a transaction.
+     */
+    smsQueue?: boolean | null;
+    /**
+     * Split a saved transaction (id from search_transactions) into parts by name; parts must add up to its amount. It stays as the first part; the rest are new transactions with the same date and account.
+     */
+    splitTransaction?: boolean | null;
+    /**
+     * Older dashboard numbers only. Prefer get_overview, which adds insights and budgets.
      */
     getDashboardSummary?: boolean | null;
     /**
@@ -1565,6 +1601,15 @@ export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
   'payload-mcp-tool'?:
     | T
     | {
+        getContext?: T;
+        addTransactions?: T;
+        updateTransactions?: T;
+        deleteTransactions?: T;
+        searchTransactions?: T;
+        getOverview?: T;
+        getBalances?: T;
+        smsQueue?: T;
+        splitTransaction?: T;
         getDashboardSummary?: T;
         getMonthlyCategories?: T;
         getMonthlyTags?: T;

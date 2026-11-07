@@ -29,10 +29,13 @@ answer in local time. ChatGPT is the main client: few tools, compact JSON replie
 | `sms_queue` | `list` pending, `confirm` (optional overrides by name), `split` (parts by name), `dismiss`. |
 | `split_transaction` | Split a saved transaction into parts by name. |
 
-Kept: `get_monthly_categories/tags/people`, `get_current_user`, resources. Removed:
-`get_dashboard_summary` (in `get_overview`). The generated transaction tools stay enabled
-(turning one off drops its permission column on MCP API keys — a destructive schema change);
-their description now says not to use them for writes.
+Kept: `get_monthly_categories/tags/people`, `get_current_user`, `get_dashboard_summary`
+(described as superseded by `get_overview`), resources. Every tool and collection operation
+is a permission column on MCP API keys, so removing one drops a column: nothing is removed.
+The generated transaction tools stay enabled; their description says not to use them for
+writes. Migration `20261108_000004_mcp_v2_tools` adds the new tool columns (default on, so
+existing keys get them) and the `get_current_user` / transaction-links columns no earlier
+migration added.
 
 ### Rules
 

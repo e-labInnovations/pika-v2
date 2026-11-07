@@ -9,6 +9,7 @@ import { calculateMonthlyPeople } from '../utilities/calculateMonthlyPeople'
 import { User } from '../payload-types'
 import { PayloadRequest } from 'payload'
 import { maskApiKey } from '../utilities/maskApiKey'
+import { calculateDashboard } from '../utilities/calculateDashboard'
 import { pikaTools } from './mcp-tools'
 
 export { MCP_SCOPES, MCP_FULL_PERMISSIONS } from './mcp-constants'
@@ -158,6 +159,22 @@ export const mcp = mcpPlugin({
     },
     tools: [
       ...pikaTools,
+      {
+        name: 'get_dashboard_summary',
+        description:
+          "Older dashboard numbers only. Prefer get_overview, which adds insights and budgets.",
+        parameters: {},
+        handler: async (_args: Record<string, unknown>, req: PayloadRequest) => {
+          if (!req.user) {
+            return {
+              content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }],
+            }
+          }
+          const timezone = await getMcpTimezone(req)
+          const data = await calculateDashboard(req.payload, req.user.id, timezone)
+          return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
+        },
+      },
       {
         name: 'get_monthly_categories',
         description:
