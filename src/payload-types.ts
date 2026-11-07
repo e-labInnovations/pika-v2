@@ -463,6 +463,7 @@ export interface Transaction {
   user: string | User;
   title: string;
   amount: string;
+  amountValue?: number | null;
   date: string;
   type: 'income' | 'expense' | 'transfer';
   category: string | Category;
@@ -1271,6 +1272,7 @@ export interface TransactionsSelect<T extends boolean = true> {
   user?: T;
   title?: T;
   amount?: T;
+  amountValue?: T;
   date?: T;
   type?: T;
   category?: T;

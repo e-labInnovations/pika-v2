@@ -183,6 +183,25 @@ export const Transactions: CollectionConfig = {
       validate: validateAmount,
     },
     {
+      // `amount` is text (exact decimals), which the database compares as text ("900" >
+      // "7000"). This is its number, kept in step on every save, for filtering and
+      // sorting by amount.
+      name: 'amountValue',
+      type: 'number',
+      index: true,
+      admin: { hidden: true },
+      access: { create: () => false, update: () => false },
+      hooks: {
+        beforeChange: [
+          ({ siblingData, originalDoc }) => {
+            const raw = siblingData?.amount ?? originalDoc?.amount
+            const n = Number(raw)
+            return raw != null && raw !== '' && Number.isFinite(n) ? n : null
+          },
+        ],
+      },
+    },
+    {
       name: 'date',
       type: 'date',
       required: true,
