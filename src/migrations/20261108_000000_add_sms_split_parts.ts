@@ -29,7 +29,7 @@ export async function resuggestPendingSplits(payload: Payload, req?: PayloadRequ
     if (!zones.has(userId)) zones.set(userId, await userTimeZone(payload, userId, req))
     const at = new Date(parsed.occurredAt ?? (doc.receivedAt as string))
     const title = s.title ? refreshTitleMonth(s.title, at, zones.get(userId)!) : s.title
-    const parts = s.parts?.length ? null : await historySplit(payload, userId, parsed, merchantKeyOf(doc), at).catch(() => null)
+    const parts = s.parts?.length ? null : await historySplit(payload, userId, parsed, merchantKeyOf(doc), at, req).catch(() => null)
     if (title === s.title && !parts) continue
     await payload.update({
       collection: 'captured-sms',

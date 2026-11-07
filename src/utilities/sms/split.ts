@@ -1,4 +1,4 @@
-import type { Payload } from 'payload'
+import type { Payload, PayloadRequest } from 'payload'
 import { APIError } from 'payload'
 import type { User } from '@/payload-types'
 import type { ParsedSms } from './parse'
@@ -77,6 +77,8 @@ export async function historySplit(
   p: ParsedSms,
   merchantKey: string | null,
   at: Date | null,
+  /** Read through this request's transaction (a migration's rows are not committed yet). */
+  req?: PayloadRequest,
 ): Promise<SmsPart[] | null> {
   if (p.type !== 'expense') return null
   let group: PartLike[] | null = null
@@ -95,6 +97,7 @@ export async function historySplit(
       sort: '-receivedAt',
       limit: 1,
       depth: 1,
+      req,
     })
     const parts = learned.docs[0]?.parts
     if (Array.isArray(parts) && parts.length && parts.every((t) => t && typeof t === 'object')) group = parts as PartLike[]
@@ -107,6 +110,7 @@ export async function historySplit(
       sort: '-date',
       limit: 12,
       depth: 0,
+      req,
     })
     const byRef = new Map<string, PartLike[]>()
     const order: string[] = []
@@ -127,7 +131,7 @@ export async function historySplit(
   const parts = splitFromGroup(group, p.amount)
   if (!parts) return null
   if (at) {
-    const tz = await userTimeZone(payload, userId)
+    const tz = await userTimeZone(payload, userId, req)
     for (const part of parts) part.title = refreshTitleMonth(part.title, at, tz)
   }
   return parts

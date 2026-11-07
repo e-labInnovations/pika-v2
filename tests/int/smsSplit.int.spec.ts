@@ -216,6 +216,27 @@ describe('splitting a pending SMS', () => {
     expect((await payload.findByID({ collection: 'captured-sms', id, depth: 0 })).updatedAt).toBe(again)
   })
 
+  it('migration: reads through its own transaction (sees rows not committed yet)', async () => {
+    // In production the migration creates captured_sms_rels and then reads it inside one
+    // uncommitted transaction; a read on another connection fails and the split is lost.
+    const { createLocalReq } = await import('payload')
+    const to = `TXN ${stamp % 1e5}`
+    const id = await newSms('7466.66', to)
+    const req = await createLocalReq({ user }, payload)
+    req.transactionID = (await payload.db.beginTransaction()) ?? undefined
+    try {
+      const old = { date: '2026-06-30T05:00:00.000Z', type: 'expense', account, user: user.id }
+      await payload.create({ collection: 'transactions', req, data: { ...old, title: 'Rent', amount: 7000, category: rentCat, note: `UPI to ${to}. Ref: 618105790001.` } as any })
+      await payload.create({ collection: 'transactions', req, data: { ...old, title: 'Electricity', amount: 300, category: elecCat, note: `UPI to ${to}. Ref: 618105790001.` } as any })
+
+      await resuggestPendingSplits(payload, req)
+      const s = (await payload.findByID({ collection: 'captured-sms', id, depth: 0, req })).suggestion as { parts?: { amount: string }[] }
+      expect(s.parts?.map((p) => p.amount)).toEqual(['7000.00', '466.66'])
+    } finally {
+      await payload.db.rollbackTransaction(req.transactionID!)
+    }
+  })
+
   it('AI split: sends the SMS and the text, saves the parts, the last part takes the rest', async () => {
     const id = await newSms('7422.22')
     aiParts.current = [
