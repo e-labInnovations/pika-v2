@@ -3,13 +3,13 @@ import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { currencies } from '../data/currencies'
 import { timezones } from '../data/timezones'
-import { calculateDashboard } from '../utilities/calculateDashboard'
 import { calculateMonthlyCategories } from '../utilities/calculateMonthlyCategories'
 import { calculateMonthlyTags } from '../utilities/calculateMonthlyTags'
 import { calculateMonthlyPeople } from '../utilities/calculateMonthlyPeople'
 import { User } from '../payload-types'
 import { PayloadRequest } from 'payload'
 import { maskApiKey } from '../utilities/maskApiKey'
+import { pikaTools } from './mcp-tools'
 
 export { MCP_SCOPES, MCP_FULL_PERMISSIONS } from './mcp-constants'
 
@@ -104,7 +104,8 @@ export const mcp = mcpPlugin({
     },
     transactions: {
       description:
-        'Core financial records. Each transaction has a title, amount (stored as text to preserve decimal precision), date, type (income / expense / transfer), and optional relationships to a category, account, tags, and a person. Use this to query spending patterns, compute totals, or create new entries.',
+        'LOW-LEVEL raw records: dates are UTC and relations need ids. Do NOT use these to add, change or delete transactions; use add_transactions / update_transactions / delete_transactions and search_transactions, which take names and local times.',
+      // Kept enabled: turning an operation off drops its permission column on MCP API keys.
       enabled: {
         find: true,
         create: true,
@@ -148,7 +149,7 @@ export const mcp = mcpPlugin({
       // icons is a draft MCP spec field — cast needed until plugin types catch up
       serverInfo: {
         name: 'Pika',
-        version: '1.0.0',
+        version: '2.0.0',
         icons: [
           { src: `${SERVER_URL}/icon.svg`, mimeType: 'image/svg+xml', sizes: ['any'] },
           { src: `${SERVER_URL}/icons/favicon.ico`, mimeType: 'image/x-icon', sizes: ['48x48'] },
@@ -156,22 +157,7 @@ export const mcp = mcpPlugin({
       } as { name: string; version: string },
     },
     tools: [
-      {
-        name: 'get_dashboard_summary',
-        description:
-          "Returns the authenticated user's financial dashboard: total balance across all active accounts, percentage change vs last month's surplus, and current month income/expenses/surplus. Use this to answer questions like 'how am I doing this month?' or 'what is my total balance?'",
-        parameters: {},
-        handler: async (_args: Record<string, unknown>, req: PayloadRequest) => {
-          if (!req.user) {
-            return {
-              content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Unauthorized' }) }],
-            }
-          }
-          const timezone = await getMcpTimezone(req)
-          const data = await calculateDashboard(req.payload, req.user.id, timezone)
-          return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
-        },
-      },
+      ...pikaTools,
       {
         name: 'get_monthly_categories',
         description:
