@@ -7,7 +7,7 @@ import {
   type ConfirmOverrides,
 } from '../utilities/sms/confirm'
 import { refineSms } from '../utilities/sms/refine'
-import { splitSmsWithAI } from '../utilities/sms/split'
+import { aiSplitParts, splitSmsWithAI, splitTransaction, type SmsPart } from '../utilities/sms/split'
 
 const SmsOverridesJSON = new GraphQLScalarType({
   name: 'SmsConfirmOverrides',
@@ -74,6 +74,39 @@ export const smsMutations = () => ({
       if (!req.user) throw new Error('Unauthorized')
       const { parts } = await splitSmsWithAI(req.payload, req.user, args.id, args.text ?? '')
       return parts
+    },
+  },
+  /**
+   * mutation { splitTransaction(id: "…", parts: [{title, amount, category, tags, person}]) }
+   * Splits a saved transaction into parts adding up to its amount; returns their ids
+   * (the original first).
+   */
+  splitTransaction: {
+    type: new GraphQLNonNull(SmsOverridesJSON),
+    args: {
+      id: { type: new GraphQLNonNull(GraphQLString) },
+      parts: { type: new GraphQLNonNull(SmsOverridesJSON) },
+    },
+    resolve: async (_: unknown, args: { id: string; parts: SmsPart[] }, { req }: { req: any }) => {
+      if (!req.user) throw new Error('Unauthorized')
+      if (!Array.isArray(args.parts)) throw new Error('parts must be a list')
+      return (await splitTransaction(req.payload, req.user, args.id, args.parts)).transactions
+    },
+  },
+  /** mutation { splitTransactionWithAI(id: "…", text: "…") } — the AI's parts; nothing is saved. */
+  splitTransactionWithAI: {
+    type: new GraphQLNonNull(SmsOverridesJSON),
+    args: {
+      id: { type: new GraphQLNonNull(GraphQLString) },
+      text: { type: GraphQLString },
+    },
+    resolve: async (_: unknown, args: { id: string; text?: string | null }, { req }: { req: any }) => {
+      if (!req.user) throw new Error('Unauthorized')
+      const text = (args.text ?? '').trim()
+      if (text.length > 1000) throw new Error('Keep it under 1000 characters.')
+      const tx = await req.payload.findByID({ collection: 'transactions', id: args.id, depth: 0, user: req.user, overrideAccess: false })
+      const about = `Transaction: ${tx.title}${tx.note ? ` (${tx.note})` : ''}, ${tx.amount}`
+      return aiSplitParts(req.payload, String(req.user.id), text ? `${text}\n\n${about}` : about, String(tx.amount), String(tx.type))
     },
   },
   /** mutation { confirmCapturedSms(id: "…", overrides: {category: "…"}) { transaction } } */

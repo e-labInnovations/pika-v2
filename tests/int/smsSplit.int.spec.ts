@@ -13,7 +13,7 @@ vi.mock('@/utilities/ai/service', async (orig) => ({
 
 const { ingestSms } = await import('@/utilities/sms/ingest')
 const { confirmCapturedSms } = await import('@/utilities/sms/confirm')
-const { splitSmsWithAI, splitFromGroup, checkPartsTotal } = await import('@/utilities/sms/split')
+const { splitSmsWithAI, splitFromGroup, checkPartsTotal, splitTransaction } = await import('@/utilities/sms/split')
 const { refreshTitleMonth } = await import('@/utilities/sms/mealTitle')
 const { resuggestPendingSplits } = await import('@/migrations/20261108_000000_add_sms_split_parts')
 
@@ -265,5 +265,86 @@ describe('splitting a pending SMS', () => {
       { title: 'Electricity', amount: 1, category: elecCat, tags: [] },
     ]
     await expect(splitSmsWithAI(payload, user, id, 'split it')).rejects.toMatchObject({ status: 422 })
+  })
+})
+
+describe('splitting a confirmed transaction', () => {
+  let payload: Payload
+  let user: User
+  let other: User
+  let account: string
+  let rentCat: string
+  let elecCat: string
+  const stamp = Date.now()
+
+  beforeAll(async () => {
+    payload = await getPayload({ config: await config })
+    const mk = async (tag: string) =>
+      (await payload.create({ collection: 'users', data: { email: `${tag}-${stamp}@example.com`, password: 'x-Test-12345', name: tag } as any })) as User
+    user = await mk('txsplit')
+    other = await mk('txsplit-other')
+    account = String((await payload.create({ collection: 'accounts', user, overrideAccess: false, data: { name: 'Bank' } as any })).id)
+    const cats = (await payload.find({ collection: 'categories', where: { and: [{ type: { equals: 'expense' } }, { parent: { exists: true } }] }, limit: 2 })).docs
+    rentCat = String(cats[0].id)
+    elecCat = String(cats[1].id)
+  })
+
+  afterAll(async () => {
+    for (const u of [user, other]) {
+      const where = { user: { equals: u.id } }
+      await payload.delete({ collection: 'transactions', where, trash: true } as any)
+      await payload.delete({ collection: 'accounts', where })
+      await payload.delete({ collection: 'user-settings', where })
+      await payload.delete({ collection: 'users', id: u.id })
+    }
+  })
+
+  const original = () =>
+    payload.create({
+      collection: 'transactions',
+      user,
+      overrideAccess: false,
+      data: { title: 'Asher', amount: '7398.67', date: '2026-10-30T04:01:00.000Z', type: 'expense', account, category: rentCat, note: 'UPI Ref 666947066378', externalRef: '666947066378' } as any,
+    })
+  const parts = (a: string, b: string) => [
+    { title: 'Rent', amount: a, category: rentCat, tags: [], person: null },
+    { title: 'Electricity', amount: b, category: elecCat, tags: [], person: null },
+  ]
+
+  it('keeps the original as the first part and adds the rest with the same date, account and reference', async () => {
+    const tx = await original()
+    const { transactions } = await splitTransaction(payload, user, String(tx.id), parts('7000.00', '398.67'))
+    expect(transactions[0]).toBe(String(tx.id))
+    const docs = (await payload.find({ collection: 'transactions', where: { id: { in: transactions } }, depth: 0, sort: '-amountValue' })).docs
+    expect(docs.map((d) => [d.title, Number(d.amount), String(d.category)])).toEqual([
+      ['Rent', 7000, rentCat],
+      ['Electricity', 398.67, elecCat],
+    ])
+    for (const d of docs) {
+      expect(d.externalRef).toBe('666947066378')
+      expect(String(d.account)).toBe(account)
+      expect(new Date(d.date).toISOString()).toBe('2026-10-30T04:01:00.000Z')
+    }
+  })
+
+  it('refuses parts that do not add up to the transaction, changing nothing', async () => {
+    const tx = await original()
+    await expect(splitTransaction(payload, user, String(tx.id), parts('7000', '300'))).rejects.toMatchObject({ status: 400 })
+    const again = await payload.findByID({ collection: 'transactions', id: tx.id, depth: 0 })
+    expect([again.title, Number(again.amount)]).toEqual(['Asher', 7398.67])
+  })
+
+  it('restores the original when a later part fails', async () => {
+    const tx = await original()
+    const bad = parts('7000.00', '398.67')
+    bad[1].category = '00000000-0000-4000-8000-000000000000'
+    await expect(splitTransaction(payload, user, String(tx.id), bad)).rejects.toBeTruthy()
+    const again = await payload.findByID({ collection: 'transactions', id: tx.id, depth: 0 })
+    expect([again.title, Number(again.amount), String(again.category)]).toEqual(['Asher', 7398.67, rentCat])
+  })
+
+  it('someone else cannot split your transaction', async () => {
+    const tx = await original()
+    await expect(splitTransaction(payload, other, String(tx.id), parts('7000.00', '398.67'))).rejects.toBeTruthy()
   })
 })

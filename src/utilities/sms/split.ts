@@ -138,9 +138,53 @@ export async function historySplit(
 }
 
 /**
+ * The AI's split of a payment, checked: only real child categories of `type`, the bank
+ * total is never changed (the last part gets whatever the others leave). `input` is what
+ * the user typed plus what describes the payment (the SMS, or the transaction).
+ */
+export async function aiSplitParts(
+  payload: Payload,
+  userId: string,
+  input: string,
+  total: string,
+  type: string,
+): Promise<SmsPart[]> {
+  const res = await processTextToSplit(payload, userId, input, total)
+  const raw = Array.isArray(res.data?.parts) ? (res.data.parts as PartLike[]) : []
+  if (raw.length < 2) throw new APIError("The AI didn't find more than one part. Add the parts by hand.", 422)
+
+  const ids = [...new Set(raw.map((r) => idOf(r.category)).filter((x): x is string => !!x))]
+  const okCats = ids.length
+    ? new Set(
+        (
+          await payload.find({
+            collection: 'categories',
+            where: { and: [{ id: { in: ids } }, { type: { equals: type } }, { parent: { exists: true } }] },
+            limit: ids.length,
+            depth: 0,
+            overrideAccess: true,
+          })
+        ).docs.map((c) => String(c.id)),
+      )
+    : new Set<string>()
+
+  const want = paise(total)
+  const head = raw.slice(0, -1).map((r) => paise(String(r.amount)))
+  const rest = want - head.reduce((a, b) => a + b, 0)
+  if (head.some((v) => !Number.isFinite(v) || v <= 0) || !(rest > 0)) {
+    throw new APIError("The AI's split doesn't fit the amount. Adjust the parts by hand.", 422)
+  }
+  return raw.map((r, i) => {
+    const part = toPart({ ...r, person: null }, i < head.length ? head[i] : rest)
+    if (part.category && !okCats.has(part.category)) part.category = null
+    if (!part.title) part.title = `Part ${i + 1}`
+    return part
+  })
+}
+
+/**
  * Asks the AI to split a pending SMS, guided by what the user typed ("7000 rent, rest
- * electricity"). The parts are saved as the suggestion, never confirmed. The bank total
- * is never changed: the last part gets whatever the others leave.
+ * electricity"). The parts are saved as the suggestion, never confirmed.
  */
 export async function splitSmsWithAI(
   payload: Payload,
@@ -156,38 +200,7 @@ export async function splitSmsWithAI(
 
   const bankSms = `Bank SMS: ${sms.body}`
   const input = text.trim() ? `${text.trim()}\n\n${bankSms}` : bankSms
-  const res = await processTextToSplit(payload, String(user.id), input, parsed.amount)
-  const raw = Array.isArray(res.data?.parts) ? (res.data.parts as PartLike[]) : []
-  if (raw.length < 2) throw new APIError("The AI didn't find more than one part. Add the parts by hand.", 422)
-
-  // Only real child categories of the right type survive; others are left to pick.
-  const ids = [...new Set(raw.map((r) => idOf(r.category)).filter((x): x is string => !!x))]
-  const okCats = ids.length
-    ? new Set(
-        (
-          await payload.find({
-            collection: 'categories',
-            where: { and: [{ id: { in: ids } }, { type: { equals: parsed.type } }, { parent: { exists: true } }] },
-            limit: ids.length,
-            depth: 0,
-            overrideAccess: true,
-          })
-        ).docs.map((c) => String(c.id)),
-      )
-    : new Set<string>()
-
-  const total = paise(parsed.amount)
-  const head = raw.slice(0, -1).map((r) => paise(String(r.amount)))
-  const rest = total - head.reduce((a, b) => a + b, 0)
-  if (head.some((v) => !Number.isFinite(v) || v <= 0) || !(rest > 0)) {
-    throw new APIError("The AI's split doesn't fit the bank amount. Adjust the parts by hand.", 422)
-  }
-  const parts = raw.map((r, i) => {
-    const part = toPart({ ...r, person: null }, i < head.length ? head[i] : rest)
-    if (part.category && !okCats.has(part.category)) part.category = null
-    if (!part.title) part.title = `Part ${i + 1}`
-    return part
-  })
+  const parts = await aiSplitParts(payload, String(user.id), input, parsed.amount, parsed.type)
 
   const s = (sms.suggestion ?? {}) as SmsSuggestion
   const saved = await payload.update({
@@ -199,4 +212,90 @@ export async function splitSmsWithAI(
   })
   if (!saved.docs.length) throw new APIError('This SMS was confirmed meanwhile.', 409)
   return { parts }
+}
+
+/**
+ * Splits an existing transaction: it becomes the first part, and one new transaction is
+ * created per other part with the same date, type, account, reference and source. Parts
+ * add up to its amount. A transaction with friends' shares or a transfer can't be split.
+ * If a part fails, the original is restored and the new parts deleted.
+ */
+export async function splitTransaction(
+  payload: Payload,
+  user: User,
+  id: string,
+  parts: SmsPart[],
+): Promise<{ transactions: string[] }> {
+  const tx = await payload.findByID({ collection: 'transactions', id, depth: 0, user, overrideAccess: false })
+  if (tx.type === 'transfer') throw new APIError("A transfer can't be split.", 400, { code: 'split_transfer' })
+  if (Array.isArray(tx.shares) && tx.shares.length) {
+    throw new APIError('Remove the friends\' shares before splitting.', 400, { code: 'split_shares' })
+  }
+  checkPartsTotal(parts, String(tx.amount))
+  if (parts.some((p) => !p.category)) throw new APIError('Pick a category for every part.', 400, { code: 'category_required' })
+
+  const before = {
+    title: tx.title,
+    amount: tx.amount,
+    category: idOf(tx.category),
+    tags: Array.isArray(tx.tags) ? tx.tags.map(idOf) : [],
+    person: idOf(tx.person),
+  }
+  const [first, ...rest] = parts
+  const created: string[] = []
+  let updated = false
+  try {
+    await payload.update({
+      collection: 'transactions',
+      id,
+      user,
+      overrideAccess: false,
+      data: {
+        title: first.title?.trim() || before.title,
+        amount: first.amount,
+        category: first.category,
+        tags: first.tags ?? [],
+        person: first.person ?? null,
+      } as any,
+    })
+    updated = true
+    for (const p of rest) {
+      const t = await payload.create({
+        collection: 'transactions',
+        user,
+        overrideAccess: false,
+        data: {
+          title: p.title?.trim() || 'Transaction',
+          amount: p.amount,
+          date: tx.date,
+          type: tx.type,
+          category: p.category,
+          account: idOf(tx.account),
+          toAccount: null,
+          person: p.person ?? null,
+          tags: p.tags ?? [],
+          shares: [],
+          attachments: [],
+          note: tx.note ? `${tx.note} · split` : 'Split',
+          source: tx.source,
+          externalRef: tx.externalRef,
+        } as any,
+      })
+      created.push(String(t.id))
+    }
+  } catch (e) {
+    for (const c of created) await payload.delete({ collection: 'transactions', id: c, user, overrideAccess: false }).catch(() => {})
+    if (updated) {
+      await payload.update({ collection: 'transactions', id, user, overrideAccess: false, data: before as any }).catch(() => {})
+    }
+    throw e
+  }
+
+  const all = [String(id), ...created]
+  // An SMS confirmed into this transaction now lists every part.
+  const sms = await payload.find({ collection: 'captured-sms', where: { transaction: { equals: id } }, limit: 1, depth: 0, user, overrideAccess: false })
+  if (sms.docs[0]) {
+    await payload.update({ collection: 'captured-sms', id: sms.docs[0].id, user, overrideAccess: false, data: { parts: all } as any })
+  }
+  return { transactions: all }
 }
