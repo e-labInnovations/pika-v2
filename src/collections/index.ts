@@ -17,6 +17,7 @@ import { OAuthAccounts } from './OAuthAccounts'
 import { TransactionLinks } from './TransactionLinks'
 import { Pages } from './Pages'
 import { CapturedSms } from './CapturedSms'
+import { Budgets } from './Budgets'
 
 export const collections = [
   Users,
@@ -29,6 +30,7 @@ export const collections = [
   Transactions,
   TransactionLinks,
   CapturedSms,
+  Budgets,
   Reminders,
   UserSettings,
   AIUsages,

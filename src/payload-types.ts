@@ -78,6 +78,7 @@ export interface Config {
     transactions: Transaction;
     'transaction-links': TransactionLink;
     'captured-sms': CapturedSm;
+    budgets: Budget;
     reminders: Reminder;
     'user-settings': UserSetting;
     'ai-usages': AiUsage;
@@ -111,6 +112,7 @@ export interface Config {
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     'transaction-links': TransactionLinksSelect<false> | TransactionLinksSelect<true>;
     'captured-sms': CapturedSmsSelect<false> | CapturedSmsSelect<true>;
+    budgets: BudgetsSelect<false> | BudgetsSelect<true>;
     reminders: RemindersSelect<false> | RemindersSelect<true>;
     'user-settings': UserSettingsSelect<false> | UserSettingsSelect<true>;
     'ai-usages': AiUsagesSelect<false> | AiUsagesSelect<true>;
@@ -601,6 +603,22 @@ export interface CapturedSm {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "budgets".
+ */
+export interface Budget {
+  id: string;
+  user: string | User;
+  category: string | Category;
+  /**
+   * Monthly limit
+   */
+  amount: number;
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "reminders".
  */
 export interface Reminder {
@@ -1021,6 +1039,10 @@ export interface PayloadLockedDocument {
         value: string | CapturedSm;
       } | null)
     | ({
+        relationTo: 'budgets';
+        value: string | Budget;
+      } | null)
+    | ({
         relationTo: 'reminders';
         value: string | Reminder;
       } | null)
@@ -1331,6 +1353,18 @@ export interface CapturedSmsSelect<T extends boolean = true> {
   parts?: T;
   autoConfirmed?: T;
   autoUndone?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "budgets_select".
+ */
+export interface BudgetsSelect<T extends boolean = true> {
+  user?: T;
+  category?: T;
+  amount?: T;
+  isActive?: T;
   updatedAt?: T;
   createdAt?: T;
 }

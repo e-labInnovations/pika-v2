@@ -14,6 +14,7 @@ import * as migration_20261105_000000_fix_sms_meal_titles from './20261105_00000
 import * as migration_20261108_000000_add_sms_split_parts from './20261108_000000_add_sms_split_parts';
 import * as migration_20261108_000001_resuggest_sms_splits from './20261108_000001_resuggest_sms_splits';
 import * as migration_20261108_000002_add_transaction_amount_value from './20261108_000002_add_transaction_amount_value';
+import * as migration_20261108_000003_add_budgets from './20261108_000003_add_budgets';
 export const migrations = [
   {
     up: migration_20260404_060059.up,
@@ -89,5 +90,10 @@ export const migrations = [
     up: migration_20261108_000002_add_transaction_amount_value.up,
     down: migration_20261108_000002_add_transaction_amount_value.down,
     name: '20261108_000002_add_transaction_amount_value',
+  },
+  {
+    up: migration_20261108_000003_add_budgets.up,
+    down: migration_20261108_000003_add_budgets.down,
+    name: '20261108_000003_add_budgets',
   },
 ];

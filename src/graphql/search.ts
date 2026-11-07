@@ -2,6 +2,7 @@ import { GraphQLList, GraphQLNonNull, GraphQLScalarType, GraphQLString, Kind } f
 import { similarTransactionIds } from '../utilities/ai/user-history'
 import { searchSummary } from '../utilities/search/searchSummary'
 import { calculateInsights } from '../utilities/insights'
+import { budgetsOverview } from '../utilities/budgets'
 import { getUserTimezone } from '../utilities/getUserTimezone'
 
 const AnyJSON = new GraphQLScalarType({
@@ -47,6 +48,13 @@ export const searchQueries = () => ({
     resolve: async (_: unknown, __: unknown, { req }: { req: any }) => {
       if (!req.user) throw new Error('Unauthorized')
       return calculateInsights(req.payload, String(req.user.id), await getUserTimezone(req))
+    },
+  },  /** query { budgetsOverview } — this month's progress for each active budget. */
+  budgetsOverview: {
+    type: new GraphQLNonNull(AnyJSON),
+    resolve: async (_: unknown, __: unknown, { req }: { req: any }) => {
+      if (!req.user) throw new Error('Unauthorized')
+      return budgetsOverview(req.payload, String(req.user.id), await getUserTimezone(req))
     },
   },
 })

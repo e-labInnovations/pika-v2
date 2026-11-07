@@ -1,4 +1,6 @@
 import type { Payload } from 'payload'
+import { localMidnight, localParts, monthKey, shift } from './localMonth'
+import { budgetsOverview } from './budgets'
 
 /**
  * What stands out this month, compared with the user's previous three full months. Plain
@@ -9,7 +11,7 @@ import type { Payload } from 'payload'
 export type Insight = {
   /** Stable per month: dismissing hides it until next month. */
   key: string
-  kind: 'category_up' | 'category_down' | 'pace' | 'large' | 'new_payee'
+  kind: 'budget' | 'category_up' | 'category_down' | 'pace' | 'large' | 'new_payee'
   tone: 'warn' | 'good' | 'info'
   title: string
   message: string
@@ -36,35 +38,6 @@ const r2 = (n: number) => Math.round(n * 100) / 100
 const idOf = (v: unknown): string | null =>
   v && typeof v === 'object' ? String((v as { id: unknown }).id) : v ? String(v) : null
 
-type Local = { y: number; m: number; d: number }
-
-function localParts(date: Date, timeZone: string): Local {
-  const p = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
-    .formatToParts(date)
-    .reduce<Record<string, string>>((a, x) => ((a[x.type] = x.value), a), {})
-  return { y: Number(p.year), m: Number(p.month), d: Number(p.day) }
-}
-
-/** The UTC instant of local midnight on y-m-d in `timeZone`. */
-function localMidnight(y: number, m: number, d: number, timeZone: string): Date {
-  const guess = new Date(Date.UTC(y, m - 1, d))
-  const seen = localParts(guess, timeZone)
-  const hour = Number(
-    new Intl.DateTimeFormat('en-GB', { timeZone, hour: 'numeric', hourCycle: 'h23' }).format(guess),
-  )
-  const minute = Number(new Intl.DateTimeFormat('en-GB', { timeZone, minute: 'numeric' }).format(guess))
-  // Local time at `guess` is (seen, hour:minute); step back to midnight of y-m-d.
-  let ms = guess.getTime() - (hour * 60 + minute) * 60_000
-  if (Date.UTC(seen.y, seen.m - 1, seen.d) > Date.UTC(y, m - 1, d)) ms -= 86_400_000
-  if (Date.UTC(seen.y, seen.m - 1, seen.d) < Date.UTC(y, m - 1, d)) ms += 86_400_000
-  return new Date(ms)
-}
-
-const monthKey = (y: number, m: number) => `${y}-${String(m).padStart(2, '0')}`
-const shift = (y: number, m: number, by: number) => {
-  const d = new Date(Date.UTC(y, m - 1 + by, 1))
-  return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1 }
-}
 const daysIn = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate()
 const median = (xs: number[]) => {
   const s = [...xs].sort((a, b) => a - b)
@@ -248,6 +221,24 @@ export async function calculateInsights(
       amount,
       filter: { ...range, query: tx?.title || who },
       score: amount,
+    })
+  }
+
+  // ── Budgets at 80% or over (ahead of everything else)
+  for (const b of await budgetsOverview(payload, userId, zone, now)) {
+    if (b.status === 'ok') continue
+    const over = b.status === 'over'
+    out.push({
+      key: `budget:${b.id}:${cur}`,
+      kind: 'budget',
+      tone: 'warn',
+      title: over ? `${b.category.name} budget exceeded` : `${b.category.name} budget at ${b.percent}%`,
+      message: over
+        ? `${rupees(b.spent)} of your ${rupees(b.amount)} budget — ${rupees(r2(-b.left))} over.`
+        : `${rupees(b.spent)} of your ${rupees(b.amount)} budget used; ${rupees(b.left)} left.`,
+      amount: b.spent,
+      filter: { categories: b.categories, ...range },
+      score: Number.MAX_SAFE_INTEGER - (over ? 0 : 1) - (100 - Math.min(b.percent, 100)),
     })
   }
 
