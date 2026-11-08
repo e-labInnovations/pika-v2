@@ -4,7 +4,7 @@ import config from '@/payload.config'
 import { describe, it, beforeAll, afterAll, expect } from 'vitest'
 import type { User } from '@/payload-types'
 
-const { listTransactions, loadLookups, editTransaction, getOwnTransaction, createTransaction } = await import('@/lib/web/transactions')
+const { listTransactions, loadLookups, editTransaction, getOwnTransaction, createTransaction, trashTransaction } = await import('@/lib/web/transactions')
 const { personSummary } = await import('@/lib/web/people')
 const { parseTxParams } = await import('@/lib/web/filters')
 
@@ -153,6 +153,30 @@ describe('web transactions', () => {
       expect(await createTransaction(payload, me, { type: 'expense', title: 'x', amount: 0, date: '2026-12-03 10:00', category: mine.cat.id, account: mine.acc.id, tags: [] }, TZ)).toHaveProperty('error')
       const count = (await payload.find({ collection: 'transactions', where: { and: [{ user: { equals: me.id } }, { title: { equals: 'x' } }] }, limit: 0 })).totalDocs
       expect(count).toBe(0)
+    })
+  })
+
+  describe('delete', () => {
+    it('moves the user\'s own transaction to the trash (gone from lists, recoverable)', async () => {
+      const l = await loadLookups(payload, me)
+      const cat = l.categories.find((c) => c.parentId && c.type === 'expense')!
+      const made = (await createTransaction(payload, me, { type: 'expense', title: `Trash me ${stamp}`, amount: 9, date: '2026-12-04 10:00', category: cat.id, account: l.accounts[0].id, tags: [] }, TZ)) as { id: string }
+      expect(await trashTransaction(payload, me, made.id)).toEqual({ ok: true })
+      expect(await getOwnTransaction(payload, me, made.id)).toBeNull()
+      const trashed = await payload.findByID({ collection: 'transactions', id: made.id, trash: true, depth: 0 } as any)
+      expect((trashed as { deletedAt?: string | null }).deletedAt).toBeTruthy()
+    })
+
+    it("refuses another user's transaction, even for an admin", async () => {
+      const theirs = (await payload.find({ collection: 'transactions', where: { user: { equals: other.id } }, limit: 1, depth: 0 })).docs[0]
+      await payload.update({ collection: 'users', id: me.id, data: { role: 'admin' } as any, overrideAccess: true })
+      try {
+        const admin = (await payload.findByID({ collection: 'users', id: me.id })) as User
+        expect(await trashTransaction(payload, admin, String(theirs.id))).toHaveProperty('error')
+        expect((await payload.findByID({ collection: 'transactions', id: theirs.id, depth: 0 })).deletedAt ?? null).toBeNull()
+      } finally {
+        await payload.update({ collection: 'users', id: me.id, data: { role: 'user' } as any, overrideAccess: true })
+      }
     })
   })
 })

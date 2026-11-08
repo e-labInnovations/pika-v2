@@ -195,3 +195,15 @@ export async function createTransaction(payload: Payload, user: User, input: TxN
     return { error: e instanceof Error ? e.message : 'Could not save.' }
   }
 }
+
+/** Moves the user's own transaction to the trash (restorable from the admin panel). */
+export async function trashTransaction(payload: Payload, user: User, id: string): Promise<{ ok: true } | { error: string }> {
+  const own = await payload.findByID({ collection: 'transactions', id, depth: 0, user, overrideAccess: false }).catch(() => null)
+  if (!own || ownerOf(own) !== String(user.id)) return { error: 'Transaction not found.' }
+  try {
+    await payload.update({ collection: 'transactions', id, data: { deletedAt: new Date().toISOString() } as never, user, overrideAccess: false, depth: 0 })
+    return { ok: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not delete.' }
+  }
+}

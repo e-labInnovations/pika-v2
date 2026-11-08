@@ -4,6 +4,7 @@ import { Pencil } from 'lucide-react'
 import React from 'react'
 
 import type { LookupItem } from '@/lib/web/transactions'
+import { DeleteTx } from './DeleteTx'
 import { EditTxForm, type EditValues } from './EditTxForm'
 
 /** Read view (server-rendered children) with an Edit button that swaps in the form. */
@@ -22,9 +23,12 @@ export function TxEditToggle({
   return (
     <div className="grid grid-cols-1 gap-5">
       {children}
-      <button type="button" onClick={() => setEditing(true)} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border text-sm font-medium hover:bg-accent">
-        <Pencil className="size-4" /> Edit
-      </button>
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" onClick={() => setEditing(true)} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border text-sm font-medium hover:bg-accent">
+          <Pencil className="size-4" /> Edit
+        </button>
+        <DeleteTx id={values.id} />
+      </div>
     </div>
   )
 }

@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { requireSession } from '@/lib/session'
 import { formToEdit } from '@/lib/web/edit'
 import { localInputValue } from '@/lib/web/format'
-import { createTransaction, editTransaction, getOwnTransaction, loadLookups } from '@/lib/web/transactions'
+import { createTransaction, editTransaction, getOwnTransaction, loadLookups, trashTransaction } from '@/lib/web/transactions'
 
 export type ActionState = { ok: string } | { error: string } | null
 
@@ -82,3 +82,11 @@ export async function addTransaction(_: AddState, form: FormData): Promise<AddSt
 }
 
 export type AddState = { ok: string; id: string } | { error: string } | null
+
+/** Panel → Delete (to the trash). */
+export async function deleteTransactionAction(id: string): Promise<{ ok: true } | { error: string }> {
+  const { payload, user } = await requireSession()
+  const res = await trashTransaction(payload, user, id)
+  if ('ok' in res) revalidatePath('/app', 'layout')
+  return res
+}
