@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { toSearch, type TxQuery, type TxSort, type TxType } from '@/lib/web/filters'
 import type { LookupItem } from '@/lib/web/transactions'
 import { cn } from '@/lib/utils'
+import { Avatar } from './Avatar'
 import { EntityIcon } from './EntityIcon'
 
 type ListKey = 'categories' | 'tags' | 'people' | 'accounts'
@@ -74,7 +75,7 @@ export function FilterBar({ query, lists }: { query: TxQuery; lists: Lists }) {
 
       <DateFilter query={query} go={go} />
       {(['categories', 'tags', 'people', 'accounts'] as ListKey[]).map((k) => (
-        <MultiPick key={k} label={LABEL[k]} items={lists[k]} selected={query[k]} onChange={(ids) => go({ [k]: ids })} categories={k === 'categories'} />
+        <MultiPick key={k} label={LABEL[k]} items={lists[k]} selected={query[k]} onChange={(ids) => go({ [k]: ids })} categories={k === 'categories'} people={k === 'people'} />
       ))}
       <AmountFilter query={query} go={go} />
 
@@ -184,12 +185,14 @@ function MultiPick({
   selected,
   onChange,
   categories,
+  people,
 }: {
   label: string
   items: LookupItem[]
   selected: string[]
   onChange: (ids: string[]) => void
   categories?: boolean
+  people?: boolean
 }) {
   const [search, setSearch] = React.useState('')
   const [showArchived, setShowArchived] = React.useState(false)
@@ -218,7 +221,13 @@ function MultiPick({
           on && 'bg-primary/15 text-primary hover:bg-primary/20',
         )}
       >
-        <EntityIcon icon={i.icon} color={i.color} bgColor={i.bgColor} size={22} className="rounded-md" />
+        {people ? (
+          <Avatar name={i.name} url={i.avatarUrl} size={24} />
+        ) : i.avatarUrl ? (
+          <Avatar name={i.name} url={i.avatarUrl} size={22} className="rounded-md" />
+        ) : (
+          <EntityIcon icon={i.icon} color={i.color} bgColor={i.bgColor} size={22} className="rounded-md" />
+        )}
         <span className="min-w-0 flex-1 truncate">{i.name}</span>
         {on && <Check className="size-4 shrink-0" />}
       </button>

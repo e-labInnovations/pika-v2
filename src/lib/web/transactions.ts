@@ -12,6 +12,8 @@ export type LookupItem = {
   icon?: string | null
   color?: string | null
   bgColor?: string | null
+  /** People and accounts: their photo. */
+  avatarUrl?: string | null
   /** Categories only. */
   parentId?: string | null
   type?: string | null
@@ -24,6 +26,9 @@ export type Lookups = {
   accounts: LookupItem[]
   childrenOf: (categoryId: string) => string[]
 }
+
+const avatarOf = (d: { avatar?: unknown }) =>
+  d.avatar && typeof d.avatar === 'object' ? ((d.avatar as { thumbnailURL?: string | null; url?: string | null }).thumbnailURL || (d.avatar as { url?: string | null }).url || null) : null
 
 const idOf = (v: unknown): string | null => (v && typeof v === 'object' ? String((v as { id: unknown }).id) : v ? String(v) : null)
 
@@ -38,8 +43,8 @@ export async function loadLookups(payload: Payload, user: User): Promise<Lookups
   const [cats, tags, people, accounts] = await Promise.all([
     payload.find({ collection: 'categories', where: mineOrSystem, ...as }),
     payload.find({ collection: 'tags', where: mineOrSystem, ...as }),
-    payload.find({ collection: 'people', where: mine, ...as }),
-    payload.find({ collection: 'accounts', where: mine, ...as }),
+    payload.find({ collection: 'people', where: mine, ...as, depth: 1 }),
+    payload.find({ collection: 'accounts', where: mine, ...as, depth: 1 }),
   ])
   const item = (d: { id: unknown; name?: unknown; isActive?: boolean | null; icon?: unknown; color?: unknown; bgColor?: unknown }): LookupItem => ({
     id: String(d.id),
@@ -58,8 +63,8 @@ export async function loadLookups(payload: Payload, user: User): Promise<Lookups
   return {
     categories,
     tags: tags.docs.map(item),
-    people: people.docs.map(item),
-    accounts: accounts.docs.map(item),
+    people: people.docs.map((d) => ({ ...item(d), avatarUrl: avatarOf(d) })),
+    accounts: accounts.docs.map((d) => ({ ...item(d), avatarUrl: avatarOf(d) })),
     childrenOf: (id) => kids.get(id) ?? [],
   }
 }

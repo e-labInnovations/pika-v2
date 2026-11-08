@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import React from 'react'
 
+import { Avatar } from '@/components/web/Avatar'
 import { Card, Empty } from '@/components/web/Card'
 import { requireSession } from '@/lib/session'
 import { formatLocalDate, formatMoney } from '@/lib/web/format'
@@ -25,12 +26,18 @@ export default async function PeoplePage() {
   const now = localParts(new Date(), tz)
   const [res, people] = await Promise.all([
     calculateMonthlyPeople(payload, String(user.id), now.m, now.y, tz),
-    payload.find({ collection: 'people', where: { user: { equals: user.id } }, pagination: false, depth: 0, select: { name: true, isActive: true }, user, overrideAccess: false }),
+    payload.find({ collection: 'people', where: { user: { equals: user.id } }, pagination: false, select: { name: true, isActive: true, avatar: true }, depth: 1, user, overrideAccess: false }),
   ])
   // Every person (the report drops archived ones with nothing open); balances from the report.
   const stats = new Map(res.data.map((p) => [p.id, p]))
   const rows = people.docs
-    .map((p) => ({ id: String(p.id), name: String(p.name ?? ''), archived: p.isActive === false, s: stats.get(String(p.id)) as PersonActivity | undefined }))
+    .map((p) => ({
+      id: String(p.id),
+      name: String(p.name ?? ''),
+      archived: p.isActive === false,
+      avatar: p.avatar && typeof p.avatar === 'object' ? p.avatar.thumbnailURL || p.avatar.url || null : null,
+      s: stats.get(String(p.id)) as PersonActivity | undefined,
+    }))
     .sort((a, b) => Math.abs(b.s?.balance ?? 0) - Math.abs(a.s?.balance ?? 0) || a.name.localeCompare(b.name))
   const live = rows.filter((r) => !r.archived)
   const old = rows.filter((r) => r.archived)
@@ -42,7 +49,7 @@ export default async function PeoplePage() {
       {items.map((r) => (
         <li key={r.id}>
           <Link href={`/app/people/${r.id}`} className="flex items-center gap-4 rounded-lg px-1 py-3 hover:bg-accent/50">
-            <span className="flex size-10 items-center justify-center rounded-full bg-primary/15 font-semibold text-primary">{r.name.slice(0, 1).toUpperCase()}</span>
+            <Avatar name={r.name} url={r.avatar} size={40} />
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">{r.name}</p>
               <p className="text-xs text-muted-foreground">{r.s?.lastTransactionAt ? `Last: ${formatLocalDate(r.s.lastTransactionAt, tz)}` : 'No transactions'}</p>

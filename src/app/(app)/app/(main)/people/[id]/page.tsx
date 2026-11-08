@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import React from 'react'
 
+import { Avatar } from '@/components/web/Avatar'
 import { Card, Empty } from '@/components/web/Card'
 import { TxTable } from '@/components/web/TxTable'
 import { requireSession } from '@/lib/session'
@@ -25,6 +26,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     <div className="grid grid-cols-1 gap-5">
       <Link href="/app/people" className="text-sm text-primary hover:underline">← People</Link>
       <div className="flex flex-wrap items-end gap-4">
+        <Avatar name={person.name} url={person.avatar && typeof person.avatar === 'object' ? person.avatar.thumbnailURL || person.avatar.url : null} size={56} />
         <div className="mr-auto">
           <h1 className="text-2xl font-bold tracking-tight">{person.name}</h1>
           <p className="text-sm text-muted-foreground">{[person.email, person.phone].filter(Boolean).join(' · ') || ' '}</p>
