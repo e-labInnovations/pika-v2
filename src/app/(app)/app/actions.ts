@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { requireSession } from '@/lib/session'
 import { formToEdit } from '@/lib/web/edit'
 import { localInputValue } from '@/lib/web/format'
-import { editTransaction, getOwnTransaction } from '@/lib/web/transactions'
+import { createTransaction, editTransaction, getOwnTransaction, loadLookups } from '@/lib/web/transactions'
 
 export type ActionState = { ok: string } | { error: string } | null
 
@@ -46,3 +46,39 @@ export async function saveTransaction(_: ActionState, form: FormData): Promise<A
   revalidatePath('/app', 'layout')
   return { ok: 'Saved.' }
 }
+
+/** Lists for the Add form, loaded when it opens (archived left out). */
+export async function getAddFormLists() {
+  const { payload, user } = await requireSession()
+  const { childrenOf: _, ...lists } = await loadLookups(payload, user)
+  const live = <T extends { archived: boolean }>(xs: T[]) => xs.filter((x) => !x.archived)
+  return { categories: live(lists.categories), tags: live(lists.tags), people: live(lists.people), accounts: live(lists.accounts) }
+}
+
+/** Add form. On success the new transaction's id comes back. */
+export async function addTransaction(_: AddState, form: FormData): Promise<AddState> {
+  const { payload, user, timeZone } = await requireSession()
+  const type = str(form.get('type')) as 'expense' | 'income' | 'transfer'
+  const res = await createTransaction(
+    payload,
+    user,
+    {
+      type,
+      title: str(form.get('title')) ?? '',
+      amount: Number(form.get('amount')),
+      date: (str(form.get('date')) ?? '').replace('T', ' '),
+      category: str(form.get('category')) ?? '',
+      account: str(form.get('account')) ?? '',
+      toAccount: type === 'transfer' ? str(form.get('toAccount')) || null : null,
+      person: type === 'transfer' ? null : str(form.get('person')) || null,
+      tags: form.getAll('tags').map(String).filter(Boolean),
+      note: str(form.get('note')),
+    },
+    timeZone,
+  )
+  if ('error' in res) return res
+  revalidatePath('/app', 'layout')
+  return { ok: 'Added.', id: res.id }
+}
+
+export type AddState = { ok: string; id: string } | { error: string } | null

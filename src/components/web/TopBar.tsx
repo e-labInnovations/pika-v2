@@ -1,6 +1,7 @@
 import { Search } from 'lucide-react'
 import React from 'react'
 
+import { AddTransaction } from './AddTransaction'
 import { MobileNav } from './Sidebar'
 import { SignOut } from './SignOut'
 
@@ -20,6 +21,7 @@ export function TopBar({ name, isAdmin }: { name: string; isAdmin: boolean }) {
           />
         </form>
         <div className="ml-auto flex items-center gap-3">
+          <AddTransaction />
           <span className="hidden text-sm text-muted-foreground sm:inline">{name}</span>
           <SignOut />
         </div>

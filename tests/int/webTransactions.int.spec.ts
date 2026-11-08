@@ -4,7 +4,7 @@ import config from '@/payload.config'
 import { describe, it, beforeAll, afterAll, expect } from 'vitest'
 import type { User } from '@/payload-types'
 
-const { listTransactions, loadLookups, editTransaction, getOwnTransaction } = await import('@/lib/web/transactions')
+const { listTransactions, loadLookups, editTransaction, getOwnTransaction, createTransaction } = await import('@/lib/web/transactions')
 const { personSummary } = await import('@/lib/web/people')
 const { parseTxParams } = await import('@/lib/web/filters')
 
@@ -121,5 +121,38 @@ describe('web transactions', () => {
     } finally {
       await payload.update({ collection: 'users', id: me.id, data: { role: 'user' } as any, overrideAccess: true })
     }
+  })
+
+  describe('add', () => {
+    const pick = async (u: User, type: string) => {
+      const l = await loadLookups(payload, u)
+      return { l, cat: l.categories.find((c) => c.parentId && c.type === type)!, acc: l.accounts[0] }
+    }
+
+    it('adds an expense in local time, owned by the user', async () => {
+      const { cat, acc } = await pick(me, 'expense')
+      const res = await createTransaction(payload, me, { type: 'expense', title: `Added ${stamp}`, amount: 75.5, date: '2026-12-03 20:15', category: cat.id, account: acc.id, tags: [] }, TZ)
+      expect(res).toHaveProperty('id')
+      const t = await payload.findByID({ collection: 'transactions', id: (res as { id: string }).id, depth: 0 })
+      expect(String(t.user)).toBe(String(me.id))
+      expect(t.amountValue).toBe(75.5)
+      expect(new Date(t.date).toISOString()).toBe('2026-12-03T14:45:00.000Z')
+    })
+
+    it('a transfer needs a different destination account', async () => {
+      const { cat, acc } = await pick(me, 'transfer')
+      const res = await createTransaction(payload, me, { type: 'transfer', title: 'Move', amount: 10, date: '2026-12-03 10:00', category: cat?.id ?? '', account: acc.id, toAccount: acc.id, tags: [] }, TZ)
+      expect(res).toHaveProperty('error')
+    })
+
+    it("refuses another user's account and validates input", async () => {
+      const mine = await pick(me, 'expense')
+      const theirs = await pick(other, 'expense')
+      expect(await createTransaction(payload, me, { type: 'expense', title: 'x', amount: 5, date: '2026-12-03 10:00', category: mine.cat.id, account: theirs.acc.id, tags: [] }, TZ)).toHaveProperty('error')
+      expect(await createTransaction(payload, me, { type: 'expense', title: '', amount: 5, date: '2026-12-03 10:00', category: mine.cat.id, account: mine.acc.id, tags: [] }, TZ)).toHaveProperty('error')
+      expect(await createTransaction(payload, me, { type: 'expense', title: 'x', amount: 0, date: '2026-12-03 10:00', category: mine.cat.id, account: mine.acc.id, tags: [] }, TZ)).toHaveProperty('error')
+      const count = (await payload.find({ collection: 'transactions', where: { and: [{ user: { equals: me.id } }, { title: { equals: 'x' } }] }, limit: 0 })).totalDocs
+      expect(count).toBe(0)
+    })
   })
 })

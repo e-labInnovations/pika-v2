@@ -134,3 +134,64 @@ export async function editTransaction(payload: Payload, user: User, id: string, 
     return { error: status === 403 || status === 404 ? 'Transaction not found.' : e instanceof Error ? e.message : 'Could not save.' }
   }
 }
+
+export type TxNew = {
+  type: 'expense' | 'income' | 'transfer'
+  title: string
+  amount: number
+  /** Local time: "YYYY-MM-DD HH:mm". */
+  date: string
+  category: string
+  account: string
+  toAccount?: string | null
+  person?: string | null
+  tags: string[]
+  note?: string
+}
+
+/** Adds a transaction for the user. Every id must be one of theirs (or a shared system category/tag). */
+export async function createTransaction(payload: Payload, user: User, input: TxNew, tz: string): Promise<{ id: string } | { error: string }> {
+  if (!['expense', 'income', 'transfer'].includes(input.type)) return { error: 'Choose expense, income or transfer.' }
+  if (!input.title?.trim()) return { error: 'Title is required.' }
+  if (!(Number.isFinite(input.amount) && input.amount > 0)) return { error: 'Amount must be more than 0.' }
+  let date: string
+  try {
+    date = parseLocalDate(input.date, tz).toISOString()
+  } catch {
+    return { error: 'Date must look like 2026-11-08 14:30.' }
+  }
+  const l = await loadLookups(payload, user)
+  const has = (list: LookupItem[], id?: string | null) => !!id && list.some((x) => x.id === id)
+  const cat = l.categories.find((c) => c.id === input.category)
+  if (!cat || !cat.parentId || cat.type !== input.type) return { error: `Choose a ${input.type} category.` }
+  if (!has(l.accounts, input.account)) return { error: 'Choose one of your accounts.' }
+  if (input.type === 'transfer') {
+    if (!has(l.accounts, input.toAccount)) return { error: 'Choose the account the money goes to.' }
+    if (input.toAccount === input.account) return { error: 'The two accounts must be different.' }
+  }
+  if (input.person && (input.type === 'transfer' || !has(l.people, input.person))) return { error: 'Choose one of your people.' }
+  if (input.tags.some((t) => !has(l.tags, t))) return { error: 'Choose your own tags.' }
+  try {
+    const doc = await payload.create({
+      collection: 'transactions',
+      data: {
+        type: input.type,
+        title: input.title.trim(),
+        amount: String(input.amount),
+        date,
+        category: input.category,
+        account: input.account,
+        ...(input.type === 'transfer' ? { toAccount: input.toAccount } : input.person ? { person: input.person } : {}),
+        tags: input.tags,
+        ...(input.note?.trim() ? { note: input.note.trim() } : {}),
+        source: 'manual',
+      } as never,
+      user,
+      overrideAccess: false,
+      depth: 0,
+    })
+    return { id: String(doc.id) }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not save.' }
+  }
+}
