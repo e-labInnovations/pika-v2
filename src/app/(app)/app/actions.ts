@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { requireSession } from '@/lib/session'
 import { deleteBudget, saveBudget } from '@/lib/web/budgetsEdit'
 import { formToEdit } from '@/lib/web/edit'
+import { saveSettings, type SettingsInput } from '@/lib/web/settings'
 import { deleteEntity, saveEntity, setArchived, type EntityKind } from '@/lib/web/entities'
 import { confirmOwnSms, dismissOwnSms } from '@/lib/web/sms'
 import type { ConfirmOverrides } from '@/utilities/sms/confirm'
@@ -202,6 +203,13 @@ export async function saveBudgetAction(id: string | null, category: string, amou
 export async function deleteBudgetAction(id: string): Promise<{ ok: true } | { error: string }> {
   const { payload, user } = await requireSession()
   const res = await deleteBudget(payload, user, id)
+  if ('ok' in res) revalidatePath('/app', 'layout')
+  return res
+}
+
+export async function saveSettingsAction(input: SettingsInput): Promise<{ ok: true } | { error: string }> {
+  const { payload, user } = await requireSession()
+  const res = await saveSettings(payload, user, input && typeof input === 'object' ? input : {})
   if ('ok' in res) revalidatePath('/app', 'layout')
   return res
 }
