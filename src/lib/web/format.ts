@@ -35,3 +35,9 @@ export function formatLocalDateTime(iso: string, tz?: string | null): string {
 export function localDay(iso: string | Date, tz?: string | null): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: zone(tz), year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
 }
+
+/** Value for an <input type="datetime-local">: YYYY-MM-DDTHH:mm in local time. */
+export function localInputValue(iso: string, tz?: string | null): string {
+  const time = new Intl.DateTimeFormat('en-GB', { timeZone: zone(tz), hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso))
+  return `${localDay(iso, tz)}T${time}`
+}

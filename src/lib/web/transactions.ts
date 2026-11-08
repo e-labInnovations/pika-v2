@@ -1,6 +1,7 @@
 import type { Payload, Where } from 'payload'
 
 import type { Transaction, User } from '@/payload-types'
+import { parseLocalDate } from '@/utilities/mcp/time'
 import { searchSummary, type SearchSummary } from '@/utilities/search/searchSummary'
 import { PAGE_SIZE, SORT_FIELD, toWhere, type TxQuery } from './filters'
 
@@ -68,4 +69,48 @@ export async function listTransactions(payload: Payload, user: User, q: TxQuery,
     searchSummary(payload, String(user.id), where as Record<string, unknown>, tz),
   ])
   return { docs: res.docs as Transaction[], totalDocs: res.totalDocs, totalPages: res.totalPages, page: q.page, where, summary }
+}
+
+export type TxEdit = {
+  title?: string
+  note?: string
+  /** Local time: "YYYY-MM-DD HH:mm" (or YYYY-MM-DD). */
+  date?: string
+  amount?: number
+  category?: string
+  tags?: string[]
+  person?: string | null
+  account?: string
+}
+
+/** Saves the user's own transaction; access control refuses anyone else's. */
+export async function editTransaction(payload: Payload, user: User, id: string, input: TxEdit, tz: string): Promise<{ ok: true } | { error: string }> {
+  const data: Record<string, unknown> = {}
+  if (input.title !== undefined) {
+    if (!input.title.trim()) return { error: 'Title is required.' }
+    data.title = input.title.trim()
+  }
+  if (input.note !== undefined) data.note = input.note
+  if (input.amount !== undefined) {
+    if (!(Number.isFinite(input.amount) && input.amount > 0)) return { error: 'Amount must be more than 0.' }
+    data.amount = input.amount.toFixed(2)
+  }
+  if (input.date !== undefined) {
+    try {
+      data.date = parseLocalDate(input.date, tz).toISOString()
+    } catch {
+      return { error: 'Date must look like 2026-11-08 14:30.' }
+    }
+  }
+  if (input.category !== undefined) data.category = input.category
+  if (input.tags !== undefined) data.tags = input.tags
+  if (input.person !== undefined) data.person = input.person
+  if (input.account !== undefined) data.account = input.account
+  try {
+    await payload.update({ collection: 'transactions', id, data, user, overrideAccess: false, depth: 0 })
+    return { ok: true }
+  } catch (e) {
+    const status = (e as { status?: number }).status
+    return { error: status === 403 || status === 404 ? 'Transaction not found.' : e instanceof Error ? e.message : 'Could not save.' }
+  }
 }

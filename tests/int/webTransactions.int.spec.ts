@@ -4,7 +4,7 @@ import config from '@/payload.config'
 import { describe, it, beforeAll, afterAll, expect } from 'vitest'
 import type { User } from '@/payload-types'
 
-const { listTransactions, loadLookups } = await import('@/lib/web/transactions')
+const { listTransactions, loadLookups, editTransaction } = await import('@/lib/web/transactions')
 const { parseTxParams } = await import('@/lib/web/filters')
 
 const TZ = 'Asia/Kolkata'
@@ -74,5 +74,27 @@ describe('web transactions', () => {
     const lookups = await loadLookups(payload, me)
     const res = await listTransactions(payload, me, parseTxParams({ q: String(stamp), sort: 'highest' }), TZ, lookups)
     expect(res.docs.map((d) => Number(d.amount))).toEqual([103, 102, 101])
+  })
+
+  it('editing the amount updates amountValue, title and local date', async () => {
+    const res = await editTransaction(payload, me, decFirstId, { amount: 250, title: `Edited ${stamp}`, date: '2026-12-02 09:15' }, TZ)
+    expect(res).toEqual({ ok: true })
+    const t = await payload.findByID({ collection: 'transactions', id: decFirstId, depth: 0 })
+    expect(t.amountValue).toBe(250)
+    expect(t.title).toBe(`Edited ${stamp}`)
+    expect(new Date(t.date).toISOString()).toBe('2026-12-02T03:45:00.000Z')
+  })
+
+  it("refuses to edit another user's transaction and leaves it unchanged", async () => {
+    const theirs = (await payload.find({ collection: 'transactions', where: { user: { equals: other.id } }, limit: 1, depth: 0 })).docs[0]
+    const res = await editTransaction(payload, me, String(theirs.id), { title: 'hijack' }, TZ)
+    expect(res).toHaveProperty('error')
+    const after = await payload.findByID({ collection: 'transactions', id: theirs.id, depth: 0 })
+    expect(after.title).toBe(theirs.title)
+  })
+
+  it('rejects a non-positive amount and a bad date', async () => {
+    expect(await editTransaction(payload, me, decFirstId, { amount: 0 }, TZ)).toHaveProperty('error')
+    expect(await editTransaction(payload, me, decFirstId, { date: 'yesterday' }, TZ)).toHaveProperty('error')
   })
 })
