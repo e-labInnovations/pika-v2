@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { requireSession } from '@/lib/session'
 import { deleteBudget, saveBudget } from '@/lib/web/budgetsEdit'
 import { formToEdit } from '@/lib/web/edit'
+import { createMcpKey, deleteMcpKey, setMcpKeyEnabled } from '@/lib/web/mcpKeys'
 import { saveSettings, type SettingsInput } from '@/lib/web/settings'
 import { deleteEntity, saveEntity, setArchived, type EntityKind } from '@/lib/web/entities'
 import { confirmOwnSms, dismissOwnSms } from '@/lib/web/sms'
@@ -211,5 +212,26 @@ export async function saveSettingsAction(input: SettingsInput): Promise<{ ok: tr
   const { payload, user } = await requireSession()
   const res = await saveSettings(payload, user, input && typeof input === 'object' ? input : {})
   if ('ok' in res) revalidatePath('/app', 'layout')
+  return res
+}
+
+export async function createMcpKeyAction(label: string) {
+  const { payload, user } = await requireSession()
+  const res = await createMcpKey(payload, user, typeof label === 'string' ? label : '')
+  if ('id' in res) revalidatePath('/app/mcp')
+  return res
+}
+
+export async function setMcpKeyEnabledAction(id: string, enabled: boolean) {
+  const { payload, user } = await requireSession()
+  const res = await setMcpKeyEnabled(payload, user, id, enabled === true)
+  revalidatePath('/app/mcp')
+  return res
+}
+
+export async function deleteMcpKeyAction(id: string) {
+  const { payload, user } = await requireSession()
+  const res = await deleteMcpKey(payload, user, id)
+  revalidatePath('/app/mcp')
   return res
 }
