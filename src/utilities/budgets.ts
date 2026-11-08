@@ -1,4 +1,5 @@
 import type { Payload } from 'payload'
+import { archivedIds } from './archived'
 import { monthRange, userZone } from './localMonth'
 
 export type BudgetProgress = {
@@ -13,6 +14,8 @@ export type BudgetProgress = {
   status: 'ok' | 'warn' | 'over'
   /** The category and its subcategories, for opening History. */
   categories: string[]
+  /** The category is archived: listed in Settings so the budget can be removed, hidden elsewhere. */
+  archived: boolean
 }
 
 export const BUDGET_WARN_PERCENT = 80
@@ -41,6 +44,7 @@ export async function budgetsOverview(
   if (!budgets.docs.length) return []
 
   const { dateFrom, dateTo } = monthRange(now, userZone(timeZone))
+  const archived = await archivedIds(payload, userId)
   const ids = budgets.docs.map((b) => idOf(b.category)).filter((x): x is string => !!x)
   const children = await payload.find({
     collection: 'categories',
@@ -97,6 +101,7 @@ export async function budgetsOverview(
         percent,
         status: (percent >= 100 && spent > amount ? 'over' : percent >= BUDGET_WARN_PERCENT ? 'warn' : 'ok') as BudgetProgress['status'],
         categories: cats,
+        archived: archived.has(id),
       }
     })
     .sort((a, b) => b.percent - a.percent)

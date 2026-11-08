@@ -276,7 +276,8 @@ const SORTS = { newest: '-date', oldest: 'date', highest: '-amountValue', lowest
 export async function searchTransactions(payload: Payload, user: User, args: SearchArgs) {
   const ctx = await loadContext(payload, user)
   const tz = zoneOf(ctx.timezone)
-  const r = makeResolver(ctx)
+  // Searching may name archived items (a past trip's tag).
+  const r = makeResolver(ctx, { allowArchived: true })
   const ands: Where[] = []
   const errors: string[] = []
 

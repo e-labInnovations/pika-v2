@@ -1,3 +1,4 @@
+import { withoutOrphans } from '../archived'
 import type { Payload } from 'payload'
 import { APIError } from 'payload'
 import type { Category } from '../../payload-types'
@@ -240,7 +241,7 @@ export async function buildUserContext(
   const fmt = (docs: any[], fields: string[]) =>
     docs.map((d) => `${d.id}: ${fields.map((f) => d[f]).filter(Boolean).join(' — ')}`).join('\n') || 'none'
 
-  let lists = { categories: cats.docs as Category[], tags: tags.docs as any[], people: people.docs as any[] }
+  let lists = { categories: withoutOrphans(cats.docs as Category[]), tags: tags.docs as any[], people: people.docs as any[] }
   if (narrow?.text.trim() && (await narrowingEnabled(payload, userId))) {
     const relevant = await relevantEntities(payload, userId, narrow.text, lists, narrow.taggedIds).catch(() => null)
     if (relevant) lists = narrowLists(lists, relevant)
@@ -838,7 +839,7 @@ async function buildFilteredCategoriesForSuggestion(
     depth: 0,
   })
 
-  return renderCategoryTree(cats.docs as Category[], { includeType: false }) || 'none'
+  return renderCategoryTree(withoutOrphans(cats.docs as Category[]), { includeType: false }) || 'none'
 }
 
 async function resolvePersonName(

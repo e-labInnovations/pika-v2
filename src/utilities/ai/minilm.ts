@@ -6,6 +6,7 @@
  * `categoryAiMethod` preference without creating a circular import.
  */
 
+import { withoutOrphans } from '../archived'
 import type { Payload } from 'payload'
 import type { Category } from '../../payload-types'
 import { cosine, embed, EMBEDDING_MODEL } from './embeddings'
@@ -122,7 +123,7 @@ async function fetchChildCategories(
 
   const parentById = new Map<string, Category>()
   const children: Category[] = []
-  for (const c of cats.docs as Category[]) {
+  for (const c of withoutOrphans(cats.docs as Category[])) {
     if (c.parent) children.push(c)
     else parentById.set(c.id, c)
   }

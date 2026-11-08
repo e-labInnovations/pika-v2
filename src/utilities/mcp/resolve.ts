@@ -24,18 +24,35 @@ function pick<T extends Named>(items: T[], value: string, what: string, plural: 
   return { error: `No ${what} "${value}". Call get_context for the list.` }
 }
 
-export function makeResolver(ctx: Ctx) {
+/**
+ * Archived items can't be chosen for a write: they are matched only to say so.
+ * With `allowArchived` (search), they resolve like any other.
+ */
+function pickLive<T extends Named>(items: T[], value: string, what: string, plural: string, allowArchived: boolean): Resolved {
+  if (allowArchived) return pick(items, value, what, plural)
+  const r = pick(items.filter((x) => !x.archived), value, what, plural)
+  if ('id' in r) return r
+  const hit = pick(items.filter((x) => x.archived), value, what, plural)
+  if ('id' in hit) {
+    const name = items.find((x) => x.id === hit.id)?.name ?? value
+    return { error: `The ${what} "${name}" is archived. Unarchive it in Pika first, or use another.` }
+  }
+  return r
+}
+
+export function makeResolver(ctx: Ctx, opts: { allowArchived?: boolean } = {}) {
+  const all = opts.allowArchived === true
   return {
-    account: (v: string) => pick(ctx.accounts, v, 'account', 'accounts'),
-    person: (v: string) => pick(ctx.people, v, 'person', 'people'),
-    tag: (v: string) => pick(ctx.tags, v, 'tag', 'tags'),
+    account: (v: string) => pickLive(ctx.accounts, v, 'account', 'accounts', all),
+    person: (v: string) => pickLive(ctx.people, v, 'person', 'people', all),
+    tag: (v: string) => pickLive(ctx.tags, v, 'tag', 'tags', all),
     /** A child category of `type`; accepts "Parent > Child". */
     category(v: string, type: CategoryRow['type']): Resolved {
       const raw = String(v ?? '')
       const ofType = ctx.categories.filter((c) => c.type === type)
       const [parent, child] = raw.includes('>') ? raw.split('>').map((x) => x.trim()) : [null, raw]
       const pool = parent ? ofType.filter((c) => norm(c.parent ?? '') === norm(parent)) : ofType
-      const r = pick(pool, child, `${type} category`, `${type} categories`)
+      const r = pickLive(pool, child, `${type} category`, `${type} categories`, all)
       if ('id' in r) return r
       // Say so when the name exists but for another type (e.g. an income category on an expense).
       const other = ctx.categories.find((c) => c.type !== type && (norm(c.name) === norm(child) || c.id === raw.trim()))

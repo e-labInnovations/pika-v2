@@ -225,7 +225,7 @@ export async function calculateInsights(
   }
 
   // ── Budgets at 80% or over (ahead of everything else)
-  for (const b of await budgetsOverview(payload, userId, zone, now)) {
+  for (const b of (await budgetsOverview(payload, userId, zone, now)).filter((x) => !x.archived)) {
     if (b.status === 'ok') continue
     const over = b.status === 'over'
     out.push({

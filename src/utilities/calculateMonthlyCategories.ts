@@ -61,7 +61,9 @@ export async function calculateMonthlyCategories(
   const [catResult, txResult] = await Promise.all([
     payload.find({
       collection: 'categories',
-      where: { and: [{ isActive: { equals: true } }, { or: ownerOr }] },
+      // Archived categories too: their spending still counts. They are dropped
+      // below when they had nothing this month.
+      where: { or: ownerOr },
       limit: 500,
       depth: 0,
     }),
@@ -149,7 +151,10 @@ export async function calculateMonthlyCategories(
     }
   }
 
-  const data = Object.values(dataMap).sort((a, b) => b.amount - a.amount)
+  const archived = new Set(catResult.docs.filter((c) => (c as any).isActive === false).map((c) => c.id as string))
+  const data = Object.values(dataMap)
+    .filter((c) => !archived.has(c.id) || c.transactionCount > 0)
+    .sort((a, b) => b.amount - a.amount)
   const totalExpenses = r(Object.values(byCat).reduce((s, c) => s + c.sum, 0))
 
   return {

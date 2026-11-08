@@ -28,6 +28,7 @@
  *     hundred cosines (<1 ms) after first load.
  */
 
+import { archivedIds } from '../archived'
 import type { Payload } from 'payload'
 import type { Category, Transaction } from '../../payload-types'
 import { cosine, embed, EMBEDDING_MODEL } from './embeddings'
@@ -233,17 +234,21 @@ async function loadHistoryVectors(
     if (txId && Array.isArray(d.titleEmbedding)) vectorByTx.set(txId, d.titleEmbedding)
   }
 
+  // Past rows still teach the model, but never suggest something archived: rows in
+  // an archived category drop out, archived tags and people are stripped.
+  const archived = await archivedIds(payload, userId)
   const vectors: TxVector[] = []
   for (const tx of txs) {
     const categoryId = extractId(tx.category)
     const vector = vectorByTx.get(tx.id)
-    if (!categoryId || !vector) continue
+    if (!categoryId || !vector || archived.has(categoryId)) continue
+    const personId = extractId(tx.person)
     vectors.push({
       txId: tx.id,
       date: tx.date,
       categoryId,
-      tagIds: Array.isArray(tx.tags) ? (tx.tags.map(extractId).filter(Boolean) as string[]) : [],
-      personId: extractId(tx.person),
+      tagIds: Array.isArray(tx.tags) ? (tx.tags.map(extractId).filter((t) => t && !archived.has(t)) as string[]) : [],
+      personId: personId && !archived.has(personId) ? personId : null,
       vector: Float32Array.from(vector),
     })
   }

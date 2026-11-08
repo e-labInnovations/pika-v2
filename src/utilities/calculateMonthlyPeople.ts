@@ -55,7 +55,8 @@ export async function calculateMonthlyPeople(
   const [peopleResult, monthlyTxResult, allTimeTxResult] = await Promise.all([
     payload.find({
       collection: 'people',
-      where: { and: [{ user: { equals: userId } }, { isActive: { equals: true } }] },
+      // Archived people too; dropped below unless active this month or money is still open.
+      where: { user: { equals: userId } },
       limit: 500,
       depth: 0,
     }),
@@ -196,6 +197,11 @@ export async function calculateMonthlyPeople(
     }
   })
 
+  const archived = new Set(peopleResult.docs.filter((p) => (p as any).isActive === false).map((p) => p.id as string))
+  for (let i = data.length - 1; i >= 0; i--) {
+    const p = data[i]
+    if (archived.has(p.id) && p.totalTransactionCount === 0 && Math.abs(p.balance) < 0.01) data.splice(i, 1)
+  }
   data.sort((a, b) => b.totalTransactionCount - a.totalTransactionCount || Math.abs(b.totalAmount) - Math.abs(a.totalAmount))
 
   const totalExpenses = r(data.reduce((s, p) => s + p.expenseAmount, 0))

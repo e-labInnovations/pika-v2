@@ -72,7 +72,8 @@ export async function calculateMonthlyTags(
   const [tagResult, txResult] = await Promise.all([
     payload.find({
       collection: 'tags',
-      where: { and: [{ isActive: { equals: true } }, { or: ownerOr }] },
+      // Archived tags too (a finished trip still counts); dropped below if unused this month.
+      where: { or: ownerOr },
       limit: 500,
       depth: 0,
     }),
@@ -161,6 +162,10 @@ export async function calculateMonthlyTags(
     }
   })
 
+  const archived = new Set(tagResult.docs.filter((t) => (t as any).isActive === false).map((t) => t.id as string))
+  for (let i = data.length - 1; i >= 0; i--) {
+    if (archived.has(data[i].id) && data[i].totalTransactionCount === 0) data.splice(i, 1)
+  }
   data.sort((a, b) => b.totalTransactionCount - a.totalTransactionCount)
 
   const totalExpenses = r(data.reduce((s, t) => s + t.expenseAmount, 0))

@@ -27,16 +27,20 @@ export async function getOverview(payload: Payload, user: User) {
     currency: ctx.currency,
     dashboard,
     insights: insights.map(({ title, message, kind }) => ({ kind, title, message })),
-    budgets: budgets.map((b) => ({ category: b.category.name, limit: b.amount, spent: b.spent, left: b.left, percent: b.percent, status: b.status })),
+    budgets: budgets.filter((b) => !b.archived).map((b) => ({ category: b.category.name, limit: b.amount, spent: b.spent, left: b.left, percent: b.percent, status: b.status })),
   }
 }
 
 /** Account balances, and people with money outstanding either way. */
 export async function getBalances(payload: Payload, user: User) {
   const ctx = await loadContext(payload, user)
-  const accounts = await Promise.all(
-    ctx.accounts.map(async (a) => ({ name: a.name, id: a.id, balance: r2((await calculateAccountBalance(payload, a.id)).balance) })),
+  const accounts = (
+    await Promise.all(
+      ctx.accounts.map(async (a) => ({ name: a.name, id: a.id, archived: a.archived, balance: r2((await calculateAccountBalance(payload, a.id)).balance) })),
+    )
   )
+    // An archived account is listed only while money is left in it.
+    .filter((a) => !a.archived || Math.abs(a.balance) >= 0.01)
   const people = (
     await Promise.all(
       ctx.people.map(async (p) => {

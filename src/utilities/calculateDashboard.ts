@@ -39,7 +39,8 @@ export async function calculateDashboard(
   const [accounts, txResult] = await Promise.all([
     payload.find({
       collection: 'accounts',
-      where: { and: [{ user: { equals: userId } }, { isActive: { equals: true } }] },
+      // Archived accounts too: money left in one is still yours.
+      where: { user: { equals: userId } },
       limit: 500,
       depth: 0,
     }),
