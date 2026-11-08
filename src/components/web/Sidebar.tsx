@@ -1,6 +1,6 @@
 'use client'
 
-import { BarChart3, Home, List, Shield, Users, X } from 'lucide-react'
+import { BarChart3, Home, List, MessageSquareText, Shield, Users, X } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import React from 'react'
@@ -9,9 +9,9 @@ import { cn } from '@/lib/utils'
 import { NAV, isActive } from './nav'
 import { Portal } from './Portal'
 
-const ICONS = { home: Home, list: List, chart: BarChart3, people: Users } as const
+const ICONS = { home: Home, list: List, chart: BarChart3, people: Users, sms: MessageSquareText } as const
 
-function Links({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?: () => void }) {
+function Links({ isAdmin, smsCount = 0, onNavigate }: { isAdmin: boolean; smsCount?: number; onNavigate?: () => void }) {
   const path = usePathname()
   return (
     <nav className="flex flex-col gap-1">
@@ -29,7 +29,10 @@ function Links({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?: () => v
             )}
           >
             <Icon className="size-4" />
-            {n.label}
+            <span className="flex-1">{n.label}</span>
+            {n.icon === 'sms' && smsCount > 0 && (
+              <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">{smsCount}</span>
+            )}
           </Link>
         )
       })}
@@ -54,17 +57,17 @@ function Brand() {
 }
 
 /** Fixed sidebar from lg up. */
-export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
+export function Sidebar({ isAdmin, smsCount }: { isAdmin: boolean; smsCount?: number }) {
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col gap-6 border-r bg-sidebar px-3 py-6 lg:flex">
       <Brand />
-      <Links isAdmin={isAdmin} />
+      <Links isAdmin={isAdmin} smsCount={smsCount} />
     </aside>
   )
 }
 
 /** Below lg: the same links in a drawer opened from the top bar. */
-export function MobileNav({ isAdmin }: { isAdmin: boolean }) {
+export function MobileNav({ isAdmin, smsCount }: { isAdmin: boolean; smsCount?: number }) {
   const [open, setOpen] = React.useState(false)
   return (
     <>
@@ -82,7 +85,7 @@ export function MobileNav({ isAdmin }: { isAdmin: boolean }) {
                 <X className="size-4" />
               </button>
             </div>
-            <Links isAdmin={isAdmin} onNavigate={() => setOpen(false)} />
+            <Links isAdmin={isAdmin} smsCount={smsCount} onNavigate={() => setOpen(false)} />
           </aside>
         </div>
         </Portal>

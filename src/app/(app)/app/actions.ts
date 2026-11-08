@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 
 import { requireSession } from '@/lib/session'
 import { formToEdit } from '@/lib/web/edit'
+import { confirmOwnSms, dismissOwnSms } from '@/lib/web/sms'
+import type { ConfirmOverrides } from '@/utilities/sms/confirm'
 import { toPrefill, type Prefill } from '@/lib/web/prefill'
 import { processImageToTransaction, processTextToTransaction } from '@/utilities/ai/service'
 import { formatLocalDateTime, localInputValue } from '@/lib/web/format'
@@ -143,4 +145,19 @@ export async function aiPrefillAction(form: FormData): Promise<{ prefill: Prefil
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'The AI could not read that.' }
   }
+}
+
+/** SMS queue: confirm (as suggested, or with the user's changes). */
+export async function confirmSmsAction(id: string, overrides: ConfirmOverrides): Promise<{ transaction: string } | { error: string }> {
+  const { payload, user } = await requireSession()
+  const res = await confirmOwnSms(payload, user, id, overrides)
+  if ('transaction' in res) revalidatePath('/app', 'layout')
+  return res
+}
+
+export async function dismissSmsAction(id: string): Promise<{ ok: true } | { error: string }> {
+  const { payload, user } = await requireSession()
+  const res = await dismissOwnSms(payload, user, id)
+  if ('ok' in res) revalidatePath('/app', 'layout')
+  return res
 }
