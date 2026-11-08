@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache'
 import { requireSession } from '@/lib/session'
 import { deleteBudget, saveBudget } from '@/lib/web/budgetsEdit'
 import { formToEdit } from '@/lib/web/edit'
+import { importOwnRows, parseOwnStatement } from '@/lib/web/statements'
+import type { ImportRow } from '@/utilities/statements/import'
 import { createMcpKey, deleteMcpKey, setMcpKeyEnabled } from '@/lib/web/mcpKeys'
 import { saveSettings, type SettingsInput } from '@/lib/web/settings'
 import { deleteEntity, saveEntity, setArchived, type EntityKind } from '@/lib/web/entities'
@@ -233,5 +235,23 @@ export async function deleteMcpKeyAction(id: string) {
   const { payload, user } = await requireSession()
   const res = await deleteMcpKey(payload, user, id)
   revalidatePath('/app/mcp')
+  return res
+}
+
+/** Import → read the PDF (FormData: file, password, account). Nothing is saved. */
+export async function parseStatementAction(form: FormData) {
+  const { payload, user } = await requireSession()
+  const file = form.get('file')
+  if (!(file instanceof File) || file.size === 0) return { error: 'Choose a PDF statement.' }
+  if (file.size > 8 * 1024 * 1024) return { error: 'The PDF is larger than 8 MB.' }
+  const base64 = Buffer.from(await file.arrayBuffer()).toString('base64')
+  return parseOwnStatement(payload, user, { file: base64, password: str(form.get('password')) || null, account: str(form.get('account')) || null })
+}
+
+/** Import → add the picked rows. */
+export async function importRowsAction(account: string, rows: ImportRow[]) {
+  const { payload, user } = await requireSession()
+  const res = await importOwnRows(payload, user, String(account), rows)
+  if ('ids' in res) revalidatePath('/app', 'layout')
   return res
 }
