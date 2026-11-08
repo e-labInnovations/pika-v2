@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { requireSession } from '@/lib/session'
 import { formToEdit } from '@/lib/web/edit'
 import { localInputValue } from '@/lib/web/format'
-import { createTransaction, editTransaction, getOwnTransaction, loadLookups, trashTransaction } from '@/lib/web/transactions'
+import { createTransaction, editTransaction, getOwnTransaction, loadLookups, splitOwnTransaction, suggestSplit, trashTransaction, type PartIn } from '@/lib/web/transactions'
 
 export type ActionState = { ok: string } | { error: string } | null
 
@@ -102,4 +102,18 @@ export async function deleteTransactionAction(id: string): Promise<{ ok: true } 
   const res = await trashTransaction(payload, user, id)
   if ('ok' in res) revalidatePath('/app', 'layout')
   return res
+}
+
+/** Panel → Split into parts. */
+export async function splitAction(id: string, parts: PartIn[]): Promise<{ ids: string[] } | { error: string }> {
+  const { payload, user } = await requireSession()
+  const res = await splitOwnTransaction(payload, user, id, parts)
+  if ('ids' in res) revalidatePath('/app', 'layout')
+  return res
+}
+
+/** Panel → Split → Ask AI: suggested parts, nothing saved. */
+export async function suggestSplitAction(id: string, hint: string) {
+  const { payload, user } = await requireSession()
+  return suggestSplit(payload, user, id, hint)
 }

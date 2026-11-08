@@ -5,6 +5,7 @@ import React from 'react'
 
 import type { LookupItem } from '@/lib/web/transactions'
 import { DeleteTx } from './DeleteTx'
+import { SplitParts } from './SplitParts'
 import { EditTxForm, type EditValues } from './EditTxForm'
 
 /** Read view (server-rendered children) with an Edit button that swaps in the form. */
@@ -29,6 +30,9 @@ export function TxEditToggle({
         </button>
         <DeleteTx id={values.id} />
       </div>
+      {values.type !== 'transfer' && values.shares.length === 0 && (
+        <SplitParts id={values.id} total={Number(values.amount)} type={values.type} categories={lists.categories} defaultCategory={values.category} />
+      )}
     </div>
   )
 }

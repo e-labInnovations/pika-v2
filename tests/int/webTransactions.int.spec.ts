@@ -4,7 +4,7 @@ import config from '@/payload.config'
 import { describe, it, beforeAll, afterAll, expect } from 'vitest'
 import type { User } from '@/payload-types'
 
-const { listTransactions, loadLookups, editTransaction, getOwnTransaction, createTransaction, trashTransaction } = await import('@/lib/web/transactions')
+const { listTransactions, loadLookups, editTransaction, getOwnTransaction, createTransaction, trashTransaction, splitOwnTransaction } = await import('@/lib/web/transactions')
 const { personSummary } = await import('@/lib/web/people')
 const { parseTxParams } = await import('@/lib/web/filters')
 
@@ -240,6 +240,28 @@ describe('web transactions', () => {
       await payload.delete({ collection: 'transactions', id: made.id })
       await payload.delete({ collection: 'media', id: mine.id })
       await payload.delete({ collection: 'media', id: theirs.id })
+    })
+  })
+
+  describe('split into parts', () => {
+    it('splits the user\'s transaction into parts that add up', async () => {
+      const l = await loadLookups(payload, me)
+      const cats = l.categories.filter((c) => c.parentId && c.type === 'expense')
+      const made = (await createTransaction(payload, me, { type: 'expense', title: `Rent+EB ${stamp}`, amount: 1000, date: '2026-12-07 09:00', category: cats[0].id, account: l.accounts[0].id, tags: [] }, TZ)) as { id: string }
+      expect(await splitOwnTransaction(payload, me, made.id, [{ title: 'Rent', amount: 900, category: cats[0].id }, { title: 'EB', amount: 50, category: cats[1].id }])).toHaveProperty('error') // 950 ≠ 1000
+      const res = await splitOwnTransaction(payload, me, made.id, [{ title: 'Rent', amount: 900, category: cats[0].id }, { title: 'EB', amount: 100, category: cats[1].id }])
+      expect(res).toHaveProperty('ids')
+      const ids = (res as { ids: string[] }).ids
+      expect(ids).toHaveLength(2)
+      const docs = await Promise.all(ids.map((id) => payload.findByID({ collection: 'transactions', id, depth: 0 })))
+      expect(docs.map((d) => Number(d.amount)).sort((a, b) => a - b)).toEqual([100, 900])
+    })
+
+    it("refuses someone else's transaction and foreign categories", async () => {
+      const theirs = (await payload.find({ collection: 'transactions', where: { user: { equals: other.id } }, limit: 1, depth: 0 })).docs[0]
+      const l = await loadLookups(payload, me)
+      const cat = l.categories.find((c) => c.parentId && c.type === 'expense')!
+      expect(await splitOwnTransaction(payload, me, String(theirs.id), [{ title: 'a', amount: Number(theirs.amount), category: cat.id }])).toHaveProperty('error')
     })
   })
 })

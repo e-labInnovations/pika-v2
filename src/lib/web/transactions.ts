@@ -2,6 +2,7 @@ import type { Payload, Where } from 'payload'
 
 import type { Transaction, User } from '@/payload-types'
 import { parseLocalDate } from '@/utilities/mcp/time'
+import { aiSplitParts, splitTransaction, type SmsPart } from '@/utilities/sms/split'
 import { searchSummary, type SearchSummary } from '@/utilities/search/searchSummary'
 import { PAGE_SIZE, SORT_FIELD, toWhere, type TxQuery } from './filters'
 
@@ -240,5 +241,57 @@ export async function trashTransaction(payload: Payload, user: User, id: string)
     return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Could not delete.' }
+  }
+}
+
+export type PartIn = { title: string; amount: number | string; category: string; tags?: string[]; person?: string | null }
+
+/**
+ * Splits the user's own transaction into parts (it stays as the first part). The parts
+ * must add up to its amount; every category, tag and person must be theirs.
+ */
+export async function splitOwnTransaction(payload: Payload, user: User, id: string, parts: PartIn[]): Promise<{ ids: string[] } | { error: string }> {
+  const tx = await getOwnTransaction(payload, user, id)
+  if (!tx) return { error: 'Transaction not found.' }
+  if (parts.length < 2) return { error: 'Split into at least two parts.' }
+  const l = await loadLookups(payload, user)
+  const has = (list: LookupItem[], v?: string | null) => !!v && list.some((x) => x.id === v)
+  for (const [i, p] of parts.entries()) {
+    const cat = l.categories.find((c) => c.id === p.category)
+    if (!cat || !cat.parentId || cat.type !== tx.type) return { error: `Part ${i + 1}: choose a ${tx.type} category.` }
+    if (!(Number(p.amount) > 0)) return { error: `Part ${i + 1}: amount must be more than 0.` }
+    if ((p.tags ?? []).some((t) => !has(l.tags, t))) return { error: `Part ${i + 1}: choose your own tags.` }
+    if (p.person && !has(l.people, p.person)) return { error: `Part ${i + 1}: choose one of your people.` }
+  }
+  try {
+    const res = await splitTransaction(
+      payload,
+      user,
+      id,
+      parts.map((p, i) => ({
+        title: p.title?.trim() || `Part ${i + 1}`,
+        amount: Number(p.amount).toFixed(2),
+        category: p.category,
+        tags: p.tags ?? [],
+        person: p.person ?? null,
+      })),
+    )
+    return { ids: res.transactions }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not split.' }
+  }
+}
+
+/** The AI's suggested parts for the user's transaction (nothing saved). */
+export async function suggestSplit(payload: Payload, user: User, id: string, hint: string): Promise<{ parts: SmsPart[] } | { error: string }> {
+  const tx = await getOwnTransaction(payload, user, id)
+  if (!tx) return { error: 'Transaction not found.' }
+  const text = hint.trim().slice(0, 1000)
+  const about = `Transaction: ${tx.title}${tx.note ? ` (${tx.note})` : ''}, ${tx.amount}`
+  try {
+    const parts = await aiSplitParts(payload, String(user.id), text ? `${text}\n\n${about}` : about, String(tx.amount), String(tx.type))
+    return { parts: parts as SmsPart[] }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'The AI could not split it.' }
   }
 }
