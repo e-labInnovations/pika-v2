@@ -47,6 +47,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(publicUrl(`/oauth/consent?${pendingOAuth}`, request))
   }
 
-  // --- Default: browser login → admin panel ---
-  return NextResponse.redirect(publicUrl('/admin', request))
+  // --- Default: browser login → web dashboard (admins reach /admin from its sidebar) ---
+  return NextResponse.redirect(publicUrl('/app', request))
 }
