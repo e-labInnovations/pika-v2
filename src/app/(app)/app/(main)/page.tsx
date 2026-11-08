@@ -75,7 +75,7 @@ export default async function HomePage() {
             )}
           </Card>
 
-          <Card title="Budgets">
+          <Card title="Budgets" action={{ href: '/app/budgets', label: 'Manage' }}>
             {liveBudgets.length ? (
               <ul className="grid grid-cols-1 gap-4">
                 {liveBudgets.map((b) => (
@@ -98,7 +98,7 @@ export default async function HomePage() {
                 ))}
               </ul>
             ) : (
-              <Empty>No budgets yet. Set one in the app.</Empty>
+              <Empty>No budgets yet.</Empty>
             )}
           </Card>
         </div>

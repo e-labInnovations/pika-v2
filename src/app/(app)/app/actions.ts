@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 
 import { requireSession } from '@/lib/session'
+import { deleteBudget, saveBudget } from '@/lib/web/budgetsEdit'
 import { formToEdit } from '@/lib/web/edit'
 import { deleteEntity, saveEntity, setArchived, type EntityKind } from '@/lib/web/entities'
 import { confirmOwnSms, dismissOwnSms } from '@/lib/web/sms'
@@ -187,6 +188,20 @@ export async function deleteEntityAction(kind: string, id: string): Promise<{ ok
   if (!kindOk(kind)) return { error: 'Unknown list.' }
   const { payload, user } = await requireSession()
   const res = await deleteEntity(payload, user, kind, id)
+  if ('ok' in res) revalidatePath('/app', 'layout')
+  return res
+}
+
+export async function saveBudgetAction(id: string | null, category: string, amount: number): Promise<{ id: string } | { error: string }> {
+  const { payload, user } = await requireSession()
+  const res = await saveBudget(payload, user, id, { category: String(category), amount: Number(amount) })
+  if ('id' in res) revalidatePath('/app', 'layout')
+  return res
+}
+
+export async function deleteBudgetAction(id: string): Promise<{ ok: true } | { error: string }> {
+  const { payload, user } = await requireSession()
+  const res = await deleteBudget(payload, user, id)
   if ('ok' in res) revalidatePath('/app', 'layout')
   return res
 }
