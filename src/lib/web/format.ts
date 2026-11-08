@@ -30,3 +30,8 @@ export function formatLocalDateTime(iso: string, tz?: string | null): string {
   const time = new Intl.DateTimeFormat('en-GB', { timeZone: zone(tz), hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso))
   return `${formatLocalDate(iso, tz)}, ${time}`
 }
+
+/** The local calendar day (YYYY-MM-DD) of an instant. */
+export function localDay(iso: string | Date, tz?: string | null): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: zone(tz), year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatMoney, formatSigned, formatLocalDate, formatLocalDateTime, zone } from '@/lib/web/format'
+import { formatMoney, formatSigned, formatLocalDate, formatLocalDateTime, localDay, zone } from '@/lib/web/format'
 
 describe('web formatting', () => {
   it('formats money in INR with Indian grouping', () => {
@@ -16,5 +16,9 @@ describe('web formatting', () => {
     expect(formatLocalDate('2026-10-31T19:00:00Z', 'Asia/Kolkata')).toBe('1 Nov 2026')
     expect(zone('')).toBe('Asia/Kolkata')
     expect(zone('Europe/London')).toBe('Europe/London')
+  })
+  it('gives the local calendar day of an instant', () => {
+    expect(localDay('2026-10-31T18:30:00Z', 'Asia/Kolkata')).toBe('2026-11-01')
+    expect(localDay('2026-10-31T18:29:00Z', 'Asia/Kolkata')).toBe('2026-10-31')
   })
 })
