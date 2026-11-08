@@ -6,7 +6,7 @@ import React from 'react'
 import type { Media, Transaction, TransactionLink, User } from '@/payload-types'
 import { formatLocalDateTime, formatMoney, formatSigned, localInputValue } from '@/lib/web/format'
 import { requireSession } from '@/lib/session'
-import { loadLookups } from '@/lib/web/transactions'
+import { getOwnTransaction, loadLookups } from '@/lib/web/transactions'
 import { cn } from '@/lib/utils'
 import { EntityIcon } from './EntityIcon'
 import { amountClass } from './TxList'
@@ -20,11 +20,9 @@ const LINK_LABEL: Record<TransactionLink['type'], string> = { repaid: 'Repaid', 
 
 /** The user's transaction, or a 404 (access control hides everyone else's). */
 export async function loadTransaction(payload: Payload, user: User, id: string): Promise<Transaction> {
-  try {
-    return (await payload.findByID({ collection: 'transactions', id, depth: 2, user, overrideAccess: false })) as Transaction
-  } catch {
-    notFound()
-  }
+  const tx = await getOwnTransaction(payload, user, id)
+  if (!tx) notFound()
+  return tx
 }
 
 export async function TxDetail({ id }: { id: string }) {
@@ -109,7 +107,7 @@ export async function TxDetail({ id }: { id: string }) {
       {links.length > 0 && (
         <div>
           <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Linked</h3>
-          <ul className="grid gap-2">
+          <ul className="grid grid-cols-1 gap-2">
             {links.map(({ l, other }) => {
               const o = typeof other === 'object' ? (other as Transaction) : null
               return (

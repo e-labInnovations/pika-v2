@@ -19,7 +19,7 @@ export function TxList({ docs, tz, currency }: { docs: Transaction[]; tz: string
         const cat = rel(t.category)
         const acc = rel(t.account)
         return (
-          <li key={t.id}>
+          <li key={t.id} className="min-w-0">
             <Link href={`/app/transactions/${t.id}`} className="flex items-center gap-3 rounded-lg px-1 py-3 hover:bg-accent/50">
               <EntityIcon icon={cat?.icon} color={cat?.color} bgColor={cat?.bgColor} />
               <div className="min-w-0 flex-1">
@@ -28,7 +28,7 @@ export function TxList({ docs, tz, currency }: { docs: Transaction[]; tz: string
                   {[cat?.name, acc?.name, formatLocalDateTime(t.date, tz)].filter(Boolean).join(' · ')}
                 </p>
               </div>
-              <span className={cn('text-sm font-semibold tabular-nums', amountClass(t.type))}>{formatSigned(Number(t.amount), t.type, currency)}</span>
+              <span className={cn('shrink-0 text-sm font-semibold tabular-nums', amountClass(t.type))}>{formatSigned(Number(t.amount), t.type, currency)}</span>
             </Link>
           </li>
         )

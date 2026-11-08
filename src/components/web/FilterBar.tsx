@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronDown, Download, X } from 'lucide-react'
+import { Check, ChevronDown, Download, X } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import React from 'react'
 
@@ -24,6 +24,8 @@ const SORTS: { value: TxSort; label: string }[] = [
   { value: 'highest', label: 'Highest amount' },
   { value: 'lowest', label: 'Lowest amount' },
 ]
+const TYPE_ORDER = ['expense', 'income', 'transfer'] as const
+const TYPE_LABEL = { expense: 'Expense', income: 'Income', transfer: 'Transfer' } as const
 const LABEL: Record<ListKey, string> = { categories: 'Category', tags: 'Tag', people: 'Person', accounts: 'Account' }
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -126,11 +128,11 @@ function DateFilter({ query, go }: { query: TxQuery; go: (n: Partial<TxQuery>) =
             go({ from: String(f.get('from') || '') || undefined, to: String(f.get('to') || '') || undefined })
           }}
         >
-          <label className="grid gap-1 text-xs text-muted-foreground">
+          <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
             From
             <input name="from" type="date" defaultValue={query.from} className="h-9 rounded-lg border bg-background px-2 text-sm text-foreground" />
           </label>
-          <label className="grid gap-1 text-xs text-muted-foreground">
+          <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
             To
             <input name="to" type="date" defaultValue={query.to} className="h-9 rounded-lg border bg-background px-2 text-sm text-foreground" />
           </label>
@@ -156,7 +158,7 @@ function AmountFilter({ query, go }: { query: TxQuery; go: (n: Partial<TxQuery>)
       </PopoverTrigger>
       <PopoverContent className="w-64 p-3">
         <form
-          className="grid gap-2"
+          className="grid grid-cols-1 gap-2"
           onSubmit={(e) => {
             e.preventDefault()
             const f = new FormData(e.currentTarget)
@@ -201,13 +203,27 @@ function MultiPick({
   const names = selected.map((id) => byId.get(id)?.name).filter(Boolean)
   const text = names.length === 0 ? label : names.length === 1 ? names[0] : `${label}: ${names.length}`
 
-  const row = (i: LookupItem) => (
-    <label key={i.id} className={cn('flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-accent', categories && i.parentId && 'pl-7')}>
-      <input type="checkbox" checked={selected.includes(i.id)} onChange={() => toggle(i.id)} className="accent-[var(--primary)]" />
-      <EntityIcon icon={i.icon} color={i.color} bgColor={i.bgColor} size={22} className="rounded-md" />
-      <span className="truncate">{i.name}</span>
-    </label>
-  )
+  const row = (i: LookupItem) => {
+    const on = selected.includes(i.id)
+    return (
+      <button
+        key={i.id}
+        type="button"
+        role="menuitemcheckbox"
+        aria-checked={on}
+        onClick={() => toggle(i.id)}
+        className={cn(
+          'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-accent',
+          categories && i.parentId && 'pl-8',
+          on && 'bg-primary/15 text-primary hover:bg-primary/20',
+        )}
+      >
+        <EntityIcon icon={i.icon} color={i.color} bgColor={i.bgColor} size={22} className="rounded-md" />
+        <span className="min-w-0 flex-1 truncate">{i.name}</span>
+        {on && <Check className="size-4 shrink-0" />}
+      </button>
+    )
+  }
   // Categories: each parent followed by its children.
   const ordered = (list: LookupItem[]) =>
     categories
@@ -231,7 +247,14 @@ function MultiPick({
           className="mb-2 h-9 w-full rounded-lg border bg-background px-2 text-sm outline-none"
         />
         <div className="max-h-72 overflow-y-auto">
-          {ordered(live).map(row)}
+          {categories
+            ? TYPE_ORDER.filter((t) => live.some((i) => i.type === t)).map((t) => (
+                <div key={t}>
+                  <p className="px-2 pt-2 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{TYPE_LABEL[t]}</p>
+                  {ordered(live.filter((i) => i.type === t)).map(row)}
+                </div>
+              ))
+            : ordered(live).map(row)}
           {live.length === 0 && old.length === 0 && <p className="p-2 text-sm text-muted-foreground">Nothing found.</p>}
           {old.length > 0 && (
             <>

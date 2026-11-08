@@ -49,4 +49,10 @@ describe('web transaction filters', () => {
     expect(SORT_FIELD.highest).toBe('-amountValue')
     expect(PAGE_SIZE).toBe(50)
   })
+
+  it('ignores absurd page numbers', () => {
+    expect(parseTxParams({ page: 'Infinity' }).page).toBe(1)
+    expect(parseTxParams({ page: '1e20' }).page).toBe(1)
+    expect(parseTxParams({ page: '12' }).page).toBe(12)
+  })
 })

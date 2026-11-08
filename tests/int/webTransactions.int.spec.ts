@@ -4,7 +4,8 @@ import config from '@/payload.config'
 import { describe, it, beforeAll, afterAll, expect } from 'vitest'
 import type { User } from '@/payload-types'
 
-const { listTransactions, loadLookups, editTransaction } = await import('@/lib/web/transactions')
+const { listTransactions, loadLookups, editTransaction, getOwnTransaction } = await import('@/lib/web/transactions')
+const { personSummary } = await import('@/lib/web/people')
 const { parseTxParams } = await import('@/lib/web/filters')
 
 const TZ = 'Asia/Kolkata'
@@ -96,5 +97,29 @@ describe('web transactions', () => {
   it('rejects a non-positive amount and a bad date', async () => {
     expect(await editTransaction(payload, me, decFirstId, { amount: 0 }, TZ)).toHaveProperty('error')
     expect(await editTransaction(payload, me, decFirstId, { date: 'yesterday' }, TZ)).toHaveProperty('error')
+  })
+
+  it('an admin still sees only their own data on the dashboard', async () => {
+    const admin = (await payload.update({ collection: 'users', id: me.id, data: { role: 'admin' } as any, overrideAccess: true })) as User
+    try {
+      const otherPerson = await payload.create({ collection: 'people', data: { name: `OtherP ${stamp}` } as any, user: other, overrideAccess: false })
+      const theirs = (await payload.find({ collection: 'transactions', where: { user: { equals: other.id } }, limit: 1, depth: 0 })).docs[0]
+
+      const lookups = await loadLookups(payload, admin)
+      expect(lookups.accounts.every((a) => a.name === `Acc ${stamp}`) && lookups.accounts.length === 1).toBe(true)
+      expect(lookups.people.some((p) => p.id === String(otherPerson.id))).toBe(false)
+
+      const list = await listTransactions(payload, admin, parseTxParams({}), TZ, lookups)
+      expect(list.docs.every((d) => String(typeof d.user === 'object' ? d.user?.id : d.user) === String(me.id))).toBe(true)
+
+      expect(await getOwnTransaction(payload, admin, String(theirs.id))).toBeNull()
+      expect(await getOwnTransaction(payload, admin, decFirstId)).not.toBeNull()
+      expect(await editTransaction(payload, admin, String(theirs.id), { title: 'admin hijack' }, TZ)).toHaveProperty('error')
+      expect((await payload.findByID({ collection: 'transactions', id: theirs.id, depth: 0 })).title).toBe(theirs.title)
+      expect(await personSummary(payload, admin, String(otherPerson.id))).toBeNull()
+      await payload.delete({ collection: 'people', id: otherPerson.id })
+    } finally {
+      await payload.update({ collection: 'users', id: me.id, data: { role: 'user' } as any, overrideAccess: true })
+    }
   })
 })

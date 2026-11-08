@@ -25,7 +25,7 @@ export default async function PeoplePage() {
   const now = localParts(new Date(), tz)
   const [res, people] = await Promise.all([
     calculateMonthlyPeople(payload, String(user.id), now.m, now.y, tz),
-    payload.find({ collection: 'people', pagination: false, depth: 0, select: { name: true, isActive: true }, user, overrideAccess: false }),
+    payload.find({ collection: 'people', where: { user: { equals: user.id } }, pagination: false, depth: 0, select: { name: true, isActive: true }, user, overrideAccess: false }),
   ])
   // Every person (the report drops archived ones with nothing open); balances from the report.
   const stats = new Map(res.data.map((p) => [p.id, p]))
@@ -57,7 +57,7 @@ export default async function PeoplePage() {
   )
 
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-1 gap-5">
       <h1 className="text-2xl font-bold tracking-tight">People</h1>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-2xl border bg-card p-5">

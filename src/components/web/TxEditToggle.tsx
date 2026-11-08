@@ -20,7 +20,7 @@ export function TxEditToggle({
   const done = React.useCallback(() => setEditing(false), [])
   if (editing) return <EditTxForm values={values} lists={lists} onDone={done} />
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-1 gap-5">
       {children}
       <button type="button" onClick={() => setEditing(true)} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border text-sm font-medium hover:bg-accent">
         <Pencil className="size-4" /> Edit

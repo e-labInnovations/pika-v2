@@ -22,7 +22,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   const money = (n: number) => formatMoney(n, currency)
 
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-1 gap-5">
       <Link href="/app/people" className="text-sm text-primary hover:underline">← People</Link>
       <div className="flex flex-wrap items-end gap-4">
         <div className="mr-auto">

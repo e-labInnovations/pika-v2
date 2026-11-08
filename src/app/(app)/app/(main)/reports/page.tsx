@@ -142,7 +142,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   }
 
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-1 gap-5">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="mr-auto text-2xl font-bold tracking-tight">Reports</h1>
         <div className="flex items-center gap-1 rounded-xl border bg-card p-1">

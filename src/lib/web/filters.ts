@@ -50,6 +50,12 @@ function amount(v: string | undefined): number | undefined {
   return Number.isFinite(n) && n >= 0 ? n : undefined
 }
 
+/** A sane page number; anything odd (Infinity, 1e20, -3) is page 1. */
+const pageOf = (v: string | undefined) => {
+  const n = Number(v)
+  return Number.isSafeInteger(n) && n >= 1 && n <= 100_000 ? n : 1
+}
+
 export function parseTxParams(sp: Params): TxQuery {
   const q: TxQuery = {
     types: list(sp.types).filter((t): t is TxType => TYPES.includes(t as TxType)),
@@ -58,7 +64,7 @@ export function parseTxParams(sp: Params): TxQuery {
     people: list(sp.people),
     accounts: list(sp.accounts),
     sort: SORTS.includes(one(sp.sort) as TxSort) ? (one(sp.sort) as TxSort) : 'newest',
-    page: Math.max(1, Math.floor(Number(one(sp.page))) || 1),
+    page: pageOf(one(sp.page)),
   }
   const text = one(sp.q)?.slice(0, 200)
   if (text) q.q = text

@@ -6,6 +6,8 @@
 @custom-variant dark (@media (prefers-color-scheme: dark));
 
 :root {
+  /* Native controls (date pickers, number spinners, scrollbars) follow light/dark too. */
+  color-scheme: light dark;
   --radius: 0.75rem;
   --background: #f4f6ff;
   --foreground: #0d1322;

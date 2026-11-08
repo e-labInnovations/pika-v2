@@ -30,11 +30,16 @@ const idOf = (v: unknown): string | null => (v && typeof v === 'object' ? String
 /** Everything the user can filter by, archived included (flagged). */
 export async function loadLookups(payload: Payload, user: User): Promise<Lookups> {
   const as = { user, overrideAccess: false as const, pagination: false as const, depth: 0, sort: 'name' }
+  // Explicitly the user's own (plus shared system categories/tags): access control alone
+  // lets an admin read everyone's.
+  const mine: Where = { user: { equals: user.id } }
+  const system = await payload.find({ collection: 'users', where: { role: { equals: 'system' } }, depth: 0, limit: 20, select: { email: true }, overrideAccess: true })
+  const mineOrSystem: Where = { or: [mine, ...(system.docs.length ? [{ user: { in: system.docs.map((u) => u.id) } }] : [])] }
   const [cats, tags, people, accounts] = await Promise.all([
-    payload.find({ collection: 'categories', ...as }),
-    payload.find({ collection: 'tags', ...as }),
-    payload.find({ collection: 'people', ...as }),
-    payload.find({ collection: 'accounts', ...as }),
+    payload.find({ collection: 'categories', where: mineOrSystem, ...as }),
+    payload.find({ collection: 'tags', where: mineOrSystem, ...as }),
+    payload.find({ collection: 'people', where: mine, ...as }),
+    payload.find({ collection: 'accounts', where: mine, ...as }),
   ])
   const item = (d: { id: unknown; name?: unknown; isActive?: boolean | null; icon?: unknown; color?: unknown; bgColor?: unknown }): LookupItem => ({
     id: String(d.id),
@@ -83,8 +88,18 @@ export type TxEdit = {
   account?: string
 }
 
-/** Saves the user's own transaction; access control refuses anyone else's. */
+const ownerOf = (doc: { user?: unknown }) => idOf(doc.user)
+
+/** The user's own transaction (depth 2), or null — also for an admin looking at someone else's. */
+export async function getOwnTransaction(payload: Payload, user: User, id: string): Promise<Transaction | null> {
+  const tx = await payload.findByID({ collection: 'transactions', id, depth: 2, user, overrideAccess: false }).catch(() => null)
+  return tx && ownerOf(tx) === String(user.id) ? (tx as Transaction) : null
+}
+
+/** Saves the user's own transaction; anyone else's (even for an admin) is refused. */
 export async function editTransaction(payload: Payload, user: User, id: string, input: TxEdit, tz: string): Promise<{ ok: true } | { error: string }> {
+  const own = await payload.findByID({ collection: 'transactions', id, depth: 0, user, overrideAccess: false }).catch(() => null)
+  if (!own || ownerOf(own) !== String(user.id)) return { error: 'Transaction not found.' }
   const data: Record<string, unknown> = {}
   if (input.title !== undefined) {
     if (!input.title.trim()) return { error: 'Title is required.' }
@@ -93,7 +108,7 @@ export async function editTransaction(payload: Payload, user: User, id: string, 
   if (input.note !== undefined) data.note = input.note
   if (input.amount !== undefined) {
     if (!(Number.isFinite(input.amount) && input.amount > 0)) return { error: 'Amount must be more than 0.' }
-    data.amount = input.amount.toFixed(2)
+    data.amount = String(input.amount)
   }
   if (input.date !== undefined) {
     try {

@@ -9,6 +9,7 @@ import { calculatePersonBalance, type PersonBalanceResult } from '@/utilities/ca
  */
 export async function personSummary(payload: Payload, user: User, id: string): Promise<{ person: Person; balance: PersonBalanceResult } | null> {
   const person = await payload.findByID({ collection: 'people', id, depth: 1, user, overrideAccess: false }).catch(() => null)
-  if (!person) return null
+  const owner = person && (typeof person.user === 'object' ? person.user?.id : person.user)
+  if (!person || String(owner) !== String(user.id)) return null
   return { person: person as Person, balance: await calculatePersonBalance(payload, String(person.id)) }
 }

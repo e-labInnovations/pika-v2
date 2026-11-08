@@ -19,7 +19,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
   const { childrenOf: _, ...lists } = lookups
 
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-1 gap-5">
       <div className="flex items-baseline justify-between gap-4">
         <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
         {query.q && <p className="truncate text-sm text-muted-foreground">Matching “{query.q}”</p>}

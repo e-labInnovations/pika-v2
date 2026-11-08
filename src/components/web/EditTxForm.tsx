@@ -38,30 +38,32 @@ export function EditTxForm({
   }, [state, onDone])
 
   const byId = new Map(lists.categories.map((c) => [c.id, c]))
+  // The current category is always offered, even if it wouldn't be picked today
+  // (archived, a parent, another type), so saving can't silently swap it.
   const cats = offer(
-    lists.categories.filter((c) => c.parentId && c.type === values.type),
+    lists.categories.filter((c) => (c.parentId && c.type === values.type) || c.id === values.category),
     [values.category],
-  ).map((c) => ({ ...c, label: `${byId.get(c.parentId!)?.name ?? ''} › ${c.name}` }))
+  ).map((c) => ({ ...c, label: c.parentId ? `${byId.get(c.parentId)?.name ?? ''} › ${c.name}` : c.name }))
 
   return (
-    <form action={action} className="grid gap-3">
+    <form action={action} className="grid grid-cols-1 gap-3">
       <input type="hidden" name="id" value={values.id} />
-      <label className="grid gap-1 text-xs text-muted-foreground">
+      <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
         Title
         <input name="title" defaultValue={values.title} required className={field} />
       </label>
       <div className="grid grid-cols-2 gap-3">
-        <label className="grid gap-1 text-xs text-muted-foreground">
+        <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
           Amount
-          <input name="amount" type="number" min="0.01" step="0.01" defaultValue={values.amount} required className={field} />
+          <input name="amount" type="number" min="0" step="any" defaultValue={values.amount} required className={field} />
         </label>
-        <label className="grid gap-1 text-xs text-muted-foreground">
+        <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
           Date
           <input name="date" type="datetime-local" defaultValue={values.date} required className={field} />
         </label>
       </div>
       {values.type !== 'transfer' && (
-        <label className="grid gap-1 text-xs text-muted-foreground">
+        <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
           Category
           <select name="category" defaultValue={values.category ?? ''} className={field}>
             {cats.map((c) => (
@@ -73,7 +75,7 @@ export function EditTxForm({
         </label>
       )}
       <div className="grid grid-cols-2 gap-3">
-        <label className="grid gap-1 text-xs text-muted-foreground">
+        <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
           Account
           <select name="account" defaultValue={values.account ?? ''} className={field}>
             {offer(lists.accounts, [values.account]).map((a) => (
@@ -83,7 +85,7 @@ export function EditTxForm({
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-xs text-muted-foreground">
+        <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
           Person
           <select name="person" defaultValue={values.person ?? ''} className={field}>
             <option value="">—</option>
@@ -95,7 +97,7 @@ export function EditTxForm({
           </select>
         </label>
       </div>
-      <fieldset className="grid gap-1 text-xs text-muted-foreground">
+      <fieldset className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
         Tags
         <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto rounded-xl border bg-background p-2">
           {offer(lists.tags, values.tags).map((t) => (
@@ -106,7 +108,7 @@ export function EditTxForm({
           ))}
         </div>
       </fieldset>
-      <label className="grid gap-1 text-xs text-muted-foreground">
+      <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
         Note
         <textarea name="note" defaultValue={values.note} rows={3} className={`${field} h-auto py-2`} />
       </label>

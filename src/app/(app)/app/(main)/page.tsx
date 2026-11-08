@@ -25,8 +25,8 @@ export default async function HomePage() {
     calculateDashboard(payload, userId, tz),
     calculateInsights(payload, userId, tz),
     budgetsOverview(payload, userId, tz),
-    payload.find({ collection: 'accounts', sort: 'name', limit: 100, depth: 1, ...as }),
-    payload.find({ collection: 'transactions', sort: '-date', limit: 10, depth: 1, ...as }),
+    payload.find({ collection: 'accounts', where: { user: { equals: user.id } }, sort: 'name', limit: 100, depth: 1, ...as }),
+    payload.find({ collection: 'transactions', where: { user: { equals: user.id } }, sort: '-date', limit: 10, depth: 1, ...as }),
   ])
   const pulse = dash.monthlyPulse
   const liveAccounts = accounts.docs.filter((a) => a.isActive !== false || Math.abs(Number((a as { balance?: number }).balance ?? 0)) >= 0.01)
@@ -34,7 +34,7 @@ export default async function HomePage() {
   const money = (n: number) => formatMoney(n, currency)
 
   return (
-    <div className="grid gap-6">
+    <div className="grid grid-cols-1 gap-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Hi, {(user.name || 'there').split(' ')[0]}</h1>
         <p className="text-sm text-muted-foreground">{pulse.monthName} {pulse.year}</p>
@@ -56,16 +56,16 @@ export default async function HomePage() {
           {recent.docs.length ? <TxList docs={recent.docs as Transaction[]} tz={tz} currency={currency} /> : <Empty>No transactions yet.</Empty>}
         </Card>
 
-        <div className="grid content-start gap-6">
+        <div className="grid min-w-0 grid-cols-1 content-start gap-6">
           <Card title="Accounts">
             {liveAccounts.length ? (
-              <ul className="grid gap-3">
+              <ul className="grid grid-cols-1 gap-3">
                 {liveAccounts.map((a) => (
-                  <li key={a.id}>
+                  <li key={a.id} className="min-w-0">
                     <Link href={`/app/transactions${toSearch({ accounts: [String(a.id)] })}`} className="flex items-center gap-3 hover:opacity-80">
                       <EntityIcon icon={a.icon} color={a.color} bgColor={a.bgColor} size={32} />
-                      <span className="flex-1 truncate text-sm">{a.name}</span>
-                      <span className="text-sm font-semibold tabular-nums">{money(Number((a as { balance?: number }).balance ?? 0))}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm">{a.name}</span>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums">{money(Number((a as { balance?: number }).balance ?? 0))}</span>
                     </Link>
                   </li>
                 ))}
@@ -77,13 +77,13 @@ export default async function HomePage() {
 
           <Card title="Budgets">
             {liveBudgets.length ? (
-              <ul className="grid gap-4">
+              <ul className="grid grid-cols-1 gap-4">
                 {liveBudgets.map((b) => (
-                  <li key={b.id}>
+                  <li key={b.id} className="min-w-0">
                     <Link href={`/app/transactions${toSearch({ categories: [b.category.id], types: ['expense'] })}`} className="block hover:opacity-80">
-                      <div className="mb-1.5 flex justify-between text-sm">
-                        <span className="truncate">{b.category.name}</span>
-                        <span className="tabular-nums text-muted-foreground">
+                      <div className="mb-1.5 flex justify-between gap-3 text-sm">
+                        <span className="min-w-0 truncate">{b.category.name}</span>
+                        <span className="shrink-0 tabular-nums text-muted-foreground">
                           {money(b.spent)} / {money(b.amount)}
                         </span>
                       </div>
@@ -127,7 +127,7 @@ export default async function HomePage() {
 
 function Stat({ label, value, note, tone }: { label: string; value: string; note?: string; tone?: 'income' | 'expense' }) {
   return (
-    <div className="rounded-2xl border bg-card p-5">
+    <div className="min-w-0 rounded-2xl border bg-card p-5">
       <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</p>
       <p className={cn('mt-2 text-2xl font-bold tabular-nums', tone === 'income' && 'text-income', tone === 'expense' && 'text-expense')}>{value}</p>
       {note && <p className="mt-1 text-xs text-muted-foreground">{note}</p>}
