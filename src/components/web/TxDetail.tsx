@@ -60,6 +60,7 @@ export async function TxDetail({ id }: { id: string }) {
         account: idOf(tx.account),
         person: idOf(tx.person),
         tags: (tx.tags ?? []).map(idOf).filter((x): x is string => !!x),
+        shares: (tx.shares ?? []).map((x) => ({ person: idOf(x.person) ?? '', amount: Number(x.amount).toFixed(2) })),
       }}
       lists={lists}
     >

@@ -5,6 +5,7 @@ import React, { useActionState } from 'react'
 import { saveTransaction, type ActionState } from '@/app/(app)/app/actions'
 import type { LookupItem } from '@/lib/web/transactions'
 import { Picker } from './Picker'
+import { SharesEditor, type ShareRow } from './SharesEditor'
 
 export type EditValues = {
   id: string
@@ -17,6 +18,7 @@ export type EditValues = {
   account: string | null
   person: string | null
   tags: string[]
+  shares: { person: string; amount: string }[]
 }
 
 const field = 'h-10 w-full min-w-0 rounded-xl border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40'
@@ -47,6 +49,8 @@ export function EditTxForm({
   const [account, setAccount] = React.useState<string[]>(values.account ? [values.account] : [])
   const [person, setPerson] = React.useState<string[]>(values.person ? [values.person] : [])
   const [tags, setTags] = React.useState<string[]>(values.tags)
+  const [amount, setAmount] = React.useState(values.amount)
+  const [shares, setShares] = React.useState<ShareRow[]>(values.shares)
 
   return (
     <form action={action} className="grid grid-cols-1 gap-3">
@@ -58,7 +62,7 @@ export function EditTxForm({
       <div className="grid grid-cols-2 gap-3">
         <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
           Amount
-          <input name="amount" type="number" min="0" step="any" defaultValue={values.amount} required className={field} />
+          <input name="amount" type="number" min="0" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} required className={field} />
         </label>
         <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
           Date
@@ -83,6 +87,9 @@ export function EditTxForm({
           </div>
         )}
       </div>
+      {values.type === 'expense' && (
+        <SharesEditor people={offer(lists.people, values.shares.map((x) => x.person))} total={Number(amount) || 0} value={shares} onChange={setShares} />
+      )}
       <div className="grid gap-1 text-xs text-muted-foreground">
         Tags
         <Picker name="tags" kind="tag" items={offer(lists.tags, values.tags)} value={tags} onChange={setTags} placeholder="Add tags" multiple />

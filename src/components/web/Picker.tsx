@@ -88,10 +88,8 @@ export function Picker({
 
   return (
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setQ('') }}>
-      {value.map((id) => (
-        <input key={id} type="hidden" name={name} value={id} />
-      ))}
-      {!multiple && value.length === 0 && <input type="hidden" name={name} value="" />}
+      {!name.startsWith('_') && value.map((id) => <input key={id} type="hidden" name={name} value={id} />)}
+      {!name.startsWith('_') && !multiple && value.length === 0 && <input type="hidden" name={name} value="" />}
       <PopoverTrigger asChild>
         <button type="button" className={cn(trigger, multiple && selected.length > 0 && 'h-auto min-h-10 flex-wrap py-1.5')}>
           {multiple ? (

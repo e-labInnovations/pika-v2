@@ -91,7 +91,11 @@ export type TxEdit = {
   tags?: string[]
   person?: string | null
   account?: string
+  /** Friends' shares of an expense; [] removes them. */
+  shares?: Share[]
 }
+
+export type Share = { person: string; amount: number | string }
 
 const ownerOf = (doc: { user?: unknown }) => idOf(doc.user)
 
@@ -126,6 +130,14 @@ export async function editTransaction(payload: Payload, user: User, id: string, 
   if (input.tags !== undefined) data.tags = input.tags
   if (input.person !== undefined) data.person = input.person
   if (input.account !== undefined) data.account = input.account
+  if (input.shares !== undefined) {
+    if (input.shares.length) {
+      const people = await payload.find({ collection: 'people', where: { and: [{ user: { equals: user.id } }, { id: { in: input.shares.map((x) => x.person) } }] }, limit: 100, depth: 0, user, overrideAccess: false })
+      if (people.docs.length !== new Set(input.shares.map((x) => x.person)).size) return { error: 'Split only with your own people.' }
+      if (input.shares.some((x) => !(Number(x.amount) > 0))) return { error: 'Each share must be more than 0.' }
+    }
+    data.shares = input.shares.map((x) => ({ person: x.person, amount: Number(x.amount).toFixed(2) }))
+  }
   try {
     await payload.update({ collection: 'transactions', id, data, user, overrideAccess: false, depth: 0 })
     return { ok: true }
@@ -147,6 +159,7 @@ export type TxNew = {
   person?: string | null
   tags: string[]
   note?: string
+  shares?: Share[]
 }
 
 /** Adds a transaction for the user. Every id must be one of theirs (or a shared system category/tag). */
@@ -171,6 +184,10 @@ export async function createTransaction(payload: Payload, user: User, input: TxN
   }
   if (input.person && (input.type === 'transfer' || !has(l.people, input.person))) return { error: 'Choose one of your people.' }
   if (input.tags.some((t) => !has(l.tags, t))) return { error: 'Choose your own tags.' }
+  const shares = input.shares ?? []
+  if (shares.length && input.type !== 'expense') return { error: 'Only expenses can be split with people.' }
+  if (shares.some((x) => !has(l.people, x.person))) return { error: 'Split only with your own people.' }
+  if (shares.some((x) => !(Number(x.amount) > 0))) return { error: 'Each share must be more than 0.' }
   try {
     const doc = await payload.create({
       collection: 'transactions',
@@ -183,6 +200,7 @@ export async function createTransaction(payload: Payload, user: User, input: TxN
         account: input.account,
         ...(input.type === 'transfer' ? { toAccount: input.toAccount } : input.person ? { person: input.person } : {}),
         tags: input.tags,
+        ...(shares.length ? { shares: shares.map((x) => ({ person: x.person, amount: Number(x.amount).toFixed(2) })) } : {}),
         ...(input.note?.trim() ? { note: input.note.trim() } : {}),
         source: 'manual',
       } as never,

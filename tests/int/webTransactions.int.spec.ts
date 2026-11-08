@@ -179,4 +179,38 @@ describe('web transactions', () => {
       }
     })
   })
+
+  describe('split with people', () => {
+    it('adds an expense with shares, and edits them', async () => {
+      const friend = await payload.create({ collection: 'people', data: { name: `Friend ${stamp}` } as any, user: me, overrideAccess: false })
+      const l = await loadLookups(payload, me)
+      const cat = l.categories.find((c) => c.parentId && c.type === 'expense')!
+      const made = (await createTransaction(payload, me, { type: 'expense', title: `Shared ${stamp}`, amount: 1200, date: '2026-12-05 21:00', category: cat.id, account: l.accounts[0].id, tags: [], shares: [{ person: String(friend.id), amount: 600 }] }, TZ)) as { id: string }
+      expect(made).toHaveProperty('id')
+      let t = await payload.findByID({ collection: 'transactions', id: made.id, depth: 0 })
+      expect(t.shares?.map((x) => [String(x.person), Number(x.amount)])).toEqual([[String(friend.id), 600]])
+
+      expect(await editTransaction(payload, me, made.id, { shares: [{ person: String(friend.id), amount: 400 }] }, TZ)).toEqual({ ok: true })
+      t = await payload.findByID({ collection: 'transactions', id: made.id, depth: 0 })
+      expect(Number(t.shares?.[0].amount)).toBe(400)
+
+      expect(await editTransaction(payload, me, made.id, { shares: [] }, TZ)).toEqual({ ok: true })
+      t = await payload.findByID({ collection: 'transactions', id: made.id, depth: 0 })
+      expect(t.shares ?? []).toEqual([])
+      await payload.delete({ collection: 'transactions', id: made.id })
+      await payload.delete({ collection: 'people', id: friend.id })
+    })
+
+    it("refuses shares for someone else's person or that add up to more than the amount", async () => {
+      const theirs = await payload.create({ collection: 'people', data: { name: `NotMine ${stamp}` } as any, user: other, overrideAccess: false })
+      const mine = await payload.create({ collection: 'people', data: { name: `Mine2 ${stamp}` } as any, user: me, overrideAccess: false })
+      const l = await loadLookups(payload, me)
+      const cat = l.categories.find((c) => c.parentId && c.type === 'expense')!
+      const base = { type: 'expense' as const, title: 'share test', amount: 100, date: '2026-12-05 21:00', category: cat.id, account: l.accounts[0].id, tags: [] }
+      expect(await createTransaction(payload, me, { ...base, shares: [{ person: String(theirs.id), amount: 50 }] }, TZ)).toHaveProperty('error')
+      expect(await createTransaction(payload, me, { ...base, shares: [{ person: String(mine.id), amount: 150 }] }, TZ)).toHaveProperty('error')
+      await payload.delete({ collection: 'people', id: theirs.id })
+      await payload.delete({ collection: 'people', id: mine.id })
+    })
+  })
 })

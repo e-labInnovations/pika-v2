@@ -10,6 +10,13 @@ import { createTransaction, editTransaction, getOwnTransaction, loadLookups, tra
 export type ActionState = { ok: string } | { error: string } | null
 
 const str = (v: FormDataEntryValue | null) => (typeof v === 'string' ? v : undefined)
+/** share_person / share_amount pairs from the Split editor; undefined when it wasn't shown. */
+const sharesOf = (form: FormData) => {
+  if (!form.get('shares_present')) return undefined
+  const people = form.getAll('share_person').map(String)
+  const amounts = form.getAll('share_amount').map(String)
+  return people.map((person, i) => ({ person, amount: amounts[i] ?? '' }))
+}
 const idOf = (v: unknown) => (v && typeof v === 'object' ? String((v as { id: unknown }).id) : v ? String(v) : null)
 
 /** Edit form on the transaction panel: saves only the fields that changed. */
@@ -28,6 +35,7 @@ export async function saveTransaction(_: ActionState, form: FormData): Promise<A
       account: str(form.get('account')),
       person: str(form.get('person')),
       tags: form.getAll('tags').map(String).filter(Boolean),
+      shares: sharesOf(form),
     },
     {
       title: tx.title,
@@ -38,6 +46,7 @@ export async function saveTransaction(_: ActionState, form: FormData): Promise<A
       account: idOf(tx.account),
       person: idOf(tx.person),
       tags: (tx.tags ?? []).map(idOf).filter((x): x is string => !!x),
+      shares: (tx.shares ?? []).map((x) => ({ person: idOf(x.person) ?? '', amount: String(x.amount) })),
     },
   )
   if (Object.keys(changes).length === 0) return { ok: 'No changes.' }
@@ -73,6 +82,7 @@ export async function addTransaction(_: AddState, form: FormData): Promise<AddSt
       person: type === 'transfer' ? null : str(form.get('person')) || null,
       tags: form.getAll('tags').map(String).filter(Boolean),
       note: str(form.get('note')),
+      shares: type === 'expense' ? (sharesOf(form) ?? []).filter((x) => x.person) : [],
     },
     timeZone,
   )

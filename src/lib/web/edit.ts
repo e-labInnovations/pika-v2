@@ -11,9 +11,15 @@ export type EditOriginal = {
   account: string | null
   person: string | null
   tags: string[]
+  shares?: { person: string; amount: string }[]
 }
 
-type Submitted = { [K in keyof EditOriginal]?: K extends 'tags' ? string[] : string | null }
+type Submitted = {
+  [K in keyof EditOriginal]?: K extends 'tags' ? string[] : K extends 'shares' ? { person: string; amount: string }[] : string | null
+}
+
+const shareKey = (xs: { person: string; amount: string | number }[]) =>
+  xs.map((x) => `${x.person}:${Math.round(Number(x.amount) * 100)}`).sort().join('|')
 
 const same = (a: string[], b: string[]) => a.length === b.length && [...a].sort().join() === [...b].sort().join()
 
@@ -32,5 +38,6 @@ export function formToEdit(f: Submitted, o: EditOriginal): TxEdit {
   const person = f.person || null
   if (f.person !== undefined && person !== o.person) out.person = person
   if (f.tags && !same(f.tags, o.tags)) out.tags = f.tags
+  if (f.shares && shareKey(f.shares) !== shareKey(o.shares ?? [])) out.shares = f.shares.map((x) => ({ person: x.person, amount: Number(x.amount) }))
   return out
 }

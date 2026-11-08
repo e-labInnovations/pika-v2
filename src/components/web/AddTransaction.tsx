@@ -8,6 +8,7 @@ import { addTransaction, getAddFormLists, type AddState } from '@/app/(app)/app/
 import type { LookupItem } from '@/lib/web/transactions'
 import { cn } from '@/lib/utils'
 import { Picker } from './Picker'
+import { SharesEditor, type ShareRow } from './SharesEditor'
 import { Portal } from './Portal'
 
 type Lists = { categories: LookupItem[]; tags: LookupItem[]; people: LookupItem[]; accounts: LookupItem[] }
@@ -47,6 +48,8 @@ function AddPanel({ onClose }: { onClose: () => void }) {
   const [toAccount, setToAccount] = React.useState<string[]>([])
   const [person, setPerson] = React.useState<string[]>([])
   const [tags, setTags] = React.useState<string[]>([])
+  const [amount, setAmount] = React.useState('')
+  const [shares, setShares] = React.useState<ShareRow[]>([])
   const [state, action, pending] = useActionState<AddState, FormData>(addTransaction, null)
 
   React.useEffect(() => {
@@ -111,7 +114,7 @@ function AddPanel({ onClose }: { onClose: () => void }) {
             <div className="grid grid-cols-2 gap-3">
               <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                 Amount
-                <input name="amount" type="number" min="0" step="any" required className={field} />
+                <input name="amount" type="number" min="0" step="any" required value={amount} onChange={(e) => setAmount(e.target.value)} className={field} />
               </label>
               <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                 Date
@@ -139,6 +142,7 @@ function AddPanel({ onClose }: { onClose: () => void }) {
                 </div>
               )}
             </div>
+            {type === 'expense' && <SharesEditor people={lists.people} total={Number(amount) || 0} value={shares} onChange={setShares} />}
             {lists.tags.length > 0 && (
               <div className="grid gap-1 text-xs text-muted-foreground">
                 Tags
