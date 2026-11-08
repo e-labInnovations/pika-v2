@@ -180,6 +180,9 @@ function AddPanel({ onClose }: { onClose: () => void }) {
               <textarea name="note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} className={`${field} h-auto py-2`} />
             </label>
             {state && 'error' in state && <p className="text-sm text-destructive">{state.error}</p>}
+            <button type="submit" disabled={pending} className="h-11 rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-60">
+              {pending ? 'Adding…' : 'Add transaction'}
+            </button>
             {state && 'duplicate' in state && (
               <div className="grid gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
                 <p>
@@ -195,9 +198,6 @@ function AddPanel({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
             )}
-            <button type="submit" disabled={pending} className="h-11 rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-60">
-              {pending ? 'Adding…' : 'Add transaction'}
-            </button>
           </form>
         )}
       </aside>

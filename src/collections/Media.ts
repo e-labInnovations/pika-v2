@@ -77,5 +77,8 @@ export const Media: CollectionConfig = {
     },
     userField,
   ],
-  upload: true,
+  // Receipts, screenshots and avatars only: no SVG/HTML (they could run script when opened), 20 MB max.
+  upload: {
+    mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif', 'application/pdf'],
+  },
 }

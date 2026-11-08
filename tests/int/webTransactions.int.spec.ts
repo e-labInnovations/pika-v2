@@ -45,7 +45,7 @@ describe('web transactions', () => {
     for (const u of [me, other]) {
       const where = { user: { equals: u.id } }
       await payload.delete({ collection: 'transactions', where, trash: true } as any)
-      for (const c of ['accounts', 'people', 'media', 'user-settings'] as const) await payload.delete({ collection: c, where })
+      for (const c of ['accounts', 'people', 'tags', 'media', 'user-settings'] as const) await payload.delete({ collection: c, where })
       await payload.delete({ collection: 'users', id: u.id })
     }
   })
@@ -278,5 +278,27 @@ describe('web transactions', () => {
       const forced = await createTransaction(payload, me, { ...base, date: '2026-12-08 08:12', allowDuplicate: true }, TZ)
       expect(forced).toHaveProperty('id')
     })
+  })
+
+  describe('split keeps the original', () => {
+    it("part 1 keeps the transaction's title, tags and person unless given", async () => {
+      const friend = await payload.create({ collection: 'people', data: { name: `Landlord ${stamp}` } as any, user: me, overrideAccess: false })
+      const tag = await payload.create({ collection: 'tags', data: { name: `home ${stamp}`, icon: 'house' } as any, user: me, overrideAccess: false })
+      const l = await loadLookups(payload, me)
+      const cats = l.categories.filter((c) => c.parentId && c.type === 'expense')
+      const made = (await createTransaction(payload, me, { type: 'expense', title: `Rent+EB keep ${stamp}`, amount: 1000, date: '2026-12-10 09:00', category: cats[0].id, account: l.accounts[0].id, tags: [String(tag.id)], person: String(friend.id), allowDuplicate: true }, TZ)) as { id: string }
+      const res = (await splitOwnTransaction(payload, me, made.id, [{ title: '', amount: 900, category: cats[0].id }, { title: 'EB', amount: 100, category: cats[1].id }])) as { ids: string[] }
+      expect(res.ids).toBeDefined()
+      const first = await payload.findByID({ collection: 'transactions', id: made.id, depth: 0 })
+      expect(first.title).toBe(`Rent+EB keep ${stamp}`)
+      expect((first.tags ?? []).map(String)).toEqual([String(tag.id)])
+      expect(String(first.person)).toBe(String(friend.id))
+    })
+  })
+
+  it('malformed ids are refused with an error, not a crash', async () => {
+    expect(await editTransaction(payload, me, decFirstId, { shares: [{ person: 'not-a-uuid', amount: 1 }] }, TZ)).toHaveProperty('error')
+    expect(await editTransaction(payload, me, decFirstId, { attachments: ['nope'] }, TZ)).toHaveProperty('error')
+    expect(await splitOwnTransaction(payload, me, decFirstId, 'x' as never)).toHaveProperty('error')
   })
 })

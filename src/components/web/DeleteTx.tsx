@@ -30,16 +30,20 @@ export function DeleteTx({ id }: { id: string }) {
           disabled={busy}
           onClick={async () => {
             setBusy(true)
-            const res = await deleteTransactionAction(id)
-            if ('error' in res) {
-              setError(res.error)
+            try {
+              const res = await deleteTransactionAction(id)
+              if ('error' in res) {
+                setError(res.error)
+                setBusy(false)
+                return
+              }
+              // The transaction is gone: always land on the list.
+              router.push('/app/transactions')
+              router.refresh()
+            } catch {
+              setError('Could not reach the server. Try again.')
               setBusy(false)
-              return
             }
-            // From the list's panel go back to it; from a direct link go to the list.
-            if (window.history.length > 1 && document.referrer.includes('/app')) router.back()
-            else router.push('/app/transactions')
-            router.refresh()
           }}
           className="h-9 flex-1 rounded-lg bg-destructive text-sm font-semibold text-white disabled:opacity-60"
         >

@@ -12,6 +12,8 @@ const nextConfig = {
   // deploy artifact — the VPS never sees the repo, pnpm, or a full
   // `node_modules` tree. See docs/DEPLOYMENT.md.
   output: 'standalone',
+  // Server actions carry receipt photos for AI fill (checked to 8 MB in the action).
+  experimental: { serverActions: { bodySizeLimit: '10mb' } },
   // Pin the trace root so the standalone tree stays scoped to this project and
   // reproducible in CI, instead of Next walking up looking for a lockfile.
   outputFileTracingRoot: dirname,

@@ -32,6 +32,10 @@ export type Lookups = {
 const avatarOf = (d: { avatar?: unknown }) =>
   d.avatar && typeof d.avatar === 'object' ? ((d.avatar as { thumbnailURL?: string | null; url?: string | null }).thumbnailURL || (d.avatar as { url?: string | null }).url || null) : null
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+/** A well-formed id (anything else would make Postgres throw on an `in` query). */
+const isId = (v: unknown): v is string => typeof v === 'string' && UUID.test(v)
+
 const idOf = (v: unknown): string | null => (v && typeof v === 'object' ? String((v as { id: unknown }).id) : v ? String(v) : null)
 
 /** Everything the user can filter by, archived included (flagged). */
@@ -135,6 +139,7 @@ export async function editTransaction(payload: Payload, user: User, id: string, 
   if (input.person !== undefined) data.person = input.person
   if (input.account !== undefined) data.account = input.account
   if (input.shares !== undefined) {
+    if (!Array.isArray(input.shares) || !input.shares.every((x) => isId(x?.person))) return { error: 'Split only with your own people.' }
     if (input.shares.length) {
       const people = await payload.find({ collection: 'people', where: { and: [{ user: { equals: user.id } }, { id: { in: input.shares.map((x) => x.person) } }] }, limit: 100, depth: 0, user, overrideAccess: false })
       if (people.docs.length !== new Set(input.shares.map((x) => x.person)).size) return { error: 'Split only with your own people.' }
@@ -178,6 +183,7 @@ export type Duplicate = { id: string; title: string; amount: string; date: strin
 /** True when every id is a media file the user uploaded. */
 async function ownMedia(payload: Payload, user: User, ids: string[]): Promise<boolean> {
   if (!ids.length) return true
+  if (!Array.isArray(ids) || !ids.every(isId)) return false
   const res = await payload.find({ collection: 'media', where: { and: [{ user: { equals: user.id } }, { id: { in: ids } }] }, limit: ids.length, depth: 0, user, overrideAccess: false })
   return res.docs.length === new Set(ids).size
 }
@@ -263,7 +269,9 @@ export type PartIn = { title: string; amount: number | string; category: string;
 export async function splitOwnTransaction(payload: Payload, user: User, id: string, parts: PartIn[]): Promise<{ ids: string[] } | { error: string }> {
   const tx = await getOwnTransaction(payload, user, id)
   if (!tx) return { error: 'Transaction not found.' }
-  if (parts.length < 2) return { error: 'Split into at least two parts.' }
+  if (!Array.isArray(parts) || parts.length < 2) return { error: 'Split into at least two parts.' }
+  if (parts.length > 20) return { error: 'Split into at most 20 parts.' }
+  if (parts.some((p) => !p || typeof p !== 'object' || (p.tags !== undefined && !Array.isArray(p.tags)))) return { error: 'Invalid parts.' }
   const l = await loadLookups(payload, user)
   const has = (list: LookupItem[], v?: string | null) => !!v && list.some((x) => x.id === v)
   for (const [i, p] of parts.entries()) {
@@ -278,12 +286,13 @@ export async function splitOwnTransaction(payload: Payload, user: User, id: stri
       payload,
       user,
       id,
+      // Part 1 is the original transaction: unless given, it keeps its title, tags and person.
       parts.map((p, i) => ({
-        title: p.title?.trim() || `Part ${i + 1}`,
+        title: p.title?.trim() || (i === 0 ? tx.title : `Part ${i + 1}`),
         amount: Number(p.amount).toFixed(2),
         category: p.category,
-        tags: p.tags ?? [],
-        person: p.person ?? null,
+        tags: p.tags ?? (i === 0 ? (tx.tags ?? []).map(idOf).filter((x): x is string => !!x) : []),
+        person: p.person !== undefined ? p.person : i === 0 ? idOf(tx.person) : null,
       })),
     )
     return { ids: res.transactions }
@@ -296,7 +305,7 @@ export async function splitOwnTransaction(payload: Payload, user: User, id: stri
 export async function suggestSplit(payload: Payload, user: User, id: string, hint: string): Promise<{ parts: SmsPart[] } | { error: string }> {
   const tx = await getOwnTransaction(payload, user, id)
   if (!tx) return { error: 'Transaction not found.' }
-  const text = hint.trim().slice(0, 1000)
+  const text = (typeof hint === 'string' ? hint : '').trim().slice(0, 1000)
   const about = `Transaction: ${tx.title}${tx.note ? ` (${tx.note})` : ''}, ${tx.amount}`
   try {
     const parts = await aiSplitParts(payload, String(user.id), text ? `${text}\n\n${about}` : about, String(tx.amount), String(tx.type))

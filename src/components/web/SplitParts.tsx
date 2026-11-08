@@ -9,7 +9,7 @@ import type { LookupItem } from '@/lib/web/transactions'
 import { cn } from '@/lib/utils'
 import { Picker } from './Picker'
 
-type Row = { key: number; title: string; amount: string; category: string[] }
+type Row = { key: number; title: string; amount: string; category: string[]; tags?: string[] }
 
 const paise = (v: string | number) => Math.round(Number(v || 0) * 100)
 const field = 'h-9 w-full min-w-0 rounded-lg border bg-background px-2 text-sm outline-none'
@@ -58,10 +58,15 @@ export function SplitParts({ id, total, type, categories, defaultCategory }: { i
           onClick={async () => {
             setBusy('ai')
             setError(null)
-            const res = await suggestSplitAction(id, hint)
-            setBusy(null)
-            if ('error' in res) return setError(res.error)
-            setRows(res.parts.map((p) => ({ key: next.current++, title: p.title, amount: String(Number(p.amount)), category: p.category ? [p.category] : [] })))
+            try {
+              const res = await suggestSplitAction(id, hint)
+              if ('error' in res) return setError(res.error)
+              setRows(res.parts.map((p) => ({ key: next.current++, title: p.title, amount: String(Number(p.amount)), category: p.category ? [p.category] : [], tags: p.tags ?? [] })))
+            } catch {
+              setError('Could not reach the server. Try again.')
+            } finally {
+              setBusy(null)
+            }
           }}
           className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-sm hover:bg-accent disabled:opacity-60"
         >
@@ -100,14 +105,19 @@ export function SplitParts({ id, total, type, categories, defaultCategory }: { i
         onClick={async () => {
           setBusy('save')
           setError(null)
-          const res = await splitAction(
-            id,
-            rows.map((r) => ({ title: r.title, amount: r.amount, category: r.category[0] ?? '' })),
-          )
-          setBusy(null)
-          if ('error' in res) return setError(res.error)
-          router.push('/app/transactions')
-          router.refresh()
+          try {
+            const res = await splitAction(
+              id,
+              rows.map((r) => ({ title: r.title, amount: r.amount, category: r.category[0] ?? '', ...(r.tags ? { tags: r.tags } : {}) })),
+            )
+            if ('error' in res) return setError(res.error)
+            router.push('/app/transactions')
+            router.refresh()
+          } catch {
+            setError('Could not reach the server. Try again.')
+          } finally {
+            setBusy(null)
+          }
         }}
         className="h-10 rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-50"
       >

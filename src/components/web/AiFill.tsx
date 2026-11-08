@@ -23,11 +23,16 @@ export function AiFill({ onFill }: { onFill: (p: Prefill) => void }) {
     if (image) fd.append('image', image)
     setBusy(true)
     setError(null)
-    const res = await aiPrefillAction(fd)
-    setBusy(false)
-    if ('error' in res) return setError(res.error)
-    onFill(res.prefill)
-    setDone(true)
+    try {
+      const res = await aiPrefillAction(fd)
+      if ('error' in res) return setError(res.error)
+      onFill(res.prefill)
+      setDone(true)
+    } catch {
+      setError('Could not reach the AI. Try a smaller image or try again.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
