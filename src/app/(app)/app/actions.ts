@@ -6,8 +6,8 @@ import { requireSession } from '@/lib/session'
 import { formToEdit } from '@/lib/web/edit'
 import { toPrefill, type Prefill } from '@/lib/web/prefill'
 import { processImageToTransaction, processTextToTransaction } from '@/utilities/ai/service'
-import { localInputValue } from '@/lib/web/format'
-import { createTransaction, editTransaction, getOwnTransaction, loadLookups, splitOwnTransaction, suggestSplit, trashTransaction, type PartIn } from '@/lib/web/transactions'
+import { formatLocalDateTime, localInputValue } from '@/lib/web/format'
+import { createTransaction, editTransaction, getOwnTransaction, loadLookups, splitOwnTransaction, suggestSplit, trashTransaction, type Duplicate, type PartIn } from '@/lib/web/transactions'
 
 export type ActionState = { ok: string } | { error: string } | null
 
@@ -88,15 +88,17 @@ export async function addTransaction(_: AddState, form: FormData): Promise<AddSt
       note: str(form.get('note')),
       shares: type === 'expense' ? (sharesOf(form) ?? []).filter((x) => x.person) : [],
       attachments: form.getAll('attachments').map(String),
+      allowDuplicate: form.get('allow_duplicate') === '1',
     },
     timeZone,
   )
   if ('error' in res) return res
+  if ('duplicate' in res) return { duplicate: { ...res.duplicate, when: formatLocalDateTime(res.duplicate.date, timeZone) } }
   revalidatePath('/app', 'layout')
   return { ok: 'Added.', id: res.id }
 }
 
-export type AddState = { ok: string; id: string } | { error: string } | null
+export type AddState = { ok: string; id: string } | { error: string } | { duplicate: Duplicate & { when: string } } | null
 
 /** Panel → Delete (to the trash). */
 export async function deleteTransactionAction(id: string): Promise<{ ok: true } | { error: string }> {

@@ -180,6 +180,21 @@ function AddPanel({ onClose }: { onClose: () => void }) {
               <textarea name="note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} className={`${field} h-auto py-2`} />
             </label>
             {state && 'error' in state && <p className="text-sm text-destructive">{state.error}</p>}
+            {state && 'duplicate' in state && (
+              <div className="grid gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                <p>
+                  Looks like one you already have: <strong>{state.duplicate.title}</strong>, {state.duplicate.amount} on {state.duplicate.when}.
+                </p>
+                <div className="flex gap-2">
+                  <button type="submit" name="allow_duplicate" value="1" disabled={pending} className="h-9 rounded-lg bg-amber-500 px-3 font-semibold text-black disabled:opacity-60">
+                    Add anyway
+                  </button>
+                  <a href={`/app/transactions/${state.duplicate.id}`} className="inline-flex h-9 items-center rounded-lg border px-3 hover:bg-accent">
+                    Open it
+                  </a>
+                </div>
+              </div>
+            )}
             <button type="submit" disabled={pending} className="h-11 rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-60">
               {pending ? 'Adding…' : 'Add transaction'}
             </button>

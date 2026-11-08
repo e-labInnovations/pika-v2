@@ -1,6 +1,7 @@
 import type { Payload, Where } from 'payload'
 
 import type { Transaction, User } from '@/payload-types'
+import { findPossibleDuplicates } from '@/utilities/duplicates'
 import { parseLocalDate } from '@/utilities/mcp/time'
 import { aiSplitParts, splitTransaction, type SmsPart } from '@/utilities/sms/split'
 import { searchSummary, type SearchSummary } from '@/utilities/search/searchSummary'
@@ -168,7 +169,11 @@ export type TxNew = {
   note?: string
   shares?: Share[]
   attachments?: string[]
+  /** Save even if it looks like an existing transaction. */
+  allowDuplicate?: boolean
 }
+
+export type Duplicate = { id: string; title: string; amount: string; date: string }
 
 /** True when every id is a media file the user uploaded. */
 async function ownMedia(payload: Payload, user: User, ids: string[]): Promise<boolean> {
@@ -178,7 +183,7 @@ async function ownMedia(payload: Payload, user: User, ids: string[]): Promise<bo
 }
 
 /** Adds a transaction for the user. Every id must be one of theirs (or a shared system category/tag). */
-export async function createTransaction(payload: Payload, user: User, input: TxNew, tz: string): Promise<{ id: string } | { error: string }> {
+export async function createTransaction(payload: Payload, user: User, input: TxNew, tz: string): Promise<{ id: string } | { error: string } | { duplicate: Duplicate }> {
   if (!['expense', 'income', 'transfer'].includes(input.type)) return { error: 'Choose expense, income or transfer.' }
   if (!input.title?.trim()) return { error: 'Title is required.' }
   if (!(Number.isFinite(input.amount) && input.amount > 0)) return { error: 'Amount must be more than 0.' }
@@ -205,6 +210,11 @@ export async function createTransaction(payload: Payload, user: User, input: TxN
   if (shares.some((x) => !(Number(x.amount) > 0))) return { error: 'Each share must be more than 0.' }
   const attachments = input.attachments ?? []
   if (!(await ownMedia(payload, user, attachments))) return { error: 'Attach only your own files.' }
+  if (!input.allowDuplicate) {
+    const dupes = await findPossibleDuplicates(payload, String(user.id), { type: input.type, amount: input.amount, date, title: input.title })
+    const tx = dupes.find((d) => d.kind === 'transaction')
+    if (tx) return { duplicate: { id: tx.id, title: tx.title, amount: tx.amount, date: tx.date } }
+  }
   try {
     const doc = await payload.create({
       collection: 'transactions',

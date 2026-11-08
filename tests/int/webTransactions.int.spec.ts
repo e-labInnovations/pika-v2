@@ -264,4 +264,19 @@ describe('web transactions', () => {
       expect(await splitOwnTransaction(payload, me, String(theirs.id), [{ title: 'a', amount: Number(theirs.amount), category: cat.id }])).toHaveProperty('error')
     })
   })
+
+  describe('duplicates', () => {
+    it('holds back a likely duplicate unless allowed', async () => {
+      const l = await loadLookups(payload, me)
+      const cat = l.categories.find((c) => c.parentId && c.type === 'expense')!
+      const base = { type: 'expense' as const, title: `Coffee ${stamp}`, amount: 187, date: '2026-12-08 08:10', category: cat.id, account: l.accounts[0].id, tags: [] }
+      const first = await createTransaction(payload, me, base, TZ)
+      expect(first).toHaveProperty('id')
+      const again = await createTransaction(payload, me, { ...base, date: '2026-12-08 08:12' }, TZ)
+      expect(again).toHaveProperty('duplicate')
+      expect((again as { duplicate: { id: string } }).duplicate.id).toBe((first as { id: string }).id)
+      const forced = await createTransaction(payload, me, { ...base, date: '2026-12-08 08:12', allowDuplicate: true }, TZ)
+      expect(forced).toHaveProperty('id')
+    })
+  })
 })
