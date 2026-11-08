@@ -7,12 +7,13 @@ import React, { useActionState } from 'react'
 import { addTransaction, getAddFormLists, type AddState } from '@/app/(app)/app/actions'
 import type { LookupItem } from '@/lib/web/transactions'
 import { cn } from '@/lib/utils'
+import { Picker } from './Picker'
 import { Portal } from './Portal'
 
 type Lists = { categories: LookupItem[]; tags: LookupItem[]; people: LookupItem[]; accounts: LookupItem[] }
 type TxType = 'expense' | 'income' | 'transfer'
 
-const field = 'h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40'
+const field = 'h-10 w-full min-w-0 rounded-xl border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40'
 const pad = (n: number) => String(n).padStart(2, '0')
 const nowLocal = () => {
   const d = new Date()
@@ -41,10 +42,20 @@ function AddPanel({ onClose }: { onClose: () => void }) {
   const router = useRouter()
   const [lists, setLists] = React.useState<Lists | null>(null)
   const [type, setType] = React.useState<TxType>('expense')
+  const [category, setCategory] = React.useState<string[]>([])
+  const [account, setAccount] = React.useState<string[]>([])
+  const [toAccount, setToAccount] = React.useState<string[]>([])
+  const [person, setPerson] = React.useState<string[]>([])
+  const [tags, setTags] = React.useState<string[]>([])
   const [state, action, pending] = useActionState<AddState, FormData>(addTransaction, null)
 
   React.useEffect(() => {
-    getAddFormLists().then(setLists).catch(() => setLists({ categories: [], tags: [], people: [], accounts: [] }))
+    getAddFormLists()
+      .then((l) => {
+        setLists(l)
+        if (l.accounts[0]) setAccount([l.accounts[0].id])
+      })
+      .catch(() => setLists({ categories: [], tags: [], people: [], accounts: [] }))
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -57,11 +68,8 @@ function AddPanel({ onClose }: { onClose: () => void }) {
     }
   }, [state, onClose, router])
 
-  const byId = new Map((lists?.categories ?? []).map((c) => [c.id, c]))
-  const cats = (lists?.categories ?? [])
-    .filter((c) => c.parentId && c.type === type)
-    .map((c) => ({ id: c.id, label: `${byId.get(c.parentId!)?.name ?? ''} › ${c.name}` }))
-    .sort((a, b) => a.label.localeCompare(b.label))
+  // Subcategories of this type, plus their parents for the group headings.
+  const typeCats = (lists?.categories ?? []).filter((c) => c.type === type)
 
   return (
     <div className="fixed inset-0 z-50">
@@ -83,7 +91,10 @@ function AddPanel({ onClose }: { onClose: () => void }) {
                 <button
                   key={t}
                   type="button"
-                  onClick={() => setType(t)}
+                  onClick={() => {
+                    setType(t)
+                    setCategory([])
+                  }}
                   className={cn(
                     'h-9 rounded-lg text-sm font-medium capitalize',
                     t === type ? (t === 'expense' ? 'bg-expense/20 text-expense' : t === 'income' ? 'bg-income/20 text-income' : 'bg-primary/20 text-primary') : 'text-muted-foreground hover:bg-accent',
@@ -98,67 +109,41 @@ function AddPanel({ onClose }: { onClose: () => void }) {
               <input name="title" required autoFocus className={field} placeholder="Lunch at Paragon" />
             </label>
             <div className="grid grid-cols-2 gap-3">
-              <label className="grid gap-1 text-xs text-muted-foreground">
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                 Amount
                 <input name="amount" type="number" min="0" step="any" required className={field} />
               </label>
-              <label className="grid gap-1 text-xs text-muted-foreground">
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                 Date
                 <input name="date" type="datetime-local" defaultValue={nowLocal()} required className={field} />
               </label>
             </div>
-            <label className="grid gap-1 text-xs text-muted-foreground">
+            <div className="grid gap-1 text-xs text-muted-foreground">
               Category
-              <select key={type} name="category" required defaultValue="" className={field}>
-                <option value="" disabled>Choose…</option>
-                {cats.map((c) => (
-                  <option key={c.id} value={c.id}>{c.label}</option>
-                ))}
-              </select>
-            </label>
+              <Picker name="category" kind="category" items={typeCats} value={category} onChange={setCategory} placeholder="Choose a category" />
+            </div>
             <div className="grid grid-cols-2 gap-3">
-              <label className="grid gap-1 text-xs text-muted-foreground">
+              <div className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                 {type === 'transfer' ? 'From account' : 'Account'}
-                <select name="account" required defaultValue={lists.accounts[0]?.id ?? ''} className={field}>
-                  {lists.accounts.map((a) => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
-              </label>
+                <Picker name="account" kind="account" items={lists.accounts} value={account} onChange={setAccount} />
+              </div>
               {type === 'transfer' ? (
-                <label className="grid gap-1 text-xs text-muted-foreground">
+                <div className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                   To account
-                  <select name="toAccount" required defaultValue="" className={field}>
-                    <option value="" disabled>Choose…</option>
-                    {lists.accounts.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
-                </label>
+                  <Picker name="toAccount" kind="account" items={lists.accounts.filter((x) => !account.includes(x.id))} value={toAccount} onChange={setToAccount} />
+                </div>
               ) : (
-                <label className="grid gap-1 text-xs text-muted-foreground">
+                <div className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                   Person
-                  <select name="person" defaultValue="" className={field}>
-                    <option value="">—</option>
-                    {lists.people.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </label>
+                  <Picker name="person" kind="person" items={lists.people} value={person} onChange={setPerson} placeholder="No one" allowNone />
+                </div>
               )}
             </div>
             {lists.tags.length > 0 && (
-              <fieldset className="grid gap-1 text-xs text-muted-foreground">
+              <div className="grid gap-1 text-xs text-muted-foreground">
                 Tags
-                <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto rounded-xl border bg-background p-2">
-                  {lists.tags.map((t) => (
-                    <label key={t.id} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-2 py-1 text-xs text-foreground has-[:checked]:border-primary has-[:checked]:bg-primary/15">
-                      <input type="checkbox" name="tags" value={t.id} className="sr-only" />
-                      {t.name}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
+                <Picker name="tags" kind="tag" items={lists.tags} value={tags} onChange={setTags} placeholder="Add tags" multiple />
+              </div>
             )}
             <label className="grid gap-1 text-xs text-muted-foreground">
               Note
