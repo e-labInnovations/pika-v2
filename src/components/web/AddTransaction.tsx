@@ -7,6 +7,7 @@ import React, { useActionState } from 'react'
 import { addTransaction, getAddFormLists, type AddState } from '@/app/(app)/app/actions'
 import type { LookupItem } from '@/lib/web/transactions'
 import { cn } from '@/lib/utils'
+import { Portal } from './Portal'
 
 type Lists = { categories: LookupItem[]; tags: LookupItem[]; people: LookupItem[]; accounts: LookupItem[] }
 type TxType = 'expense' | 'income' | 'transfer'
@@ -27,7 +28,11 @@ export function AddTransaction() {
         <Plus className="size-4" />
         <span className="hidden sm:inline">Add</span>
       </button>
-      {open && <AddPanel onClose={() => setOpen(false)} />}
+      {open && (
+        <Portal>
+          <AddPanel onClose={() => setOpen(false)} />
+        </Portal>
+      )}
     </>
   )
 }

@@ -7,6 +7,7 @@ import React from 'react'
 
 import { cn } from '@/lib/utils'
 import { NAV, isActive } from './nav'
+import { Portal } from './Portal'
 
 const ICONS = { home: Home, list: List, chart: BarChart3, people: Users } as const
 
@@ -71,6 +72,7 @@ export function MobileNav({ isAdmin }: { isAdmin: boolean }) {
         <List className="size-5" />
       </button>
       {open && (
+        <Portal>
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
           <aside className="absolute inset-y-0 left-0 flex w-64 flex-col gap-6 bg-sidebar px-3 py-6 shadow-xl">
@@ -83,6 +85,7 @@ export function MobileNav({ isAdmin }: { isAdmin: boolean }) {
             <Links isAdmin={isAdmin} onNavigate={() => setOpen(false)} />
           </aside>
         </div>
+        </Portal>
       )}
     </>
   )
