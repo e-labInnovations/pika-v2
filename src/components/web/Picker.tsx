@@ -140,13 +140,14 @@ export function Picker({
             </button>
           )}
           {groups
-            ? groups.map((g) => (
-                <div key={g.parent?.id ?? 'none'}>
-                  <p className="flex items-center gap-2 px-2 pt-2 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            ? groups.map((g, gi) => (
+                <div key={g.parent?.id ?? 'none'} role="group" aria-label={g.parent?.name ?? 'Other'} className={cn(gi > 0 && 'mt-1 border-t pt-1')}>
+                  {/* Heading only: a parent category can't be picked. */}
+                  <p className="sticky top-0 z-10 flex cursor-default items-center gap-2 bg-popover px-2 py-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase select-none">
                     {g.parent && <EntityIcon icon={g.parent.icon} color={g.parent.color} bgColor={g.parent.bgColor} size={16} className="rounded" />}
                     {g.parent?.name ?? 'Other'}
                   </p>
-                  {g.kids.map(row)}
+                  <div className="ml-4 border-l pl-2">{g.kids.map(row)}</div>
                 </div>
               ))
             : [...choosable].sort((a, b) => a.name.localeCompare(b.name)).map(row)}
