@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 
 import { requireSession } from '@/lib/session'
 import { formToEdit } from '@/lib/web/edit'
+import { toPrefill, type Prefill } from '@/lib/web/prefill'
+import { processImageToTransaction, processTextToTransaction } from '@/utilities/ai/service'
 import { localInputValue } from '@/lib/web/format'
 import { createTransaction, editTransaction, getOwnTransaction, loadLookups, splitOwnTransaction, suggestSplit, trashTransaction, type PartIn } from '@/lib/web/transactions'
 
@@ -116,4 +118,27 @@ export async function splitAction(id: string, parts: PartIn[]): Promise<{ ids: s
 export async function suggestSplitAction(id: string, hint: string) {
   const { payload, user } = await requireSession()
   return suggestSplit(payload, user, id, hint)
+}
+
+/** Add panel → Ask AI: text and/or a receipt image → values for the form (nothing saved). */
+export async function aiPrefillAction(form: FormData): Promise<{ prefill: Prefill } | { error: string }> {
+  const { payload, user, timeZone } = await requireSession()
+  const text = (str(form.get('text')) ?? '').trim().slice(0, 2000)
+  const image = form.get('image')
+  try {
+    let result
+    if (image instanceof File && image.size > 0) {
+      if (!image.type.startsWith('image/')) return { error: 'Use a photo or screenshot.' }
+      if (image.size > 8 * 1024 * 1024) return { error: 'The image is larger than 8 MB.' }
+      const base64 = Buffer.from(await image.arrayBuffer()).toString('base64')
+      result = await processImageToTransaction(payload, String(user.id), base64, image.type, null, text || null)
+    } else if (text) {
+      result = await processTextToTransaction(payload, String(user.id), text, null)
+    } else {
+      return { error: 'Type what you spent, or add a receipt.' }
+    }
+    return { prefill: toPrefill(result.data, timeZone) }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'The AI could not read that.' }
+  }
 }

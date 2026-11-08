@@ -6,8 +6,10 @@ import React, { useActionState } from 'react'
 
 import { addTransaction, getAddFormLists, type AddState } from '@/app/(app)/app/actions'
 import type { LookupItem } from '@/lib/web/transactions'
+import type { Prefill } from '@/lib/web/prefill'
 import { cn } from '@/lib/utils'
 import { AttachmentsEditor, type Attachment } from './AttachmentsEditor'
+import { AiFill } from './AiFill'
 import { Picker } from './Picker'
 import { SharesEditor, type ShareRow } from './SharesEditor'
 import { Portal } from './Portal'
@@ -52,6 +54,26 @@ function AddPanel({ onClose }: { onClose: () => void }) {
   const [amount, setAmount] = React.useState('')
   const [shares, setShares] = React.useState<ShareRow[]>([])
   const [files, setFiles] = React.useState<Attachment[]>([])
+  const [title, setTitle] = React.useState('')
+  const [date, setDate] = React.useState(nowLocal)
+  const [note, setNote] = React.useState('')
+  // Bumped on AI fill so the shares editor remounts open with the AI's split.
+  const [fillKey, setFillKey] = React.useState(0)
+
+  const fill = (p: Prefill) => {
+    setType(p.type)
+    if (p.title) setTitle(p.title)
+    if (p.amount) setAmount(p.amount)
+    if (p.date) setDate(p.date)
+    setCategory(p.category ? [p.category] : [])
+    if (p.account) setAccount([p.account])
+    setToAccount(p.toAccount ? [p.toAccount] : [])
+    setPerson(p.person ? [p.person] : [])
+    setTags(p.tags)
+    setShares(p.shares)
+    if (p.note) setNote(p.note)
+    setFillKey((k) => k + 1)
+  }
   const [state, action, pending] = useActionState<AddState, FormData>(addTransaction, null)
 
   React.useEffect(() => {
@@ -90,6 +112,7 @@ function AddPanel({ onClose }: { onClose: () => void }) {
           <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>
         ) : (
           <form action={action} className="grid gap-3">
+            <AiFill onFill={fill} />
             <input type="hidden" name="type" value={type} />
             <div className="grid grid-cols-3 gap-1 rounded-xl border bg-background p-1">
               {(['expense', 'income', 'transfer'] as TxType[]).map((t) => (
@@ -111,7 +134,7 @@ function AddPanel({ onClose }: { onClose: () => void }) {
             </div>
             <label className="grid gap-1 text-xs text-muted-foreground">
               Title
-              <input name="title" required autoFocus className={field} placeholder="Lunch at Paragon" />
+              <input name="title" required value={title} onChange={(e) => setTitle(e.target.value)} className={field} placeholder="Lunch at Paragon" />
             </label>
             <div className="grid grid-cols-2 gap-3">
               <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
@@ -120,7 +143,7 @@ function AddPanel({ onClose }: { onClose: () => void }) {
               </label>
               <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                 Date
-                <input name="date" type="datetime-local" defaultValue={nowLocal()} required className={field} />
+                <input name="date" type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} required className={field} />
               </label>
             </div>
             <div className="grid gap-1 text-xs text-muted-foreground">
@@ -144,7 +167,7 @@ function AddPanel({ onClose }: { onClose: () => void }) {
                 </div>
               )}
             </div>
-            {type === 'expense' && <SharesEditor people={lists.people} total={Number(amount) || 0} value={shares} onChange={setShares} />}
+            {type === 'expense' && <SharesEditor key={fillKey} people={lists.people} total={Number(amount) || 0} value={shares} onChange={setShares} />}
             {lists.tags.length > 0 && (
               <div className="grid gap-1 text-xs text-muted-foreground">
                 Tags
@@ -154,7 +177,7 @@ function AddPanel({ onClose }: { onClose: () => void }) {
             <AttachmentsEditor value={files} onChange={setFiles} />
             <label className="grid gap-1 text-xs text-muted-foreground">
               Note
-              <textarea name="note" rows={2} className={`${field} h-auto py-2`} />
+              <textarea name="note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} className={`${field} h-auto py-2`} />
             </label>
             {state && 'error' in state && <p className="text-sm text-destructive">{state.error}</p>}
             <button type="submit" disabled={pending} className="h-11 rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-60">
