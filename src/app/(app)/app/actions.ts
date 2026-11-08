@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 
 import { requireSession } from '@/lib/session'
 import { formToEdit } from '@/lib/web/edit'
+import { deleteEntity, saveEntity, setArchived, type EntityKind } from '@/lib/web/entities'
 import { confirmOwnSms, dismissOwnSms } from '@/lib/web/sms'
 import type { ConfirmOverrides } from '@/utilities/sms/confirm'
 import { toPrefill, type Prefill } from '@/lib/web/prefill'
@@ -158,6 +159,34 @@ export async function confirmSmsAction(id: string, overrides: ConfirmOverrides):
 export async function dismissSmsAction(id: string): Promise<{ ok: true } | { error: string }> {
   const { payload, user } = await requireSession()
   const res = await dismissOwnSms(payload, user, id)
+  if ('ok' in res) revalidatePath('/app', 'layout')
+  return res
+}
+
+const KINDS = ['tags', 'people', 'accounts', 'categories'] as const
+const kindOk = (k: string): k is EntityKind => (KINDS as readonly string[]).includes(k)
+
+/** Manage lists: create (id null) or update a category / tag / person / account. */
+export async function saveEntityAction(kind: string, id: string | null, data: Record<string, unknown>): Promise<{ id: string } | { error: string }> {
+  if (!kindOk(kind)) return { error: 'Unknown list.' }
+  const { payload, user } = await requireSession()
+  const res = await saveEntity(payload, user, kind, id, data && typeof data === 'object' ? data : {})
+  if ('id' in res) revalidatePath('/app', 'layout')
+  return res
+}
+
+export async function archiveEntityAction(kind: string, id: string, archived: boolean): Promise<{ ok: true } | { error: string }> {
+  if (!kindOk(kind)) return { error: 'Unknown list.' }
+  const { payload, user } = await requireSession()
+  const res = await setArchived(payload, user, kind, id, archived === true)
+  if ('ok' in res) revalidatePath('/app', 'layout')
+  return res
+}
+
+export async function deleteEntityAction(kind: string, id: string): Promise<{ ok: true } | { error: string }> {
+  if (!kindOk(kind)) return { error: 'Unknown list.' }
+  const { payload, user } = await requireSession()
+  const res = await deleteEntity(payload, user, kind, id)
   if ('ok' in res) revalidatePath('/app', 'layout')
   return res
 }

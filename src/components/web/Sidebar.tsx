@@ -1,6 +1,6 @@
 'use client'
 
-import { BarChart3, Home, List, MessageSquareText, Shield, Users, X } from 'lucide-react'
+import { BarChart3, FolderCog, Home, List, MessageSquareText, Shield, Users, X } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import React from 'react'
@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import { NAV, isActive } from './nav'
 import { Portal } from './Portal'
 
-const ICONS = { home: Home, list: List, chart: BarChart3, people: Users, sms: MessageSquareText } as const
+const ICONS = { home: Home, list: List, chart: BarChart3, people: Users, sms: MessageSquareText, manage: FolderCog } as const
 
 function Links({ isAdmin, smsCount = 0, onNavigate }: { isAdmin: boolean; smsCount?: number; onNavigate?: () => void }) {
   const path = usePathname()

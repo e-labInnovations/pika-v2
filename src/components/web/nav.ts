@@ -4,6 +4,7 @@ export const NAV = [
   { href: '/app/reports', label: 'Reports', icon: 'chart' },
   { href: '/app/people', label: 'People', icon: 'people' },
   { href: '/app/sms', label: 'SMS review', icon: 'sms' },
+  { href: '/app/manage', label: 'Manage', icon: 'manage' },
 ] as const
 
 /** Home matches only itself; the others match their subpages too. */
