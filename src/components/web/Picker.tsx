@@ -79,7 +79,9 @@ export function Picker({
   // Categories: parent headings with their subcategories.
   const groups =
     kind === 'category'
-      ? [...new Set(choosable.map((c) => c.parentId!))].map((pid) => ({ parent: byId.get(pid), kids: choosable.filter((c) => c.parentId === pid) }))
+      ? [...new Set(choosable.map((c) => c.parentId!))]
+          .map((pid) => ({ parent: byId.get(pid), kids: choosable.filter((c) => c.parentId === pid).sort((a, b) => a.name.localeCompare(b.name)) }))
+          .sort((a, b) => (a.parent?.name ?? '').localeCompare(b.parent?.name ?? ''))
       : null
 
   const selected = value.map((id) => byId.get(id)).filter((x): x is LookupItem => !!x)
@@ -147,7 +149,7 @@ export function Picker({
                   {g.kids.map(row)}
                 </div>
               ))
-            : choosable.map(row)}
+            : [...choosable].sort((a, b) => a.name.localeCompare(b.name)).map(row)}
           {choosable.length === 0 && <p className="p-2 text-sm text-muted-foreground">Nothing found.</p>}
         </div>
       </PopoverContent>
