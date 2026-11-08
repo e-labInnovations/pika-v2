@@ -90,4 +90,11 @@ describe('web SMS queue', () => {
       await payload.update({ collection: 'users', id: me.id, data: { role: 'user' } as any, overrideAccess: true })
     }
   })
+
+  it("won't attach someone else's file or use a foreign category in split parts", async () => {
+    const a = await sms(me, acc, '77.00')
+    expect(await confirmOwnSms(payload, me, a, { attachments: ['00000000-0000-4000-8000-000000000000'] })).toHaveProperty('error')
+    expect(await confirmOwnSms(payload, me, a, { parts: [{ title: 'x', amount: '40.00', category: '00000000-0000-4000-8000-000000000000', tags: [], person: null }, { title: 'y', amount: '37.00', category: cat, tags: [], person: null }] })).toHaveProperty('error')
+    expect(await confirmOwnSms(payload, me, a, null as never)).toHaveProperty('error')
+  })
 })

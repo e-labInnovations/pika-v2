@@ -54,13 +54,15 @@ export function SmsCard({ sms, lists, currency }: { sms: SmsView; lists: Lists; 
   const run = async (fn: () => Promise<{ error: string } | object>) => {
     setBusy(true)
     setError(null)
-    const res = await fn()
-    if ('error' in res) {
-      setError((res as { error: string }).error)
+    try {
+      const res = await fn()
+      if ('error' in res) return setError((res as { error: string }).error)
+      router.refresh()
+    } catch {
+      setError('Could not reach the server. Try again.')
+    } finally {
       setBusy(false)
-      return
     }
-    router.refresh()
   }
 
   const confirmEdited = () =>
@@ -116,7 +118,7 @@ export function SmsCard({ sms, lists, currency }: { sms: SmsView; lists: Lists; 
       ) : (
         <div className="grid gap-2">
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className={field} />
-          {sms.type !== 'transfer' && <Picker name="_c" kind="category" items={lists.categories.filter((c) => c.type === sms.type)} value={category} onChange={setCategory} placeholder="Category" />}
+          <Picker name="_c" kind="category" items={lists.categories.filter((c) => c.type === sms.type)} value={category} onChange={setCategory} placeholder="Category" />
           <div className="grid grid-cols-2 gap-2">
             <Picker name="_a" kind="account" items={lists.accounts} value={account} onChange={setAccount} placeholder="Account" />
             {sms.type === 'transfer' ? (

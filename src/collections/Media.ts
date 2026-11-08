@@ -77,8 +77,16 @@ export const Media: CollectionConfig = {
     },
     userField,
   ],
-  // Receipts, screenshots and avatars only: no SVG/HTML (they could run script when opened), 20 MB max.
+  // Photos, PDFs and office/text documents (the app attaches any document). Not SVG, HTML
+  // or scripts: opened from the admin they could run code. 20 MB max (payload.config).
   upload: {
-    mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif', 'application/pdf'],
+    mimeTypes: [
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif',
+      'application/pdf', 'text/plain', 'text/csv',
+      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/zip',
+    ],
   },
 }

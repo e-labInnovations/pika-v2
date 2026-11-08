@@ -158,7 +158,8 @@ export default buildConfig({
     prodMigrations: isBuildPhase ? undefined : migrations,
   }),
   sharp,
-  upload: { limits: { fileSize: 20 * 1024 * 1024 } },
+  // abortOnLimit: without it a larger file is silently truncated and stored corrupt.
+  upload: { limits: { fileSize: 20 * 1024 * 1024 }, abortOnLimit: true },
   onInit: onInit,
   endpoints,
   graphQL: {

@@ -21,6 +21,7 @@ describe('web manage lists', () => {
   afterAll(async () => {
     for (const u of [me, other]) {
       const where = { user: { equals: u.id } }
+      await payload.delete({ collection: 'transactions', where, trash: true } as any)
       await payload.delete({ collection: 'categories', where: { and: [where, { parent: { exists: true } }] } })
       for (const c of ['categories', 'tags', 'people', 'accounts', 'user-settings'] as const) await payload.delete({ collection: c, where })
       await payload.delete({ collection: 'users', id: u.id })
@@ -69,5 +70,22 @@ describe('web manage lists', () => {
     const doc = await payload.findByID({ collection: 'accounts', id: acc.id, depth: 0 })
     expect(String(doc.user)).toBe(String(me.id))
     expect(doc.isActive).not.toBe(false)
+  })
+
+  it('won’t delete an account or category that is in use (archive instead)', async () => {
+    const acc = (await saveEntity(payload, me, 'accounts', null, { name: `InUse ${stamp}` })) as { id: string }
+    const cat = (await payload.find({ collection: 'categories', where: { and: [{ type: { equals: 'expense' } }, { parent: { exists: true } }] }, limit: 1, user: me, overrideAccess: false })).docs[0]
+    const tx = await payload.create({ collection: 'transactions', data: { title: 'x', amount: '5', type: 'expense', date: new Date().toISOString(), category: cat.id, account: acc.id } as any, user: me, overrideAccess: false })
+    const res = await deleteEntity(payload, me, 'accounts', acc.id)
+    expect(res).toHaveProperty('error')
+    expect((res as { error: string }).error).toMatch(/archive/i)
+    expect(String((await payload.findByID({ collection: 'transactions', id: tx.id, depth: 0 })).account)).toBe(acc.id)
+  })
+
+  it('a category with subcategories can’t be moved under another (no third level)', async () => {
+    const a = (await saveEntity(payload, me, 'categories', null, { name: `TopA ${stamp}`, type: 'expense', icon: 'shapes' })) as { id: string }
+    const b = (await saveEntity(payload, me, 'categories', null, { name: `TopB ${stamp}`, type: 'expense', icon: 'shapes' })) as { id: string }
+    await saveEntity(payload, me, 'categories', null, { name: 'ChildOfA', type: 'expense', parent: a.id, icon: 'shapes' })
+    expect(await saveEntity(payload, me, 'categories', a.id, { parent: b.id })).toHaveProperty('error')
   })
 })

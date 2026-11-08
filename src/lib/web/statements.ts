@@ -28,20 +28,27 @@ export async function parseOwnStatement(
 }
 
 /** Adds the picked statement rows to the user's own account; every id must be theirs. */
-export async function importOwnRows(payload: Payload, user: User, account: string, rows: ImportRow[]): Promise<{ ids: string[] } | { error: string }> {
+export async function importOwnRows(payload: Payload, user: User, account: string, rows: ImportRow[]): Promise<{ ids: string[] } | { error: string; ids?: string[] }> {
   if (!Array.isArray(rows) || rows.length === 0) return { error: 'Pick at least one row.' }
   if (rows.length > 500) return { error: 'Import at most 500 rows at a time.' }
   if (!(await ownAccount(payload, user, account))) return { error: 'Choose one of your accounts.' }
   const l = await loadLookups(payload, user)
   for (const [i, r] of rows.entries()) {
+    if (!r || typeof r !== 'object' || (r.tags !== undefined && !Array.isArray(r.tags))) return { error: `Row ${i + 1}: invalid.` }
     const cat = l.categories.find((c) => c.id === r.category)
     if (!cat || !cat.parentId || cat.type !== r.type) return { error: `Row ${i + 1}: choose a ${r.type} category.` }
     if ((r.tags ?? []).some((t) => !l.tags.some((x) => x.id === t))) return { error: `Row ${i + 1}: choose your own tags.` }
     if (r.person && !l.people.some((x) => x.id === r.person)) return { error: `Row ${i + 1}: choose one of your people.` }
   }
-  try {
-    return { ids: await importStatementRows(payload, user, account, rows) }
-  } catch (e) {
-    return { error: message(e, 'Could not import.') }
+  // One row at a time, so a failure part-way reports what was already added (the page drops
+  // those rows) and a retry doesn't add them twice.
+  const ids: string[] = []
+  for (const [i, r] of rows.entries()) {
+    try {
+      ids.push(...(await importStatementRows(payload, user, account, [r])))
+    } catch (e) {
+      return { error: `Row ${i + 1}: ${message(e, 'could not be added')}. ${ids.length} added before it.`, ids }
+    }
   }
+  return { ids }
 }

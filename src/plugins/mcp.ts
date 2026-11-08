@@ -1,3 +1,5 @@
+import { isAdminOrOwn } from '@/access/isAdminOrOwn'
+import { setUserOnCreate } from '@/hooks/setUserOnCreate'
 import { MCPAccessSettings, mcpPlugin } from '@payloadcms/plugin-mcp'
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
@@ -33,6 +35,29 @@ async function getMcpTimezone(req: PayloadRequest): Promise<string> {
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3333'
 
 export const mcp = mcpPlugin({
+  // Keys decrypt on read: without this, any signed-in user could list everyone's keys over
+  // REST/GraphQL. Owners (and admins) only; a key always belongs to whoever creates it.
+  overrideApiKeyCollection: (collection) => ({
+    ...collection,
+    access: {
+      ...collection.access,
+      create: ({ req: { user } }) => Boolean(user),
+      read: isAdminOrOwn,
+      update: isAdminOrOwn,
+      delete: isAdminOrOwn,
+    },
+    hooks: {
+      ...collection.hooks,
+      beforeChange: [
+        ...(collection.hooks?.beforeChange ?? []),
+        setUserOnCreate,
+        ({ data, operation, originalDoc }) => {
+          if (operation === 'update' && originalDoc?.user) data.user = originalDoc.user
+          return data
+        },
+      ],
+    },
+  }),
   overrideAuth: async (
     req: PayloadRequest,
     getDefaultMcpAccessSettings: () => Promise<MCPAccessSettings>,

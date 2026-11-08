@@ -53,4 +53,18 @@ describe('web MCP keys', () => {
     }
     expect(await deleteMcpKey(payload, me, mine.id)).toEqual({ ok: true })
   })
+
+  it('a key works for MCP auth after create and after disable → enable', async () => {
+    const made = (await createMcpKey(payload, me, 'Cycle')) as { id: string; apiKey: string }
+    const index = async () => (await payload.findByID({ collection: 'payload-mcp-api-keys', id: made.id, depth: 0, overrideAccess: true, showHiddenFields: true }) as { apiKeyIndex?: string | null }).apiKeyIndex
+    expect(await index()).toBeTruthy()
+    await setMcpKeyEnabled(payload, me, made.id, false)
+    await setMcpKeyEnabled(payload, me, made.id, true)
+    expect(await index()).toBeTruthy()
+  })
+
+  it('other users can’t read anyone’s keys through access control', async () => {
+    const res = await payload.find({ collection: 'payload-mcp-api-keys', where: { user: { equals: me.id } }, user: other, overrideAccess: false, depth: 0 })
+    expect(res.docs).toHaveLength(0)
+  })
 })

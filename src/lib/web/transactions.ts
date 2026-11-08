@@ -182,8 +182,9 @@ export type Duplicate = { id: string; title: string; amount: string; date: strin
 
 /** True when every id is a media file the user uploaded. */
 async function ownMedia(payload: Payload, user: User, ids: string[]): Promise<boolean> {
+  if (!Array.isArray(ids)) return false
   if (!ids.length) return true
-  if (!Array.isArray(ids) || !ids.every(isId)) return false
+  if (!ids.every(isId)) return false
   const res = await payload.find({ collection: 'media', where: { and: [{ user: { equals: user.id } }, { id: { in: ids } }] }, limit: ids.length, depth: 0, user, overrideAccess: false })
   return res.docs.length === new Set(ids).size
 }

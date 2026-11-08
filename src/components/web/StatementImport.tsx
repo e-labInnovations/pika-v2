@@ -93,7 +93,16 @@ export function StatementImport({ accounts, categories, currency }: { accounts: 
           particulars: r.particulars,
         })),
       )
-      if ('error' in res) return setError(res.error)
+      if ('error' in res) {
+        // Rows added before the failure are no longer offered.
+        const added = res.ids?.length ?? 0
+        if (added) {
+          const addedIdx = new Set(picked.slice(0, added).map((r) => r.index))
+          setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([k]) => !addedIdx.has(Number(k)))))
+          setResult((r) => (r ? { ...r, rows: r.rows.filter((x) => !addedIdx.has(x.index)) } : r))
+        }
+        return setError(res.error)
+      }
       setDone(res.ids.length)
       setResult(null)
       setFile(null)
@@ -115,7 +124,7 @@ export function StatementImport({ accounts, categories, currency }: { accounts: 
           <span className="flex h-10 items-center gap-2 rounded-xl border bg-background px-3 text-sm text-foreground">
             <FileUp className="size-4 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{file ? file.name : 'Choose a file…'}</span>
-            <input type="file" accept="application/pdf" className="absolute size-0 opacity-0" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setResult(null) }} />
+            <input type="file" accept="application/pdf" className="absolute size-0 opacity-0" onClick={(e) => { (e.target as HTMLInputElement).value = '' }} onChange={(e) => { setFile(e.target.files?.[0] ?? null); setResult(null) }} />
           </span>
         </label>
         <label className="grid gap-1 text-xs text-muted-foreground">

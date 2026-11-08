@@ -67,8 +67,12 @@ export async function loadSettings(payload: Payload, user: User): Promise<WebSet
 
 /** Saves the user's own settings (and profile name); validation is the collection's. */
 export async function saveSettings(payload: Payload, user: User, input: SettingsInput): Promise<{ ok: true } | { error: string }> {
+  if (!input || typeof input !== 'object') return { error: 'Invalid settings.' }
   const data: Record<string, unknown> = {}
   for (const k of SETTING_KEYS) if (input[k] !== undefined) data[k] = input[k]
+  for (const k of ['geminiApiKey', 'hfApiKey', 'name'] as const) {
+    if (input[k] !== undefined && input[k] !== null && typeof input[k] !== 'string') return { error: 'Invalid settings.' }
+  }
   if (input.geminiApiKey !== undefined) data.geminiApiKey = input.geminiApiKey ? input.geminiApiKey.trim() : null
   if (input.hfApiKey !== undefined) data.hfApiKey = input.hfApiKey ? input.hfApiKey.trim() : null
   if (data.defaultAccount) {

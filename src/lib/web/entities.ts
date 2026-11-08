@@ -45,6 +45,8 @@ export async function saveEntity(payload: Payload, user: User, kind: EntityKind,
         const l = await loadLookups(payload, user)
         const p = l.categories.find((c) => c.id === data.parent)
         if (!p || p.parentId || p.type !== type || p.id === id) return { error: `Choose a top-level ${type} category as the parent.` }
+        // Only two levels: a category that has subcategories can't become one itself.
+        if (id !== null && l.childrenOf(id).length) return { error: 'This category has subcategories, so it has to stay top-level.' }
       } else data.parent = null
     }
   }
@@ -71,8 +73,26 @@ export async function setArchived(payload: Payload, user: User, kind: EntityKind
   }
 }
 
+/** How many of the user's records still use this one (a delete would silently unlink them). */
+async function uses(payload: Payload, kind: EntityKind, id: string): Promise<number> {
+  const count = async (collection: 'transactions' | 'budgets' | 'categories', where: Record<string, unknown>) =>
+    (await payload.count({ collection, where: where as never, overrideAccess: true })).totalDocs
+  switch (kind) {
+    case 'accounts':
+      return count('transactions', { or: [{ account: { equals: id } }, { toAccount: { equals: id } }] })
+    case 'categories':
+      return (await count('transactions', { category: { equals: id } })) + (await count('budgets', { category: { equals: id } })) + (await count('categories', { parent: { equals: id } }))
+    case 'people':
+      return count('transactions', { or: [{ person: { equals: id } }, { 'shares.person': { equals: id } }] })
+    case 'tags':
+      return count('transactions', { tags: { in: [id] } })
+  }
+}
+
 export async function deleteEntity(payload: Payload, user: User, kind: EntityKind, id: string): Promise<{ ok: true } | { error: string }> {
   if (!(await own(payload, user, kind, id))) return { error: 'Not found, or a shared item you can’t change.' }
+  const n = await uses(payload, kind, id)
+  if (n > 0) return { error: `Still used by ${n} transaction${n === 1 ? '' : 's'}${kind === 'categories' ? ', budget or subcategory' : ''}. Archive it instead — history stays intact.` }
   try {
     await payload.delete({ collection: kind, id, user, overrideAccess: false, depth: 0 })
     return { ok: true }
