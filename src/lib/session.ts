@@ -13,8 +13,10 @@ export type Session = { payload: Payload; user: User | null; timeZone: string; c
 
 /** The signed-in user (payload-token cookie) and their timezone/currency, once per request. */
 export const getSession = cache(async (): Promise<Session> => {
+  // Headers first: it marks the page as per-request before anything touches the database.
+  const h = await headers()
   const payload = await getPayload({ config })
-  const user = await userFromHeaders(payload, await headers())
+  const user = await userFromHeaders(payload, h)
   const prefs = user ? await userPrefs(payload, String(user.id)) : { timeZone: 'Asia/Kolkata', currency: 'INR' }
   return { payload, user, ...prefs }
 })

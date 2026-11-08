@@ -6,6 +6,9 @@ import './app.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
 
+// Every page here is per user: never pre-render at build time (there is no database then).
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: { default: 'Pika', template: '%s · Pika' },
   description: 'Your Pika money, on a big screen.',
