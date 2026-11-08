@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
 
+import { PasswordLogin } from '@/components/web/PasswordLogin'
 import { getSession } from '@/lib/session'
 
 export const metadata = { title: 'Sign in' }
@@ -22,6 +23,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         >
           Continue with Google
         </a>
+        <PasswordLogin />
       </div>
     </main>
   )
