@@ -93,6 +93,8 @@ export type TxEdit = {
   account?: string
   /** Friends' shares of an expense; [] removes them. */
   shares?: Share[]
+  /** Media ids (the user's own uploads); [] removes them. */
+  attachments?: string[]
 }
 
 export type Share = { person: string; amount: number | string }
@@ -138,6 +140,10 @@ export async function editTransaction(payload: Payload, user: User, id: string, 
     }
     data.shares = input.shares.map((x) => ({ person: x.person, amount: Number(x.amount).toFixed(2) }))
   }
+  if (input.attachments !== undefined) {
+    if (!(await ownMedia(payload, user, input.attachments))) return { error: 'Attach only your own files.' }
+    data.attachments = input.attachments
+  }
   try {
     await payload.update({ collection: 'transactions', id, data, user, overrideAccess: false, depth: 0 })
     return { ok: true }
@@ -160,6 +166,14 @@ export type TxNew = {
   tags: string[]
   note?: string
   shares?: Share[]
+  attachments?: string[]
+}
+
+/** True when every id is a media file the user uploaded. */
+async function ownMedia(payload: Payload, user: User, ids: string[]): Promise<boolean> {
+  if (!ids.length) return true
+  const res = await payload.find({ collection: 'media', where: { and: [{ user: { equals: user.id } }, { id: { in: ids } }] }, limit: ids.length, depth: 0, user, overrideAccess: false })
+  return res.docs.length === new Set(ids).size
 }
 
 /** Adds a transaction for the user. Every id must be one of theirs (or a shared system category/tag). */
@@ -188,6 +202,8 @@ export async function createTransaction(payload: Payload, user: User, input: TxN
   if (shares.length && input.type !== 'expense') return { error: 'Only expenses can be split with people.' }
   if (shares.some((x) => !has(l.people, x.person))) return { error: 'Split only with your own people.' }
   if (shares.some((x) => !(Number(x.amount) > 0))) return { error: 'Each share must be more than 0.' }
+  const attachments = input.attachments ?? []
+  if (!(await ownMedia(payload, user, attachments))) return { error: 'Attach only your own files.' }
   try {
     const doc = await payload.create({
       collection: 'transactions',
@@ -200,6 +216,7 @@ export async function createTransaction(payload: Payload, user: User, input: TxN
         account: input.account,
         ...(input.type === 'transfer' ? { toAccount: input.toAccount } : input.person ? { person: input.person } : {}),
         tags: input.tags,
+        ...(attachments.length ? { attachments } : {}),
         ...(shares.length ? { shares: shares.map((x) => ({ person: x.person, amount: Number(x.amount).toFixed(2) })) } : {}),
         ...(input.note?.trim() ? { note: input.note.trim() } : {}),
         source: 'manual',

@@ -4,6 +4,7 @@ import React, { useActionState } from 'react'
 
 import { saveTransaction, type ActionState } from '@/app/(app)/app/actions'
 import type { LookupItem } from '@/lib/web/transactions'
+import { AttachmentsEditor, type Attachment } from './AttachmentsEditor'
 import { Picker } from './Picker'
 import { SharesEditor, type ShareRow } from './SharesEditor'
 
@@ -19,6 +20,7 @@ export type EditValues = {
   person: string | null
   tags: string[]
   shares: { person: string; amount: string }[]
+  attachments: Attachment[]
 }
 
 const field = 'h-10 w-full min-w-0 rounded-xl border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40'
@@ -51,6 +53,7 @@ export function EditTxForm({
   const [tags, setTags] = React.useState<string[]>(values.tags)
   const [amount, setAmount] = React.useState(values.amount)
   const [shares, setShares] = React.useState<ShareRow[]>(values.shares)
+  const [files, setFiles] = React.useState<Attachment[]>(values.attachments)
 
   return (
     <form action={action} className="grid grid-cols-1 gap-3">
@@ -94,6 +97,7 @@ export function EditTxForm({
         Tags
         <Picker name="tags" kind="tag" items={offer(lists.tags, values.tags)} value={tags} onChange={setTags} placeholder="Add tags" multiple />
       </div>
+      <AttachmentsEditor value={files} onChange={setFiles} />
       <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
         Note
         <textarea name="note" defaultValue={values.note} rows={3} className={`${field} h-auto py-2`} />

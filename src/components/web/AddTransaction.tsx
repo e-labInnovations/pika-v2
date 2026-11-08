@@ -7,6 +7,7 @@ import React, { useActionState } from 'react'
 import { addTransaction, getAddFormLists, type AddState } from '@/app/(app)/app/actions'
 import type { LookupItem } from '@/lib/web/transactions'
 import { cn } from '@/lib/utils'
+import { AttachmentsEditor, type Attachment } from './AttachmentsEditor'
 import { Picker } from './Picker'
 import { SharesEditor, type ShareRow } from './SharesEditor'
 import { Portal } from './Portal'
@@ -50,6 +51,7 @@ function AddPanel({ onClose }: { onClose: () => void }) {
   const [tags, setTags] = React.useState<string[]>([])
   const [amount, setAmount] = React.useState('')
   const [shares, setShares] = React.useState<ShareRow[]>([])
+  const [files, setFiles] = React.useState<Attachment[]>([])
   const [state, action, pending] = useActionState<AddState, FormData>(addTransaction, null)
 
   React.useEffect(() => {
@@ -149,6 +151,7 @@ function AddPanel({ onClose }: { onClose: () => void }) {
                 <Picker name="tags" kind="tag" items={lists.tags} value={tags} onChange={setTags} placeholder="Add tags" multiple />
               </div>
             )}
+            <AttachmentsEditor value={files} onChange={setFiles} />
             <label className="grid gap-1 text-xs text-muted-foreground">
               Note
               <textarea name="note" rows={2} className={`${field} h-auto py-2`} />

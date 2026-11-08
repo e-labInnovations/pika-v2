@@ -36,6 +36,7 @@ export async function saveTransaction(_: ActionState, form: FormData): Promise<A
       person: str(form.get('person')),
       tags: form.getAll('tags').map(String).filter(Boolean),
       shares: sharesOf(form),
+      attachments: form.get('attachments_present') ? form.getAll('attachments').map(String) : undefined,
     },
     {
       title: tx.title,
@@ -47,6 +48,7 @@ export async function saveTransaction(_: ActionState, form: FormData): Promise<A
       person: idOf(tx.person),
       tags: (tx.tags ?? []).map(idOf).filter((x): x is string => !!x),
       shares: (tx.shares ?? []).map((x) => ({ person: idOf(x.person) ?? '', amount: String(x.amount) })),
+      attachments: (tx.attachments ?? []).map(idOf).filter((x): x is string => !!x),
     },
   )
   if (Object.keys(changes).length === 0) return { ok: 'No changes.' }
@@ -83,6 +85,7 @@ export async function addTransaction(_: AddState, form: FormData): Promise<AddSt
       tags: form.getAll('tags').map(String).filter(Boolean),
       note: str(form.get('note')),
       shares: type === 'expense' ? (sharesOf(form) ?? []).filter((x) => x.person) : [],
+      attachments: form.getAll('attachments').map(String),
     },
     timeZone,
   )

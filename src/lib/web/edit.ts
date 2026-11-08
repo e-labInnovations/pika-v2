@@ -12,10 +12,11 @@ export type EditOriginal = {
   person: string | null
   tags: string[]
   shares?: { person: string; amount: string }[]
+  attachments?: string[]
 }
 
 type Submitted = {
-  [K in keyof EditOriginal]?: K extends 'tags' ? string[] : K extends 'shares' ? { person: string; amount: string }[] : string | null
+  [K in keyof EditOriginal]?: K extends 'tags' | 'attachments' ? string[] : K extends 'shares' ? { person: string; amount: string }[] : string | null
 }
 
 const shareKey = (xs: { person: string; amount: string | number }[]) =>
@@ -38,6 +39,7 @@ export function formToEdit(f: Submitted, o: EditOriginal): TxEdit {
   const person = f.person || null
   if (f.person !== undefined && person !== o.person) out.person = person
   if (f.tags && !same(f.tags, o.tags)) out.tags = f.tags
+  if (f.attachments && !same(f.attachments, o.attachments ?? [])) out.attachments = f.attachments
   if (f.shares && shareKey(f.shares) !== shareKey(o.shares ?? [])) out.shares = f.shares.map((x) => ({ person: x.person, amount: Number(x.amount) }))
   return out
 }

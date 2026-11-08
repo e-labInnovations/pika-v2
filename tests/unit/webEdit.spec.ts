@@ -27,4 +27,9 @@ describe('edit form → changes', () => {
     expect(formToEdit({ ...original, person: '', shares: [{ person: 'p9', amount: '40' }] }, original)).toEqual({ shares: [{ person: 'p9', amount: 40 }] })
     expect(formToEdit({ ...original, person: '', shares: [] }, original)).toEqual({ shares: [] })
   })
+  it('sends attachments only when the set changed', () => {
+    const o = { ...original, attachments: ['m1', 'm2'] }
+    expect(formToEdit({ ...o, person: '', shares: o.shares, attachments: ['m2', 'm1'] }, o)).toEqual({})
+    expect(formToEdit({ ...o, person: '', shares: o.shares, attachments: ['m1'] }, o)).toEqual({ attachments: ['m1'] })
+  })
 })

@@ -61,6 +61,7 @@ export async function TxDetail({ id }: { id: string }) {
         person: idOf(tx.person),
         tags: (tx.tags ?? []).map(idOf).filter((x): x is string => !!x),
         shares: (tx.shares ?? []).map((x) => ({ person: idOf(x.person) ?? '', amount: Number(x.amount).toFixed(2) })),
+        attachments: files.map((m) => ({ id: String(m.id), url: m.url, thumb: m.thumbnailURL, filename: m.filename, mimeType: m.mimeType })),
       }}
       lists={lists}
     >

@@ -45,7 +45,7 @@ describe('web transactions', () => {
     for (const u of [me, other]) {
       const where = { user: { equals: u.id } }
       await payload.delete({ collection: 'transactions', where, trash: true } as any)
-      for (const c of ['accounts', 'user-settings'] as const) await payload.delete({ collection: c, where })
+      for (const c of ['accounts', 'people', 'media', 'user-settings'] as const) await payload.delete({ collection: c, where })
       await payload.delete({ collection: 'users', id: u.id })
     }
   })
@@ -211,6 +211,35 @@ describe('web transactions', () => {
       expect(await createTransaction(payload, me, { ...base, shares: [{ person: String(mine.id), amount: 150 }] }, TZ)).toHaveProperty('error')
       await payload.delete({ collection: 'people', id: theirs.id })
       await payload.delete({ collection: 'people', id: mine.id })
+    })
+  })
+
+  describe('attachments', () => {
+    // 1x1 transparent PNG
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64')
+    const upload = (u: User, name: string) =>
+      payload.create({ collection: 'media', data: { type: 'attachment', entityType: 'transaction' } as any, file: { data: png, mimetype: 'image/png', name, size: png.length }, user: u, overrideAccess: false })
+
+    it('attaches your own files on add and edit; refuses someone else\'s', async () => {
+      const mine = await upload(me, `mine-${stamp}.png`)
+      const theirs = await upload(other, `theirs-${stamp}.png`)
+      const l = await loadLookups(payload, me)
+      const cat = l.categories.find((c) => c.parentId && c.type === 'expense')!
+      const base = { type: 'expense' as const, title: `Receipt ${stamp}`, amount: 40, date: '2026-12-06 12:00', category: cat.id, account: l.accounts[0].id, tags: [] }
+
+      expect(await createTransaction(payload, me, { ...base, attachments: [String(theirs.id)] }, TZ)).toHaveProperty('error')
+      const made = (await createTransaction(payload, me, { ...base, attachments: [String(mine.id)] }, TZ)) as { id: string }
+      let t = await payload.findByID({ collection: 'transactions', id: made.id, depth: 0 })
+      expect((t.attachments ?? []).map(String)).toEqual([String(mine.id)])
+
+      expect(await editTransaction(payload, me, made.id, { attachments: [String(theirs.id)] }, TZ)).toHaveProperty('error')
+      expect(await editTransaction(payload, me, made.id, { attachments: [] }, TZ)).toEqual({ ok: true })
+      t = await payload.findByID({ collection: 'transactions', id: made.id, depth: 0 })
+      expect(t.attachments ?? []).toEqual([])
+
+      await payload.delete({ collection: 'transactions', id: made.id })
+      await payload.delete({ collection: 'media', id: mine.id })
+      await payload.delete({ collection: 'media', id: theirs.id })
     })
   })
 })

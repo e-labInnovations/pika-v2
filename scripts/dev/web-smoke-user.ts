@@ -14,7 +14,7 @@ const found = await payload.find({ collection: 'users', where: { email: { equals
 if (found.docs[0]) {
   const where = { user: { equals: found.docs[0].id } }
   await payload.delete({ collection: 'transactions', where, trash: true } as any)
-  for (const c of ['budgets', 'tags', 'people', 'accounts', 'user-settings'] as const) await payload.delete({ collection: c, where })
+  for (const c of ['budgets', 'tags', 'people', 'accounts', 'media', 'user-settings'] as const) await payload.delete({ collection: c, where })
   await payload.delete({ collection: 'users', id: found.docs[0].id })
 }
 if (!process.argv.includes('--remove')) {
